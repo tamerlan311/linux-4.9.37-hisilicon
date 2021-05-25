@@ -24,7 +24,7 @@
 
 #include "u_os_desc.h"
 
-#if CONFIG_ARCH_HI3516A
+#if defined(CONFIG_ARCH_HI3516A) || defined(CONFIG_ARCH_HI3518EV20X)
 #define USB2_BASE_REG           0x20120000
 #define DWC_OTG_EN              (1 << 31)
 #define USB2_PHY_DPPULL_DOWN    (0x3 << 26)
@@ -2192,14 +2192,13 @@ void composite_dev_cleanup(struct usb_composite_dev *cdev)
 static int composite_bind(struct usb_gadget *gadget,
 		struct usb_gadget_driver *gdriver)
 {
+#if defined(CONFIG_ARCH_HI3516A) || defined(CONFIG_ARCH_HI3518EV20X)
+	void __iomem *usb2_base_reg = ioremap_nocache(USB2_BASE_REG, 0x1000);
+	int usb2_reg;
+#endif
 	struct usb_composite_dev	*cdev;
 	struct usb_composite_driver	*composite = to_cdriver(gdriver);
 	int				status = -ENOMEM;
-
-#ifdef CONFIG_ARCH_HI3516A
-	void __iomem *usb2_base_reg = ioremap_nocache(USB2_BASE_REG, 0x1000);
-        int usb2_reg;
-#endif
 
 	cdev = kzalloc(sizeof *cdev, GFP_KERNEL);
 	if (!cdev)
@@ -2235,7 +2234,7 @@ static int composite_bind(struct usb_gadget *gadget,
 	if (composite->needs_serial && !cdev->desc.iSerialNumber)
 		WARNING(cdev, "userspace failed to provide iSerialNumber\n");
 
-#ifdef CONFIG_ARCH_HI3516A
+#if defined(CONFIG_ARCH_HI3516A) || defined(CONFIG_ARCH_HI3518EV20X)
         usb2_reg = readl(usb2_base_reg + USB2_OTG_BASE);
         usb2_reg &= ~(USB2_PHY_DPPULL_DOWN);
         usb2_reg |= DWC_OTG_EN;
@@ -2366,15 +2365,15 @@ EXPORT_SYMBOL_GPL(usb_composite_probe);
  */
 void usb_composite_unregister(struct usb_composite_driver *driver)
 {
-#if CONFIG_ARCH_HI3516A
-        void __iomem *usb2_base_reg = ioremap_nocache(USB2_BASE_REG, 0x1000);
-        int usb2_reg;
+#if defined(CONFIG_ARCH_HI3516A) || defined(CONFIG_ARCH_HI3518EV20X)
+	void __iomem *usb2_base_reg = ioremap_nocache(USB2_BASE_REG, 0x1000);
+	int usb2_reg;
 
-        usb2_reg = readl(usb2_base_reg + USB2_OTG_BASE);
-        usb2_reg |= USB2_PHY_DPPULL_DOWN;
-        usb2_reg &= ~DWC_OTG_EN;
-        writel(usb2_reg, usb2_base_reg + USB2_OTG_BASE);
-        iounmap(usb2_base_reg);
+	usb2_reg = readl(usb2_base_reg + USB2_OTG_BASE);
+	usb2_reg |= USB2_PHY_DPPULL_DOWN;
+	usb2_reg &= ~DWC_OTG_EN;
+	writel(usb2_reg, usb2_base_reg + USB2_OTG_BASE);
+	iounmap(usb2_base_reg);
 #endif
 	usb_gadget_unregister_driver(&driver->gadget_driver);
 }
