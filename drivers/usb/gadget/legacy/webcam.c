@@ -211,10 +211,17 @@ static const struct uvc_format_uncompressed uvc_format_yuv = {
 	.bDescriptorSubType	= UVC_VS_FORMAT_UNCOMPRESSED,
 	.bFormatIndex		= 1,
 	.bNumFrameDescriptors	= 1,
+#ifndef CONFIG_HISI_MC	
 	.guidFormat		=
 		{ 'Y',  'U',  'Y',  '2', 0x00, 0x00, 0x10, 0x00,
 		 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71},
 	.bBitsPerPixel		= 16,
+#else
+	.guidFormat		= {
+		 'N',  'V',  '2',  '1', 0x00, 0x00, 0x10, 0x00,
+	 	 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71},
+	.bBitsPerPixel		= 12,
+#endif	
 	.bDefaultFrameIndex	= 1,
 	.bAspectRatioX		= 0,
 	.bAspectRatioY		= 0,
@@ -235,7 +242,11 @@ static const struct UVC_FRAME_UNCOMPRESSED(1) uvc_frame_yuv_360p = {
 	.wHeight		= cpu_to_le16(360),
 	.dwMinBitRate		= cpu_to_le32(55296000),
 	.dwMaxBitRate		= cpu_to_le32(55296000),
+#ifndef CONFIG_HISI_MC	
 	.dwMaxVideoFrameBufferSize	= cpu_to_le32(460800),
+#else
+	.dwMaxVideoFrameBufferSize	= cpu_to_le32(345600),
+#endif	
 	.dwDefaultFrameInterval	= cpu_to_le32(333333),
 	.bFrameIntervalType	= 1,
 	.dwFrameInterval[0]	= cpu_to_le32(333333),
@@ -251,7 +262,11 @@ static const struct UVC_FRAME_UNCOMPRESSED(1) uvc_frame_yuv_720p = {
 	.wHeight		= cpu_to_le16(720),
 	.dwMinBitRate		= cpu_to_le32(29491200),
 	.dwMaxBitRate		= cpu_to_le32(29491200),
+#ifndef CONFIG_HISI_MC	
 	.dwMaxVideoFrameBufferSize	= cpu_to_le32(1843200),
+#else
+	.dwMaxVideoFrameBufferSize	= cpu_to_le32(1382400),
+#endif	
 	.dwDefaultFrameInterval	= cpu_to_le32(333333),
 	.bFrameIntervalType	= 1,
 	.dwFrameInterval[0]	= cpu_to_le32(333333),
@@ -267,7 +282,11 @@ static const struct UVC_FRAME_UNCOMPRESSED(1) uvc_frame_yuv_1080p = {
 	.wHeight		= cpu_to_le16(1080),
 	.dwMinBitRate		= cpu_to_le32(29491200),
 	.dwMaxBitRate		= cpu_to_le32(29491200),
+#ifndef CONFIG_HISI_MC
 	.dwMaxVideoFrameBufferSize	= cpu_to_le32(1843200),
+#else
+	.dwMaxVideoFrameBufferSize	= cpu_to_le32(3110400),
+#endif
 	.dwDefaultFrameInterval	= cpu_to_le32(333333),
 	.bFrameIntervalType	= 1,
 	.dwFrameInterval[0]	= cpu_to_le32(333333),
@@ -283,7 +302,11 @@ static const struct UVC_FRAME_UNCOMPRESSED(1) uvc_frame_yuv_2160p = {
 	.wHeight		= cpu_to_le16(2160),
 	.dwMinBitRate		= cpu_to_le32(29491200),
 	.dwMaxBitRate		= cpu_to_le32(29491200),
+#ifndef CONFIG_HISI_MC	
 	.dwMaxVideoFrameBufferSize	= cpu_to_le32(1843200),
+#else
+	.dwMaxVideoFrameBufferSize	= cpu_to_le32(12441600),
+#endif	
 	.dwDefaultFrameInterval	= cpu_to_le32(333333),
 	.bFrameIntervalType	= 1,
 	.dwFrameInterval[0]	= cpu_to_le32(333333),

@@ -1892,10 +1892,17 @@ static struct config_item_type uvcg_uncompressed_type = {
 static struct config_group *uvcg_uncompressed_make(struct config_group *group,
 						   const char *name)
 {
+#ifndef CONFIG_HISI_MC
 	static char guid[] = {
 		'Y',  'U',  'Y',  '2', 0x00, 0x00, 0x10, 0x00,
 		 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71
 	};
+#else
+	static char guid[] = {
+		'N',  'V',  '2',  '1', 0x00, 0x00, 0x10, 0x00,
+		 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71
+	};
+#endif
 	struct uvcg_uncompressed *h;
 
 	h = kzalloc(sizeof(*h), GFP_KERNEL);
@@ -1906,7 +1913,11 @@ static struct config_group *uvcg_uncompressed_make(struct config_group *group,
 	h->desc.bDescriptorType		= USB_DT_CS_INTERFACE;
 	h->desc.bDescriptorSubType	= UVC_VS_FORMAT_UNCOMPRESSED;
 	memcpy(h->desc.guidFormat, guid, sizeof(guid));
+#ifndef CONFIG_HISI_MC
 	h->desc.bBitsPerPixel		= 16;
+#else
+	h->desc.bBitsPerPixel		= 12;
+#endif
 	h->desc.bDefaultFrameIndex	= 1;
 	h->desc.bAspectRatioX		= 0;
 	h->desc.bAspectRatioY		= 0;

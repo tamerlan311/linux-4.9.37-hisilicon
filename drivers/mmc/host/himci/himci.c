@@ -82,7 +82,11 @@
 
 #define DRIVER_NAME "himci"
 
+#ifndef CONFIG_HISI_MC
 #define CMD_DES_PAGE_SIZE	(3 * PAGE_SIZE)
+#else
+#define CMD_DES_PAGE_SIZE	(8 * PAGE_SIZE)
+#endif
 
 #if defined(CONFIG_ARCH_HI3516CV500) || defined(CONFIG_ARCH_HI3516DV300) ||\
     defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)
@@ -2173,7 +2177,11 @@ static int himci_probe(struct platform_device *pdev)
 	}
 
 	/* reload by this controller */
+#ifndef CONFIG_HISI_MC	
 	mmc->max_blk_count = 2048;
+#else
+	mmc->max_blk_count = 4096;
+#endif	
 	mmc->max_segs = 1024;
 	mmc->max_seg_size = mmc->max_blk_size * mmc->max_blk_count;
 	mmc->max_req_size = mmc->max_blk_size * mmc->max_blk_count;

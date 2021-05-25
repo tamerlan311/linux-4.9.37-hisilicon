@@ -400,9 +400,15 @@ int uvcg_video_init(struct uvc_video *video, struct uvc_device *uvc)
 {
 	INIT_LIST_HEAD(&video->req_free);
 	spin_lock_init(&video->req_lock);
+#ifndef CONFIG_HISI_MC
 	video->fcc = V4L2_PIX_FMT_YUYV;
 	video->imagesize = 320 * 240 * 2;
 	video->bpp = 16;
+#else
+	video->fcc = V4L2_PIX_FMT_YUV420;
+	video->imagesize = 320 * 240 * 3 / 2;	/* YUV420: w*h*1.5 */
+	video->bpp = 12;
+#endif
 	video->width = 320;
 	video->height = 240;
 	video->uvc = uvc;
