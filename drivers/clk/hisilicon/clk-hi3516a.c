@@ -458,6 +458,6 @@ static void __init hi3516a_sc_clk_init(struct device_node *np)
 	}
 }
 
-CLK_OF_DECLARE(hi3516a_clk_sysctrl, "hisilicon,hi3516a-sysctrl",
+CLK_OF_DECLARE(hi3516a_clk_sysctrl, "hisilicon,sysctrl",
 		hi3516a_sc_clk_init);
 

@@ -110,8 +110,10 @@ int __init hibvt_reset_init(struct device_node *np,
 		return -ENOMEM;
 
 	rstc->membase = of_iomap(np, 0);
-	if (!rstc->membase)
+	if (!rstc->membase){
+		kfree(rstc);
 		return -EINVAL;
+	}
 
 	spin_lock_init(&rstc->lock);
 
@@ -137,6 +139,11 @@ struct hisi_reset_controller *hisi_reset_init(struct platform_device *pdev)
 		return NULL;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		dev_err(&pdev->dev, "Invalid mem resource./n");
+		return NULL;
+	}
+
 	rstc->membase = devm_ioremap(&pdev->dev,
 				res->start, resource_size(res));
 	if (!rstc->membase)

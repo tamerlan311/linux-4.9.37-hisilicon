@@ -268,12 +268,19 @@ static void hi3559av100_calc_pll(u32 *frac_val, u32 *postdiv1_val, u32 *postdiv2
 		u32 *fbdiv_val, u32 *refdiv_val, u64 rate)
 {
 	u64 rem;
+
+	*postdiv1_val = 2;
+	*postdiv2_val = 1;
+
+	rate = rate * ((*postdiv1_val) * (*postdiv2_val));
+
 	*frac_val = 0;
 	rem = do_div(rate, 1000000);
-	*fbdiv_val = rate;
-	*refdiv_val = 24;
+	*fbdiv_val = rate/24;
+	rem = rate % 24;
+	*refdiv_val = 1;
 	rem = rem * (1 << 24);
-	do_div(rem, 1000000);
+	do_div(rem, 24);
 	*frac_val = rem;
 }
 
@@ -317,6 +324,7 @@ static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
 {
 	struct hi3559av100_clk_pll *clk = to_pll_clk(hw);
 	u64 frac_val, fbdiv_val, refdiv_val;
+	u32 postdiv1_val, postdiv2_val;
 	u32 val;
 	u64 tmp, rate;
 
@@ -324,6 +332,16 @@ static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
 	val = val >> clk->frac_shift;
 	val &= ((1 << clk->frac_width) - 1);
 	frac_val = val;
+
+	val = readl_relaxed(clk->ctrl_reg1);
+	val = val >> clk->postdiv1_shift;
+	val &= ((1 << clk->postdiv1_width) - 1);
+	postdiv1_val = val;
+
+	val = readl_relaxed(clk->ctrl_reg1);
+	val = val >> clk->postdiv2_shift;
+	val &= ((1 << clk->postdiv2_width) - 1);
+	postdiv2_val = val;
 
 	val = readl_relaxed(clk->ctrl_reg2);
 	val = val >> clk->fbdiv_shift;
@@ -337,9 +355,10 @@ static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
 
 	/* rate = 24000000 * (fbdiv + frac / (1<<24) ) / refdiv  */
 	rate = 0;
-	tmp = 24000000 * fbdiv_val;
+	tmp = 24000000 * fbdiv_val + (24000000 * frac_val) / (1 << 24);
 	rate += tmp;
 	do_div(rate, refdiv_val);
+	do_div(rate, postdiv1_val * postdiv2_val);
 
 	return rate;
 }
@@ -481,12 +500,168 @@ static const struct hisi_crg_funcs hi3559av100_crg_funcs = {
 	.unregister_clks = hi3559av100_clk_unregister,
 };
 
+#ifdef CONFIG_ACCESS_M7_DEV
+static struct hisi_fixed_rate_clock hi3559av100_shub_fixed_rate_clks[] __initdata = {
+    { HI3559AV100_SHUB_SOURCE_SOC_24M, "clk_source_24M", NULL, 0, 24000000UL, },
+    { HI3559AV100_SHUB_SOURCE_SOC_200M, "clk_source_200M", NULL, 0, 200000000UL, },
+    { HI3559AV100_SHUB_SOURCE_SOC_300M, "clk_source_300M", NULL, 0, 300000000UL, },
+    { HI3559AV100_SHUB_SOURCE_PLL, "clk_source_PLL", NULL, 0, 192000000UL, },
+    { HI3559AV100_SHUB_I2C0_CLK, "clk_shub_i2c0", NULL, 0, 48000000UL, },
+    { HI3559AV100_SHUB_I2C1_CLK, "clk_shub_i2c1", NULL, 0, 48000000UL, },
+    { HI3559AV100_SHUB_I2C2_CLK, "clk_shub_i2c2", NULL, 0, 48000000UL, },
+    { HI3559AV100_SHUB_I2C3_CLK, "clk_shub_i2c3", NULL, 0, 48000000UL, },
+    { HI3559AV100_SHUB_I2C4_CLK, "clk_shub_i2c4", NULL, 0, 48000000UL, },
+    { HI3559AV100_SHUB_I2C5_CLK, "clk_shub_i2c5", NULL, 0, 48000000UL, },
+    { HI3559AV100_SHUB_I2C6_CLK, "clk_shub_i2c6", NULL, 0, 48000000UL, },
+    { HI3559AV100_SHUB_I2C7_CLK, "clk_shub_i2c7", NULL, 0, 48000000UL, },
+    { HI3559AV100_SHUB_UART_CLK_32K , "clk_uart_32K", NULL, 0, 32000UL, },
+};
+
+/* shub mux clk */
+static u32 shub_source_clk_mux_table[] = {0, 1, 2, 3};
+static const char *shub_source_clk_mux_p[] __initdata = {
+    "clk_source_24M", "clk_source_200M", "clk_source_300M", "clk_source_PLL"
+};
+
+static u32 shub_uart_source_clk_mux_table[] = {0, 1, 2, 3};
+static const char *shub_uart_source_clk_mux_p[] __initdata = {
+    "clk_uart_32K", "clk_uart_div_clk", "clk_uart_div_clk", "clk_source_24M"
+};
+
+static struct hisi_mux_clock hi3559av100_shub_mux_clks[] __initdata = {
+	{ HI3559AV100_SHUB_SOURCE_CLK, "shub_clk", shub_source_clk_mux_p, ARRAY_SIZE(shub_source_clk_mux_p),
+		0, 0x0, 0, 2, 0, shub_source_clk_mux_table, },
+
+	{ HI3559AV100_SHUB_UART_SOURCE_CLK, "shub_uart_source_clk", shub_uart_source_clk_mux_p , ARRAY_SIZE(shub_uart_source_clk_mux_p),
+		0, 0x1c, 28, 2, 0, shub_uart_source_clk_mux_table, },
+};
+
+
+/* shub div clk */
+struct clk_div_table shub_spi_clk_table[] = {{0, 8},{1, 4},{2, 2}};
+struct clk_div_table shub_spi4_clk_table[] = {{0, 8},{1, 4},{2, 2},{3, 1}};
+struct clk_div_table shub_uart_div_clk_table[] = {{1, 8},{2, 4}};
+
+struct hisi_divider_clock hi3559av100_shub_div_clks[] __initdata = {
+    { HI3559AV100_SHUB_SPI_SOURCE_CLK, "clk_spi_clk", "shub_clk", 0, 0x20, 24, 2, CLK_DIVIDER_ALLOW_ZERO, shub_spi_clk_table, },
+    { HI3559AV100_SHUB_UART_DIV_CLK, "clk_uart_div_clk", "shub_clk", 0, 0x1c, 28, 2, CLK_DIVIDER_ALLOW_ZERO, shub_uart_div_clk_table, },
+};
+
+
+/* shub gate clk */
+static struct hisi_gate_clock hi3559av100_shub_gate_clks[] __initdata = {
+	{ HI3559AV100_SHUB_SPI0_CLK , "clk_shub_spi0", "clk_spi_clk",
+		0, 0x20, 1, 0, },
+	{ HI3559AV100_SHUB_SPI1_CLK , "clk_shub_spi1", "clk_spi_clk",
+		0, 0x20, 5, 0, },
+	{ HI3559AV100_SHUB_SPI2_CLK , "clk_shub_spi2", "clk_spi_clk",
+		0, 0x20, 9, 0, },
+
+	{ HI3559AV100_SHUB_UART0_CLK, "clk_shub_uart0", "shub_uart_source_clk",
+		0, 0x1c, 1, 0, },
+	{ HI3559AV100_SHUB_UART1_CLK, "clk_shub_uart1", "shub_uart_source_clk",
+		0, 0x1c, 5, 0, },
+	{ HI3559AV100_SHUB_UART2_CLK, "clk_shub_uart2", "shub_uart_source_clk",
+		0, 0x1c, 9, 0, },
+	{ HI3559AV100_SHUB_UART3_CLK, "clk_shub_uart3", "shub_uart_source_clk",
+		0, 0x1c, 13, 0, },
+	{ HI3559AV100_SHUB_UART4_CLK, "clk_shub_uart4", "shub_uart_source_clk",
+		0, 0x1c, 17, 0, },
+	{ HI3559AV100_SHUB_UART5_CLK, "clk_shub_uart5", "shub_uart_source_clk",
+		0, 0x1c, 21, 0, },
+	{ HI3559AV100_SHUB_UART6_CLK, "clk_shub_uart6", "shub_uart_source_clk",
+		0, 0x1c, 25, 0, },
+
+    { HI3559AV100_SHUB_EDMAC_CLK, "clk_shub_dmac", "shub_clk",
+		0, 0x24, 4, 0, },
+};
+
+static __init struct hisi_clock_data *hi3559av100_shub_clk_register(
+		struct platform_device *pdev)
+{
+	struct hisi_clock_data *clk_data;
+	int ret;
+
+	clk_data = hisi_clk_alloc(pdev, HI3559AV100_SHUB_NR_CLKS);
+	if (!clk_data)
+		return ERR_PTR(-ENOMEM);
+
+	ret = hisi_clk_register_fixed_rate(hi3559av100_shub_fixed_rate_clks,
+			ARRAY_SIZE(hi3559av100_shub_fixed_rate_clks), clk_data);
+	if (ret)
+		return ERR_PTR(ret);
+
+	ret = hisi_clk_register_mux(hi3559av100_shub_mux_clks,
+			ARRAY_SIZE(hi3559av100_shub_mux_clks), clk_data);
+	if (ret)
+		goto unregister_fixed_rate;
+
+    ret = hisi_clk_register_divider(hi3559av100_shub_div_clks,
+            ARRAY_SIZE(hi3559av100_shub_div_clks), clk_data);
+    if (ret)
+		goto unregister_mux;
+
+	ret = hisi_clk_register_gate(hi3559av100_shub_gate_clks,
+			ARRAY_SIZE(hi3559av100_shub_gate_clks), clk_data);
+	if (ret)
+		goto unregister_factor;
+
+	ret = of_clk_add_provider(pdev->dev.of_node,
+			of_clk_src_onecell_get, &clk_data->clk_data);
+	if (ret)
+		goto unregister_gate;
+
+	return clk_data;
+
+unregister_gate:
+	hisi_clk_unregister_gate(hi3559av100_shub_gate_clks,
+			ARRAY_SIZE(hi3559av100_shub_gate_clks), clk_data);
+unregister_factor:
+	hisi_clk_unregister_divider(hi3559av100_shub_div_clks,
+			ARRAY_SIZE(hi3559av100_shub_div_clks), clk_data);
+unregister_mux:
+	hisi_clk_unregister_mux(hi3559av100_shub_mux_clks,
+			ARRAY_SIZE(hi3559av100_shub_mux_clks), clk_data);
+unregister_fixed_rate:
+	hisi_clk_unregister_fixed_rate(hi3559av100_shub_fixed_rate_clks,
+			ARRAY_SIZE(hi3559av100_shub_fixed_rate_clks), clk_data);
+	return ERR_PTR(ret);
+}
+
+static __init void hi3559av100_shub_clk_unregister(struct platform_device *pdev)
+{
+	struct hisi_crg_dev *crg = platform_get_drvdata(pdev);
+
+	of_clk_del_provider(pdev->dev.of_node);
+
+	hisi_clk_unregister_gate(hi3559av100_shub_gate_clks,
+			ARRAY_SIZE(hi3559av100_shub_gate_clks), crg->clk_data);
+	hisi_clk_unregister_divider(hi3559av100_shub_div_clks,
+			ARRAY_SIZE(hi3559av100_shub_div_clks), crg->clk_data);
+	hisi_clk_unregister_mux(hi3559av100_shub_mux_clks,
+			ARRAY_SIZE(hi3559av100_shub_mux_clks), crg->clk_data);
+	hisi_clk_unregister_fixed_rate(hi3559av100_shub_fixed_rate_clks,
+			ARRAY_SIZE(hi3559av100_shub_fixed_rate_clks), crg->clk_data);
+}
+
+static const struct hisi_crg_funcs hi3559av100_shub_crg_funcs = {
+	.register_clks = hi3559av100_shub_clk_register,
+	.unregister_clks = hi3559av100_shub_clk_unregister,
+};
+
+#endif
 
 static const struct of_device_id hi3559av100_crg_match_table[] = {
 	{
 		.compatible = "hisilicon,hi3559av100-clock",
 		.data = &hi3559av100_crg_funcs
 	},
+#ifdef CONFIG_ACCESS_M7_DEV
+	{
+		.compatible = "hisilicon,hi3559av100-shub-clock",
+		.data = &hi3559av100_shub_crg_funcs
+	},
+#endif
 	{ }
 };
 MODULE_DEVICE_TABLE(of, hi3559av100_crg_match_table);
@@ -547,102 +722,7 @@ static void __exit hi3559av100_crg_exit(void)
 }
 module_exit(hi3559av100_crg_exit);
 
-#ifdef CONFIG_ACCESS_M7_DEV
-static struct hisi_fixed_rate_clock hi3559av100_shub_fixed_rate_clks[] __initdata = {
-    { HI3559AV100_SHUB_SOURCE_SOC_24M, "clk_source_24M", NULL, 0, 24000000UL, },
-    { HI3559AV100_SHUB_SOURCE_SOC_200M, "clk_source_200M", NULL, 0, 200000000UL, },
-    { HI3559AV100_SHUB_SOURCE_SOC_300M, "clk_source_300M", NULL, 0, 300000000UL, },
-    { HI3559AV100_SHUB_SOURCE_PLL, "clk_source_PLL", NULL, 0, 192000000UL, },
-    { HI3559AV100_SHUB_I2C0_CLK, "clk_shub_i2c0", NULL, 0, 48000000UL, },
-    { HI3559AV100_SHUB_I2C1_CLK, "clk_shub_i2c1", NULL, 0, 48000000UL, },
-    { HI3559AV100_SHUB_I2C2_CLK, "clk_shub_i2c2", NULL, 0, 48000000UL, },
-    { HI3559AV100_SHUB_I2C3_CLK, "clk_shub_i2c3", NULL, 0, 48000000UL, },
-    { HI3559AV100_SHUB_I2C4_CLK, "clk_shub_i2c4", NULL, 0, 48000000UL, },
-    { HI3559AV100_SHUB_I2C5_CLK, "clk_shub_i2c5", NULL, 0, 48000000UL, },
-    { HI3559AV100_SHUB_I2C6_CLK, "clk_shub_i2c6", NULL, 0, 48000000UL, },
-    { HI3559AV100_SHUB_I2C7_CLK, "clk_shub_i2c7", NULL, 0, 48000000UL, },
-    { HI3559AV100_SHUB_UART_CLK_32K , "clk_uart_32K", NULL, 0, 32000UL, },
-};
 
-/* shub mux clk */
-static u32 shub_source_clk_mux_table[] = {0, 1, 2, 3};
-static const char *shub_source_clk_mux_p[] __initdata = {
-    "clk_source_24M", "clk_source_200M", "clk_source_300M", "clk_source_PLL"
-};
-
-static u32 shub_uart_source_clk_mux_table[] = {0, 1, 2, 3};
-static const char *shub_uart_source_clk_mux_p[] __initdata = {
-    "clk_uart_32K", "clk_uart_div_clk", "clk_uart_div_clk", "clk_source_24M"
-};
-
-static struct hisi_mux_clock hi3559av100_shub_mux_clks[] __initdata = {
-	{ HI3559AV100_SHUB_SOURCE_CLK, "shub_clk", shub_source_clk_mux_p, ARRAY_SIZE(shub_source_clk_mux_p),
-		0, 0x0, 0, 2, 0, shub_source_clk_mux_table, },
-
-	{ HI3559AV100_SHUB_UART_SOURCE_CLK, "shub_uart_source_clk", shub_uart_source_clk_mux_p , ARRAY_SIZE(shub_uart_source_clk_mux_p),
-		0, 0x1c, 20, 2, 0, shub_uart_source_clk_mux_table, },
-};
-
-
-/* shub div clk */
-struct clk_div_table shub_spi_clk_table[] = {{0, 8},{1, 4},{2, 2}};
-struct clk_div_table shub_spi4_clk_table[] = {{0, 8},{1, 4},{2, 2},{3, 1}};
-struct clk_div_table shub_uart_div_clk_table[] = {{1, 8},{2, 4}};
-
-struct hisi_divider_clock hi3559av100_shub_div_clks[] __initdata = {
-    { HI3559AV100_SHUB_SPI_SOURCE_CLK, "clk_spi_clk", "shub_clk", 0, 0x20, 24, 2, CLK_DIVIDER_ALLOW_ZERO, shub_spi_clk_table, },
-    { HI3559AV100_SHUB_UART_DIV_CLK, "clk_uart_div_clk", "shub_clk", 0, 0x1c, 28, 2, CLK_DIVIDER_ALLOW_ZERO, shub_uart_div_clk_table, },
-};
-
-
-/* shub gate clk */
-static struct hisi_gate_clock hi3559av100_shub_gate_clks[] __initdata = {
-	{ HI3559AV100_SHUB_SPI0_CLK , "clk_shub_spi0", "clk_spi_clk",
-		0, 0x20, 1, 0, },
-	{ HI3559AV100_SHUB_SPI1_CLK , "clk_shub_spi1", "clk_spi_clk",
-		0, 0x20, 5, 0, },
-	{ HI3559AV100_SHUB_SPI2_CLK , "clk_shub_spi2", "clk_spi_clk",
-		0, 0x20, 9, 0, },
-
-	{ HI3559AV100_SHUB_UART0_CLK, "clk_shub_uart0", "shub_uart_source_clk",
-		0, 0x1c, 1, 0, },
-	{ HI3559AV100_SHUB_UART1_CLK, "clk_shub_uart1", "shub_uart_source_clk",
-		0, 0x1c, 5, 0, },
-	{ HI3559AV100_SHUB_UART2_CLK, "clk_shub_uart2", "shub_uart_source_clk",
-		0, 0x1c, 9, 0, },
-	{ HI3559AV100_SHUB_UART3_CLK, "clk_shub_uart3", "shub_uart_source_clk",
-		0, 0x1c, 13, 0, },
-	{ HI3559AV100_SHUB_UART4_CLK, "clk_shub_uart4", "shub_uart_source_clk",
-		0, 0x1c, 17, 0, },
-	{ HI3559AV100_SHUB_UART5_CLK, "clk_shub_uart5", "shub_uart_source_clk",
-		0, 0x1c, 21, 0, },
-	{ HI3559AV100_SHUB_UART6_CLK, "clk_shub_uart6", "shub_uart_source_clk",
-		0, 0x1c, 25, 0, },
-};
-
-static void __init hi3559av100_shub_clk_init(struct device_node *np)
-{
-
-	struct hisi_clock_data *clk_data;
-
-	clk_data = hisi_clk_init(np, HI3559AV100_SHUB_NR_CLKS);
-	if (!clk_data)
-        	return;
-
-	hisi_clk_register_fixed_rate(hi3559av100_shub_fixed_rate_clks,
-		ARRAY_SIZE(hi3559av100_shub_fixed_rate_clks),
-		clk_data);
-
-	hisi_clk_register_mux(hi3559av100_shub_mux_clks, ARRAY_SIZE(hi3559av100_shub_mux_clks),
-					clk_data);
-
-	hisi_clk_register_divider(hi3559av100_shub_div_clks,ARRAY_SIZE(hi3559av100_shub_div_clks),
-			clk_data);
-	hisi_clk_register_gate(hi3559av100_shub_gate_clks,
-			ARRAY_SIZE(hi3559av100_shub_gate_clks), clk_data);
-}
-CLK_OF_DECLARE(hi3559av100_shub_clk, "hisilicon,hi3559av100-shub-clock", hi3559av100_shub_clk_init);
-#endif
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("HiSilicon Hi3559AV100 CRG Driver");
 

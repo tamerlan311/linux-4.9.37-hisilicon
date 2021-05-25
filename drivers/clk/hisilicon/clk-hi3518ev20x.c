@@ -241,5 +241,5 @@ static void __init hi3518ev20x_sc_clk_init(struct device_node *np)
 	}
 }
 
-CLK_OF_DECLARE(hi3518ev20x_clk_sysctrl, "hisilicon,hi3518ev20x-sysctrl",
+CLK_OF_DECLARE(hi3518ev20x_clk_sysctrl, "hisilicon,sysctrl",
 		hi3518ev20x_sc_clk_init);

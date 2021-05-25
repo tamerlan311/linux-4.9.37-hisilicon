@@ -225,5 +225,5 @@ static void __init hi3536dv100_sc_clk_init(struct device_node *np)
 	}
 }
 
-CLK_OF_DECLARE(hi3536dv100_clk_sysctrl, "hisilicon,hi3536dv100-sysctrl",
+CLK_OF_DECLARE(hi3536dv100_clk_sysctrl, "hisilicon,sysctrl",
 		hi3536dv100_sc_clk_init);
