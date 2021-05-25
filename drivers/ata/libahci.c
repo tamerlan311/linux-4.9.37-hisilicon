@@ -76,9 +76,9 @@ struct ata_fbs_ctrl {
 static struct ata_fbs_ctrl fbs_ctrl[4];
 extern void hisi_sata_set_fifoth(void *mmio);
 #endif
-#ifdef CONFIG_ARCH_HI3536DV100
-extern void hisi_sata_reset_rxtx_assert(void);
-extern void hisi_sata_reset_rxtx_deassert(void);
+#ifdef CONFIG_HISI_SATA
+extern void hisi_sata_reset_rxtx_assert(unsigned int port_no);
+extern void hisi_sata_reset_rxtx_deassert(unsigned int port_no);
 #endif
 
 static int ahci_set_lpm(struct ata_link *link, enum ata_lpm_policy policy,
@@ -1461,9 +1461,9 @@ int ahci_do_softreset(struct ata_link *link, unsigned int *class,
 				 AHCI_CMD_RESET | AHCI_CMD_CLR_BUSY, msecs)) {
 		rc = -EIO;
 		reason = "1st FIS failed";
-#ifdef CONFIG_ARCH_HI3536DV100
-		hisi_sata_reset_rxtx_assert();
-		hisi_sata_reset_rxtx_deassert();
+#ifdef CONFIG_HISI_SATA
+		hisi_sata_reset_rxtx_assert(ap->port_no);
+		hisi_sata_reset_rxtx_deassert(ap->port_no);
 #endif
 		goto fail;
 	}

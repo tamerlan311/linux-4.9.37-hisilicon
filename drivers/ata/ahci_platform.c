@@ -32,6 +32,10 @@ module_param(ncq_en, uint, 0600);
 MODULE_PARM_DESC(ncq_en, "ahci ncq flag (default:1)");
 #endif
 
+#ifdef CONFIG_HISI_SATA
+extern unsigned int sata_port_map;
+#endif
+
 static const struct ata_port_info ahci_port_info = {
 	.flags		= AHCI_FLAG_COMMON,
 	.pio_mask	= ATA_PIO4,
@@ -62,6 +66,7 @@ static int ahci_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_HISI_SATA
 	hpriv->type = ORI_AHCI;
+	hpriv->force_port_map = sata_port_map;
 #ifndef CONFIG_HISI_ESATA
 	hpriv->flags |= AHCI_HFLAG_NO_SXS;
 #endif
