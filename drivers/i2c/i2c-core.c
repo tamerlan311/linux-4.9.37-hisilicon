@@ -1829,9 +1829,6 @@ static int i2c_register_adapter(struct i2c_adapter *adap)
 
 	rt_mutex_init(&adap->bus_lock);
 	rt_mutex_init(&adap->mux_lock);
-#ifdef CONFIG_ARCH_HISI_BVT
-		spin_lock_init(&adap->spinlock);
-#endif
 	mutex_init(&adap->userspace_clients_lock);
 	INIT_LIST_HEAD(&adap->userspace_clients);
 
@@ -2545,9 +2542,6 @@ EXPORT_SYMBOL(__i2c_transfer);
 int i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 {
 	int ret;
-#ifdef CONFIG_ARCH_HISI_BVT
-	unsigned long flags;
-#endif
 
 	/* REVISIT the fault reporting model here is weak:
 	 *
@@ -2577,9 +2571,6 @@ int i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 		}
 #endif
 
-#ifdef CONFIG_ARCH_HISI_BVT
-		spin_lock_irqsave(&adap->spinlock, flags);
-#else
 		if (in_atomic() || irqs_disabled()) {
 			ret = i2c_trylock_bus(adap, I2C_LOCK_SEGMENT);
 			if (!ret)
@@ -2588,13 +2579,8 @@ int i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 		} else {
 			i2c_lock_bus(adap, I2C_LOCK_SEGMENT);
 		}
-#endif
 		ret = __i2c_transfer(adap, msgs, num);
-#ifdef CONFIG_ARCH_HISI_BVT
-		spin_unlock_irqrestore(&adap->spinlock, flags);
-#else
 		i2c_unlock_bus(adap, I2C_LOCK_SEGMENT);
-#endif
 		return ret;
 	} else {
 		dev_dbg(&adap->dev, "I2C level transfers not supported\n");

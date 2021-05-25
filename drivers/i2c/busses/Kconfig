@@ -1226,18 +1226,26 @@ config I2C_OPAL
 
 config I2C_HISI
 	tristate "Hisilicon I2C Controller support"
-	depends on ARCH_HI3516A
+	depends on ARCH_HI3516A || ARCH_HI3518EV20X || ARCH_HI3521A || ARCH_HI3531A
 	help
 	  Hisilicon I2C controller has 3 buses.
 	  We can access some sensors though it.
-	  This IP is only used in HI3516A chip.
+	  This IP is used in HI3516A/HI3518EV20X/HI3521A/HI3531A chips.
 
-config DMA_MSG_LEN
+config DMA_MSG_MIN_LEN
 	int "Hisilicon I2C support DMA minimum LEN"
 	depends on I2C_HIBVT
-	range 1 1024
+	range 1 4090
 	default 5
 	help
-		The i2c_msg minimum LEN of i2c support DMA,range from 1 to 1024
+		The i2c_msg minimum LEN of i2c support DMA,range from 1 to 4091
 
+config DMA_MSG_MAX_LEN
+	int "Hisilicon I2C support DMA maximum LEN"
+	depends on I2C_HIBVT
+	range DMA_MSG_MIN_LEN 4090
+	default 4090
+	help
+		The i2c_msg maximum LEN of i2c support DMA,range from i2c_msg minimum LEN to 4090,
+		because DMA for 0xFFC one-time  largest data transfers;
 endmenu

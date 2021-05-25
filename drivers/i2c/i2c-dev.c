@@ -140,16 +140,16 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 {
 	char *tmp;
 	int ret;
-
+#ifdef CONFIG_I2C_HISI
+	unsigned reg_width;
+	unsigned data_width;
+#endif
 	struct i2c_client *client = file->private_data;
 
 	if (count > 8192)
 		count = 8192;
 
 #ifdef CONFIG_I2C_HISI
-	{
-		unsigned reg_width;
-		unsigned data_width;
 
 		if (client->flags & I2C_M_16BIT_REG)
 			reg_width = 2;
@@ -173,7 +173,7 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 
 		if (copy_from_user(tmp, buf, reg_width))
 			return -EFAULT;
-	}
+
 #else
 	tmp = kmalloc(count, GFP_KERNEL);
 	if (tmp == NULL)
@@ -183,7 +183,16 @@ static ssize_t i2cdev_read(struct file *file, char __user *buf, size_t count,
 	pr_debug("i2c-dev: i2c-%d reading %zu bytes.\n",
 		iminor(file_inode(file)), count);
 
+#ifdef CONFIG_I2C_HISI
+	if (client->flags & I2C_M_DMA)
+		ret = i2c_master_recv(client, tmp,
+				max_t(size_t, reg_width, count));
+	else
+		ret = i2c_master_recv(client, tmp,
+				max_t(size_t, reg_width, data_width));
+#else
 	ret = i2c_master_recv(client, tmp, count);
+#endif
 #ifdef CONFIG_I2C_HISI
 	if (ret >= 0) {
 		if (client->flags & I2C_M_DMA) {
@@ -212,6 +221,9 @@ static ssize_t i2cdev_write(struct file *file, const char __user *buf,
 
 	if (count > 8192)
 		count = 8192;
+
+	if (count == 0)
+		return -EINVAL;
 
 	tmp = memdup_user(buf, count);
 	if (IS_ERR(tmp))
@@ -313,6 +325,11 @@ static noinline int i2cdev_ioctl_rdwr(struct i2c_client *client,
 	for (i = 0; i < rdwr_arg.nmsgs; i++) {
 		/* Limit the size of the message to a sane amount */
 		if (rdwr_pa[i].len > 8192) {
+			res = -EINVAL;
+			break;
+		}
+
+		if (rdwr_pa[i].len == 0) {
 			res = -EINVAL;
 			break;
 		}

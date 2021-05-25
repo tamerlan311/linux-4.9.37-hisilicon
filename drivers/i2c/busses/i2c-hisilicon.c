@@ -29,6 +29,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <mach/io.h>
 #include "i2c-hisilicon.h"
 #include <linux/dma-mapping.h>
 #include <linux/clk.h>
@@ -41,6 +42,18 @@
 
 #ifdef CONFIG_ARCH_HI3516A
 #include <mach/hi3516a_io.h>
+#endif
+
+#ifdef CONFIG_ARCH_HI3518EV20X
+#include <mach/hi3518ev20x_io.h>
+#endif
+
+#ifdef CONFIG_ARCH_HI3521A
+#include <mach/hi3521a_io.h>
+#endif
+
+#ifdef CONFIG_ARCH_HI3531A
+#include <mach/hi3531a_io.h>
 #endif
 
 #define hi_err(x...) \
@@ -78,6 +91,7 @@ struct hi_i2c {
 	struct hi_platform_i2c *pdata;
 	unsigned int g_last_dev_addr;
 	unsigned int g_last_mode;
+	spinlock_t spinlock;
 };
 
 static int hi_i2c_abortprocess(struct hi_i2c *pinfo)
@@ -728,20 +742,22 @@ EXPORT_SYMBOL(hi_i2c_dma_read);
 static int hi_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 		int num)
 {
-	struct hi_i2c *pinfo;
+	struct hi_i2c *pinfo = (struct hi_i2c *)i2c_get_adapdata(adap);
 	unsigned int msg_idx;
 	dma_addr_t dma_buf;
 	__u16 len;
 	unsigned int reg_addr;
 	unsigned int reg_width;
 	int ret;
+	unsigned long flags;
 
 	if (!msgs || (num <= 0)) {
 		hi_err("msgs == NULL || num <= 0, Invalid argument!\n");
 		return -EINVAL;
 	}
 
-	pinfo = (struct hi_i2c *)i2c_get_adapdata(adap);
+	spin_lock_irqsave(&pinfo->spinlock, flags);
+
 	pinfo->msg = msgs;
 
 	for (msg_idx = 0; msg_idx < num; msg_idx++) {
@@ -758,7 +774,8 @@ static int hi_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 		if (pinfo->msg->flags & I2C_M_DMA) {
 			if (pinfo->msg->flags & I2C_M_16BIT_DATA) {
 				hi_err("I2C DMA no support I2C_M_16BIT_DATA\n");
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 
 			if (((pinfo->msg->flags & I2C_M_RD) && (len <= 0)) ||
@@ -766,7 +783,8 @@ static int hi_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 					 (len <= reg_width))) {
 				hi_err("msg->len == %d, Invalid argument!\n",
 						len);
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 
 			dma_buf = dma_map_single(pinfo->dev,
@@ -774,7 +792,8 @@ static int hi_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 					DMA_BIDIRECTIONAL);
 			if (dma_mapping_error(pinfo->dev, dma_buf)) {
 				hi_err("DMA mapping failed\n");
-				return -EINVAL;
+				ret = -EINVAL;
+				goto end;
 			}
 
 			if (pinfo->msg->flags & I2C_M_RD)
@@ -807,9 +826,142 @@ static int hi_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 	else
 		ret = -EIO;
 
+end:
+	spin_unlock_irqrestore(&pinfo->spinlock, flags);
+
+	/*
+	 * If everything went ok (i.e. 1 msg transmitted), (ret = 1) means return #bytes
+	 * transmitted, else return error code. see i2c-core.c
+	 */
 	return ret;
 }
 
+/* HI I2C READ *
+ * hi_i2c_master_recv - issue a single I2C message in master receive mode
+ * @client: Handle to slave device
+ * @buf: Where to store data read from slave
+ * @count: How many bytes to read, must be less than 64k since msg.len is u16
+ *
+ * Returns negative errno, or else the number of bytes read.
+ */
+int hi_i2c_master_recv(const struct i2c_client *client, char *buf,
+		int count)
+{
+	struct i2c_adapter *adap = client->adapter;
+	struct i2c_msg msgs;
+	unsigned int reg_width, data_width, max_width;
+	int msgs_count;
+
+	memset(&msgs, 0x0, sizeof(struct i2c_msg));
+	msgs.addr = client->addr;
+	msgs.flags = client->flags;
+	msgs.flags |= I2C_M_RD;
+
+	if (client->flags & I2C_M_16BIT_REG)
+		reg_width = 2;
+	else
+		reg_width = 1;
+
+	if (client->flags & I2C_M_16BIT_DATA)
+		data_width = 2;
+	else
+		data_width = 1;
+
+	max_width = max_t(size_t, reg_width, data_width);
+
+	if (count > max_width) {
+		msgs.flags |= I2C_M_DMA;
+		msgs.len = count;
+	} else if (count <= 0 ) {
+		hi_err("ERR. Invalid count: 0x%d!!!\n", count);
+		return -EINVAL;
+	} else
+		msgs.len = max_width;
+
+	if (!buf) {
+		hi_err("ERR. Invalid buf == NULL!!!\n");
+		return -EINVAL;
+	}
+	msgs.buf = buf;
+
+	msgs_count = hi_i2c_xfer(adap, &msgs, 1);
+
+	return (msgs_count == 1) ? count : -EIO;
+}
+EXPORT_SYMBOL(hi_i2c_master_recv);
+
+/*HI I2C WRITE*
+ * hi_i2c_master_send - issue a single I2C message in master transmit mode
+ * @client: Handle to slave device
+ * @buf: Data that will be written to the slave
+ * @count: How many bytes to write, must be less than 64k since msg.len is u16
+ *
+ * Returns negative errno, or else the number of bytes written.
+ */
+int hi_i2c_master_send(const struct i2c_client *client,
+	   const char *buf, int count)
+{
+	struct i2c_adapter *adap = client->adapter;
+	struct i2c_msg msgs;
+	unsigned int reg_width, data_width;
+	int msgs_count;
+
+	memset(&msgs, 0x0, sizeof(struct i2c_msg));
+	msgs.addr = client->addr;
+	msgs.flags = client->flags;
+
+	if (client->flags & I2C_M_16BIT_REG)
+		reg_width = 2;
+	else
+		reg_width = 1;
+
+	if (client->flags & I2C_M_16BIT_DATA)
+		data_width = 2;
+	else
+		data_width = 1;
+
+	if (count - reg_width > data_width)
+		msgs.flags |= I2C_M_DMA;
+	else if (count - reg_width < data_width) {
+		hi_err("ERR. Invalid count!!!\n");
+		return -EINVAL;
+	}
+
+	msgs.len = count;
+
+	if (!buf) {
+		hi_err("ERR. Invalid buf! == NULL!!\n");
+		return -EINVAL;
+	}
+	msgs.buf = (__u8 *)buf;
+
+	msgs_count = hi_i2c_xfer(adap, &msgs, 1);
+
+	return (msgs_count == 1) ? count : -EIO;
+}
+EXPORT_SYMBOL(hi_i2c_master_send);
+
+/**
+ * hi_i2c_transfer - execute a single or combined I2C message
+ * @adap: Handle to I2C bus
+ * @msgs: One or more messages to execute before STOP is issued to
+ *  terminate the operation; each message begins with a START.
+ * @num: Number of messages to be executed.
+ *
+ * Returns negative errno, else the number of messages executed.
+ *
+ * Note that there is no requirement that each message be sent to
+ * the same slave address, although that is the most common model.
+ */
+int hi_i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+		int num)
+{
+	printk("Wrong interface call."
+			"hi_i2c_master_recv is the only interface to i2c read!!!\n");
+
+	return -EIO;
+}
+EXPORT_SYMBOL(hi_i2c_transfer);
 /**************************************************************/
 
 static u32 hi_i2c_func(struct i2c_adapter *adap)
@@ -889,6 +1041,8 @@ static int hi_i2c_probe(struct platform_device *pdev)
 	pinfo->dev = &pdev->dev;
 	pinfo->pdata = platform_info;
 	pinfo->g_last_dev_addr = 0;
+
+	spin_lock_init(&pinfo->spinlock);
 
 	hi_i2c_hw_init(pinfo);
 

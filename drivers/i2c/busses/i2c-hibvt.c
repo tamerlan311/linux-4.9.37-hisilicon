@@ -38,8 +38,7 @@
 #define HIBVT_I2C_GLB		0x0
 #define HIBVT_I2C_SCL_H		0x4
 #define HIBVT_I2C_SCL_L		0x8
-#define HIBVT_I2C_DEV_ADDR	0x10
-#define HIBVT_I2C_DATA1		0x14
+#define HIBVT_I2C_DATA1		0x10
 #define HIBVT_I2C_TXF		0x20
 #define HIBVT_I2C_RXF		0x24
 #define HIBVT_I2C_CMD_BASE	0x30
@@ -48,6 +47,7 @@
 #define HIBVT_I2C_TX_WATER	0xc8
 #define HIBVT_I2C_RX_WATER	0xcc
 #define HIBVT_I2C_CTRL1		0xd0
+#define HIBVT_I2C_CTRL2		0xd4
 #define HIBVT_I2C_STAT		0xd8
 #define HIBVT_I2C_INTR_RAW	0xe0
 #define HIBVT_I2C_INTR_EN	0xe4
@@ -134,6 +134,69 @@ struct hibvt_i2c_dev {
 	spinlock_t		lock;
 	int			status;
 };
+static inline void hibvt_i2c_disable(struct hibvt_i2c_dev *i2c);
+static inline void hibvt_i2c_cfg_irq(struct hibvt_i2c_dev *i2c,
+		unsigned int flag);
+static inline unsigned int hibvt_i2c_clr_irq(struct hibvt_i2c_dev *i2c);
+static inline void hibvt_i2c_enable(struct hibvt_i2c_dev *i2c);
+
+#define CHECK_SDA_IN_SHIFT     (16)
+#define GPIO_MODE_SHIFT        (8)
+#define FORCE_SCL_OEN_SHIFT    (4)
+#define FORCE_SDA_OEN_SHIFT    (0)
+
+static void hibvt_i2c_rescue(struct hibvt_i2c_dev *i2c)
+{
+	unsigned int val;
+	unsigned int time_cnt;
+	int index;
+
+	hibvt_i2c_disable(i2c);
+	hibvt_i2c_cfg_irq(i2c, 0);
+	hibvt_i2c_clr_irq(i2c);
+
+	val = (0x1 << GPIO_MODE_SHIFT) | (0x1 << FORCE_SCL_OEN_SHIFT) | (0x1 << FORCE_SDA_OEN_SHIFT);
+	writel(val, i2c->base + HIBVT_I2C_CTRL2);
+
+	time_cnt = 0;
+	do {
+		for (index = 0; index < 9; index++) {
+			val = (0x1 << GPIO_MODE_SHIFT) | 0x1;
+			writel(val, i2c->base + HIBVT_I2C_CTRL2);
+
+			udelay(5);
+
+			val = (0x1 << GPIO_MODE_SHIFT) | (0x1 << FORCE_SCL_OEN_SHIFT) | (0x1 << FORCE_SDA_OEN_SHIFT);
+			writel(val, i2c->base + HIBVT_I2C_CTRL2);
+
+			udelay(5);
+		}
+
+		time_cnt++;
+		if (time_cnt > I2C_WAIT_TIMEOUT) {
+			dev_err(i2c->dev, "wait Timeout!\n");
+			goto disable_rescue;
+		}
+
+		val = readl(i2c->base + HIBVT_I2C_CTRL2);
+	} while(!(val & (0x1 << CHECK_SDA_IN_SHIFT)));
+
+
+	val = (0x1 << GPIO_MODE_SHIFT) | (0x1 << FORCE_SCL_OEN_SHIFT) | (0x1 << FORCE_SDA_OEN_SHIFT);
+	writel(val, i2c->base + HIBVT_I2C_CTRL2);
+
+	val = (0x1 << GPIO_MODE_SHIFT) | (0x1 << FORCE_SCL_OEN_SHIFT);
+	writel(val, i2c->base + HIBVT_I2C_CTRL2);
+
+	udelay(10);
+
+	val = (0x1 << GPIO_MODE_SHIFT) | (0x1 << FORCE_SCL_OEN_SHIFT) | (0x1 << FORCE_SDA_OEN_SHIFT);
+	writel(val, i2c->base + HIBVT_I2C_CTRL2);
+
+disable_rescue:
+	val = (0x1 << FORCE_SCL_OEN_SHIFT) | 0x1;
+	writel(val, i2c->base + HIBVT_I2C_CTRL2);
+}
 
 static inline void hibvt_i2c_disable(struct hibvt_i2c_dev *i2c)
 {
@@ -210,7 +273,7 @@ static inline void hibvt_i2c_set_addr(struct hibvt_i2c_dev *i2c)
 			addr |= 1;
 	}
 
-	writel(addr, i2c->base + HIBVT_I2C_DEV_ADDR);
+	writel(addr, i2c->base + HIBVT_I2C_DATA1);
 }
 
 /*
@@ -238,6 +301,8 @@ static int hibvt_i2c_wait_rx_noempty(struct hibvt_i2c_dev *i2c)
 		udelay(50);
 	} while (time_cnt++ < I2C_WAIT_TIMEOUT);
 
+	hibvt_i2c_rescue(i2c);
+
 	dev_err(i2c->dev, "wait rx no empty timeout, RIS: 0x%x, SR: 0x%x\n",
 			readl(i2c->base + HIBVT_I2C_INTR_RAW), val);
 	return -EIO;
@@ -255,6 +320,8 @@ static int hibvt_i2c_wait_tx_nofull(struct hibvt_i2c_dev *i2c)
 
 		udelay(50);
 	} while (time_cnt++ < I2C_WAIT_TIMEOUT);
+
+	hibvt_i2c_rescue(i2c);
 
 	dev_err(i2c->dev, "wait rx no empty timeout, RIS: 0x%x, SR: 0x%x\n",
 			readl(i2c->base + HIBVT_I2C_INTR_RAW), val);
@@ -280,6 +347,8 @@ static int hibvt_i2c_wait_idle(struct hibvt_i2c_dev *i2c)
 		udelay(50);
 	} while (time_cnt++ < I2C_WAIT_TIMEOUT);
 
+	hibvt_i2c_rescue(i2c);
+
 	dev_err(i2c->dev, "wait idle timeout, RIS: 0x%x, SR: 0x%x\n",
 			val, readl(i2c->base + HIBVT_I2C_STAT));
 
@@ -290,7 +359,7 @@ static void hibvt_i2c_set_freq(struct hibvt_i2c_dev *i2c)
 {
 	unsigned int max_freq, freq;
 	unsigned int clk_rate;
-	unsigned int val, sda_hold;
+	unsigned int val;
 
 	freq = i2c->freq;
 	clk_rate = clk_get_rate(i2c->clk);
@@ -301,8 +370,13 @@ static void hibvt_i2c_set_freq(struct hibvt_i2c_dev *i2c)
 		freq = i2c->freq;
 	}
 
+	if (!freq) {
+		pr_err("hibvt_i2c_set_freq:freq can't be zero!");
+		return;
+	}
+
 	if (freq <= 100000) {
-		val = clk_rate / (freq * 2) - 1;
+		val = clk_rate / (freq * 2);
 		writel(val, i2c->base + HIBVT_I2C_SCL_H);
 		writel(val, i2c->base + HIBVT_I2C_SCL_L);
 	} else {
@@ -312,10 +386,9 @@ static void hibvt_i2c_set_freq(struct hibvt_i2c_dev *i2c)
 		writel(val, i2c->base + HIBVT_I2C_SCL_L);
 	}
 
-	sda_hold = (0xa << GLB_SDA_HOLD_SHIFT) & GLB_SDA_HOLD_MASK;
 	val = readl(i2c->base + HIBVT_I2C_GLB);
 	val &= ~GLB_SDA_HOLD_MASK;
-	val |= sda_hold;
+	val |= ((0xa << GLB_SDA_HOLD_SHIFT) & GLB_SDA_HOLD_MASK);
 	writel(val, i2c->base + HIBVT_I2C_GLB);
 }
 
@@ -442,22 +515,29 @@ static int hibvt_i2c_do_dma_write(struct hibvt_i2c_dev *i2c,
 	hibvt_i2c_set_addr(i2c);
 	hibvt_i2c_cfg_cmd(i2c);
 
-	val = readl(i2c->base + HIBVT_I2C_CTRL1);
-	val &= ~CTRL1_DMA_OP_MASK;
-	val |= CTRL1_DMA_W | CTRL1_CMD_START_MASK;
-	writel(val, i2c->base + HIBVT_I2C_CTRL1);
-
 	/*  transmit DATA from DMAC to I2C in DMA mode */
 	chan = dma_to_i2c(dma_dst_addr, (i2c->phybase + HIBVT_I2C_TXF),
 			msg->len);
 	if (chan == -1) {
 		status = -1;
-		goto end;
+		goto fail_0;
 	}
+
+	val = readl(i2c->base + HIBVT_I2C_CTRL1);
+	val &= ~CTRL1_DMA_OP_MASK;
+	val |= CTRL1_DMA_W | CTRL1_CMD_START_MASK;
+	writel(val, i2c->base + HIBVT_I2C_CTRL1);
+
+	if (dmac_wait(chan) != DMAC_CHN_SUCCESS) {
+		status = -1;
+		goto fail_1;
+	}
+
 	status = hibvt_i2c_wait_idle(i2c);
-end:
-	dmac_channelclose(chan);
-	dmac_channel_free(chan);
+
+fail_1:
+	dmac_channel_free((unsigned int)chan);
+fail_0:
 	hibvt_i2c_disable(i2c);
 
 	return status;
@@ -466,7 +546,7 @@ end:
 static int hibvt_i2c_do_dma_read(struct hibvt_i2c_dev *i2c,
 		unsigned long dma_dst_addr)
 {
-	unsigned int val, chan, status = 0;
+	int val, chan, status = 0;
 	struct i2c_msg *msg = i2c->msg;
 
 	hibvt_i2c_set_freq(i2c);
@@ -476,40 +556,33 @@ static int hibvt_i2c_do_dma_read(struct hibvt_i2c_dev *i2c,
 	hibvt_i2c_set_addr(i2c);
 	hibvt_i2c_cfg_cmd(i2c);
 
-	val = readl(i2c->base + HIBVT_I2C_CTRL1);
-	val &= ~CTRL1_DMA_OP_MASK;
-	val |= CTRL1_CMD_START_MASK | CTRL1_DMA_R;
-	writel(val, i2c->base + HIBVT_I2C_CTRL1);
 	/* transmit DATA from I2C to DMAC in DMA mode */
 	chan = i2c_to_dma((i2c->phybase + HIBVT_I2C_RXF),
 			dma_dst_addr, msg->len);
 	if (chan == -1) {
 		status = -1;
-		goto end;
+		goto fail_0;
 	}
+
+	val = readl(i2c->base + HIBVT_I2C_CTRL1);
+	val &= ~CTRL1_DMA_OP_MASK;
+	val |= CTRL1_CMD_START_MASK | CTRL1_DMA_R;
+	writel(val, i2c->base + HIBVT_I2C_CTRL1);
+
+	if (dmac_wait(chan) != DMAC_CHN_SUCCESS) {
+		status = -1;
+		goto fail_1;
+	}
+
 	status = hibvt_i2c_wait_idle(i2c);
-end:
-	dmac_channelclose(chan);
-	dmac_channel_free(chan);
+
+fail_1:
+	dmac_channel_free((unsigned int)chan);
+fail_0:
 	hibvt_i2c_disable(i2c);
 
 	return status;
 }
-#else
-static int hibvt_i2c_do_dma_write(struct hibvt_i2c_dev *i2c,
-		unsigned int dma_dst_addr)
-{
-	dev_err(i2c->dev, "DMA is not enabled!");
-	return -1;
-}
-
-static int hibvt_i2c_do_dma_read(struct hibvt_i2c_dev *i2c,
-		unsigned int dma_dst_addr)
-{
-	dev_err(i2c->dev, "DMA is not enabled!");
-	return -1;
-}
-#endif
 static int hibvt_i2c_dma_xfer_one_msg(struct hibvt_i2c_dev *i2c)
 {
 	unsigned int status;
@@ -549,6 +622,7 @@ static int hibvt_i2c_dma_xfer_one_msg(struct hibvt_i2c_dev *i2c)
 
 	return status;
 }
+#endif
 static int hibvt_i2c_polling_xfer_one_msg(struct hibvt_i2c_dev *i2c)
 {
 	int status;
@@ -706,28 +780,41 @@ static int hibvt_i2c_xfer(struct i2c_adapter *adap,
 			struct i2c_msg *msgs, int num)
 {
 	struct hibvt_i2c_dev *i2c = i2c_get_adapdata(adap);
-	int status;
+	int status = -EINVAL;
+	unsigned long flags;
 
-	if (!msgs) {
-		dev_err(i2c->dev, "msgs == NULL\n");
-		return -EIO;
+	if (!msgs || (num <= 0)) {
+		dev_err(i2c->dev, "msgs == NULL || num <= 0, Invalid argument!\n");
+		return -EINVAL;
 	}
+
+	spin_lock_irqsave(&i2c->lock, flags);
 
 	i2c->msg = msgs;
 	i2c->msg_num = num;
 	i2c->msg_idx = 0;
 
+	/* FIXME: The wait_for_completion_timeout in hibvt_i2c_interrupt_xfer_one_msg
+	 * function can not be locked by spin_lock_irqsave. And actually I2C interrupt
+	 * tranfer is rarely used, so we ignore the irq setting to limit the interrupt
+	 * way. But we keep these codes below, reserve for future modifications */
+	i2c->irq = -1;
+
 	while (i2c->msg_idx < i2c->msg_num) {
-		if (i2c->msg->len > CONFIG_DMA_MSG_LEN ) {
+#ifdef CONFIG_HI_DMAC
+		if ((i2c->msg->len >= CONFIG_DMA_MSG_MIN_LEN) && (i2c->msg->len <= CONFIG_DMA_MSG_MAX_LEN)) {
 			status = hibvt_i2c_dma_xfer_one_msg(i2c);
 			if (status)
 				break;
-		}else if (i2c->irq >= 0) {
+		} else if (i2c->irq >= 0) {
+#else
+		if (i2c->irq >= 0) {
+#endif
 			status = hibvt_i2c_interrupt_xfer_one_msg(i2c);
 
 			if (status)
 				break;
-		}else {
+		} else {
 			status = hibvt_i2c_polling_xfer_one_msg(i2c);
 			if (status)
 				break;
@@ -739,8 +826,99 @@ static int hibvt_i2c_xfer(struct i2c_adapter *adap,
 	if (!status || i2c->msg_idx > 0)
 		status = i2c->msg_idx;
 
+	spin_unlock_irqrestore(&i2c->lock, flags);
+
 	return status;
 }
+/* HI I2C READ *
+ * hi_i2c_master_recv - issue a single I2C message in master receive mode
+ * @client: Handle to slave device
+ * @buf: Where to store data read from slave
+ * @count: How many bytes to read, must be less than 64k since msg.len is u16
+ *
+ * Returns negative errno, or else the number of bytes read.
+ */
+int hi_i2c_master_recv(const struct i2c_client *client, char *buf,
+		        int count)
+{
+	printk("Wrong interface call."
+			"hi_i2c_transfer is the only interface to i2c read!!!\n");
+
+	return -EIO;
+}
+EXPORT_SYMBOL(hi_i2c_master_recv);
+
+/*HI I2C WRITE*
+ * hi_i2c_master_send - issue a single I2C message in master transmit mode
+ * @client: Handle to slave device
+ * @buf: Data that will be written to the slave
+ * @count: How many bytes to write, must be less than 64k since msg.len is u16
+ *
+ * Returns negative errno, or else the number of bytes written.
+ */
+int hi_i2c_master_send(const struct i2c_client *client,
+		const char *buf, int count)
+{
+	struct i2c_adapter *adap = client->adapter;
+	struct i2c_msg msg;
+	int msgs_count;
+
+	if ((client->addr > 0x3ff)
+		|| (((client->flags & I2C_M_TEN) == 0) && (client->addr > 0x7f))) {
+		printk(KERN_ERR "dev address out of range\n");
+		return -EINVAL;
+	}
+
+	msg.addr = client->addr;
+	msg.flags = client->flags;
+	msg.len = count;
+
+	if (!buf) {
+		printk(KERN_ERR "Invalid buf == NULL!!!\n");
+		return -EINVAL;
+	}
+	msg.buf = (__u8 *)buf;
+
+	msgs_count = hibvt_i2c_xfer(adap, &msg, 1);
+
+	return (msgs_count == 1) ? count : -EIO;
+}
+EXPORT_SYMBOL(hi_i2c_master_send);
+
+/**
+ * hi_i2c_transfer - execute a single or combined I2C message
+ * @adap: Handle to I2C bus
+ * @msgs: One or more messages to execute before STOP is issued to
+ *  terminate the operation; each message begins with a START.
+ * @num: Number of messages to be executed.
+ *
+ * Returns negative errno, else the number of messages executed.
+ *
+ * Note that there is no requirement that each message be sent to
+ * the same slave address, although that is the most common model.
+ */
+int hi_i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+		int num)
+{
+	int msgs_count;
+
+	if ((msgs[0].addr > 0x3ff)
+		|| (((msgs[0].flags & I2C_M_TEN) == 0) && (msgs[0].addr > 0x7f))) {
+		printk(KERN_ERR "msgs[0] dev address out of range\n");
+		return -EINVAL;
+	}
+
+	if ((msgs[1].addr > 0x3ff)
+		|| (((msgs[1].flags & I2C_M_TEN) == 0) && (msgs[1].addr > 0x7f))) {
+		printk(KERN_ERR "msgs[1] dev address out of range\n");
+		return -EINVAL;
+	}
+
+	msgs_count = hibvt_i2c_xfer(adap, msgs, num);
+
+	return msgs_count;
+}
+EXPORT_SYMBOL(hi_i2c_transfer);
 
 static u32 hibvt_i2c_func(struct i2c_adapter *adap)
 {
