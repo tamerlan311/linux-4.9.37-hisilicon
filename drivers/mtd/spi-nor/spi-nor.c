@@ -1071,6 +1071,47 @@ static const struct spi_nor_basic_flash_parameter micron_4k_params = {
  * For historical (and compatibility) reasons (before we got above config) some
  * old entries may be missing 4K flag.
  */
+#define SPI_NOR_IDS_VER     "1.0"
+
+/******* SPI Nor ID Table **************************************************
+ * Version   Manufacturer    Chip Name    Chipsize	Block	Vol  Operation
+ * 1.0		Macronix/MXIC	MX25L1606E		2M		64K		3V3
+ *			Macronix/MXIC	MX25L6436F		8M		64K		3V3
+ *			Macronix/MXIC	MX25R6435F		8M		64K		1V8/3V3 Add 14chips
+ *			Macronix/MXIC	MX25U6435F		8M		64K		1V8
+ *			Macronix/MXIC	MX25U12835F		16M		64K     1V8
+ *			Macronix/MXIC	MX25F128XXX		16M		64K     3V3
+ *			Macronix/MXIC	MX25U25635F/45G	32M		64K		1V8 25645G-DTR
+ *			Macronix/MXIC	MX25L(256/257)	32M     64K     3V3	25645G-DTR
+ *			Macronix/MXIC	MX25U51245G		64M		64K		1V8 51245G-DTR
+ *			Spansion		S25FL129P1		16M     64K		3V3
+ *			Spansion		S25FL256S		32M     64K		3V3
+ *			Micron			N25Q064A		8M      64K     3V3
+ *			Micron			N25QL064A		8M      64K     3V3
+ *			Micron	N25Q128A11/MT25QU128AB  16M     64K     1V8
+ *			Micron			N25QL128A		16M     64K     3V3
+ *			Micron			MT25QU256A		32M     64K     1V8
+ *			Micron			MT25Q256A		32M     64K     3V3
+ *			Winbond	W25Q16(B/C)V/S25FL016K	2M		64K     3V3
+ *			Winbond			W25Q32(B/F)V	4M		64K     3V3
+ *			Winbond			W25Q32FW		4M		64K     1V8
+ *			Winbond			W25Q64FW		8M		64K     1V8
+ *			Winbond			W25Q64FV		8M		64K     3V3
+ *			Winbond			W25Q128FW		16M     64K     1V8
+ *			Winbond			W25Q128(B/F)V	16M     64K     3V3
+ *			Winbond			W25Q128JV		16M     64K     3V3  DTR
+ *			ESMT/CFEON		EN25Q32B		4M      64K     3V3
+ *			ESMT/CFEON		EN25Q64			8M      64K     3V3
+ *			ESMT/CFEON		EN25Q128		16M     64K     3V3
+ *			ESMT/CFEON		F25L64QA		8M      64K     3V3
+ *			GD				GD25Q64			8M      64K     3V3
+ *			GD				GD25LQ128		16M     64K     1V8
+ *			GD				GD25Q128		16M     64K     3V3
+ *			GD				GD25LQ64C		8M      64K     1V8
+ *			GD				GD25Q32			4M      64K     3V3
+ *			Paragon			PN25F16S		2M		64K     3V3
+ *			Paragon			PN25F32S		4M      64K     3V3
+ *****************************************************************************/
 static const struct flash_info spi_nor_ids[] = {
 	/* Atmel -- some are (confusingly) marketed as "DataFlash" */
 	{ "at25fs010",  INFO(0x1f6601, 0, 32 * 1024,   4, SECT_4K) },
@@ -1155,7 +1196,10 @@ static const struct flash_info spi_nor_ids[] = {
 	{ "mx25u6435f",  INFO(0xc22537, 0, 64 * 1024, 128,
 			SECT_4K), PARAMS(mxic) },
 	{ "mx25u12835f", INFO(0xc22538, 0, 64 * 1024, 256, 0), PARAMS(mxic) },
-	{ "mx25u25635f", INFO(0xc22539, 0, 64 * 1024, 512, 0), PARAMS(mxic) },
+	{ "mx25u25635f", INFO(0xc22539, 0, 64 * 1024, 512,
+			SPI_NOR_4B_OPCODES), PARAMS(mxic) },
+	{ "mx25u51245g", INFO(0xc2253a, 0, 64 * 1024, 1024,
+			SPI_NOR_4B_OPCODES), PARAMS(mxic) },
 
 	/* Micron 3.3V */
 	{ "n25q032",     INFO(0x20ba16, 0, 64 * 1024,   64, 0),
@@ -1299,15 +1343,19 @@ static const struct flash_info spi_nor_ids[] = {
 	{ "w25q256", INFO(0xef4019, 0, 64 * 1024, 512,
 			SECT_4K), PARAMS(winbond) },
 	/* Winbond 1.8V */
-	{ "w25q32dw", INFO(0xef6016, 0, 64 * 1024,  64,
+	{ "w25q32fw", INFO(0xef6016, 0, 64 * 1024,  64,
 			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
-			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB) },
+			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB), PARAMS(winbond) },
 	{ "w25q64dw", INFO(0xef6017, 0, 64 * 1024, 128,
 			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
 			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB), PARAMS(winbond) },
 	{ "w25q128fw", INFO(0xef6018, 0, 64 * 1024, 256,
 			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
 			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB), PARAMS(winbond) },
+	{ "w25q256jw", INFO(0xef8019, 0, 64 * 1024, 512,
+			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
+			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB | SPI_NOR_4B_OPCODES),
+			PARAMS(winbond) },
 
 	/* Catalyst / On Semiconductor -- non-JEDEC */
 	{ "cat25c11", CAT25_INFO(16, 8, 16, 1, SPI_NOR_NO_ERASE
@@ -1337,6 +1385,11 @@ static const struct flash_info *spi_nor_read_id(struct spi_nor *nor)
 	if (tmp < 0) {
 		dev_dbg(nor->dev, "error %d reading JEDEC ID\n", tmp);
 		return ERR_PTR(tmp);
+	}
+
+	if ((id[0] == 0xff) || (id[0] == 0x00)) {
+		dev_err(nor->dev, "unrecognized Manufacturer ID\n");
+		return ERR_PTR(-ENODEV);
 	}
 
 	for (tmp = 0; tmp < ARRAY_SIZE(spi_nor_ids) - 1; tmp++) {
@@ -1539,7 +1592,7 @@ static int macronix_quad_enable(struct spi_nor *nor)
 		return 0;
 
 	/* Update the Quad Enable bit. */
-	dev_info(nor->dev, "setting Macronix Quad Enable (non-volatile) bit\n");
+	dev_dbg(nor->dev, "setting Macronix Quad Enable (non-volatile) bit\n");
 
 	write_enable(nor);
 
@@ -1581,7 +1634,7 @@ static int spansion_quad_enable(struct spi_nor *nor)
 		return 0;
 
 	/* Update the Quad Enable bit. */
-	dev_info(nor->dev, "setting Quad Enable (non-volatile) bit\n");
+	dev_dbg(nor->dev, "setting Quad Enable (non-volatile) bit\n");
 
 	val = ((ret & 0xff) | CR_QUAD_EN_SPAN) << 8;
 
@@ -1827,7 +1880,7 @@ static unsigned char hisi_bp_to_level(struct spi_nor *nor,
 	else
 		level = (val & SPI_NOR_SR_BP_MASK_4) >> SPI_NOR_SR_BP0_SHIFT;
 
-	/* dev_info(nor->dev, "the current level[%d]\n", level); */
+	dev_dbg(nor->dev, "the current level[%d]\n", level);
 
 	if (bp_num == BP_NUM_4) {
 		nor->lock_level_max = LOCK_LEVEL_MAX(bp_num) - 5;
@@ -1837,8 +1890,8 @@ static unsigned char hisi_bp_to_level(struct spi_nor *nor,
 			nor->lock_level_max--;
 	} else
 		nor->lock_level_max = LOCK_LEVEL_MAX(bp_num);
-	/* dev_info(nor->dev, "Get the max bp level: [%d]\n",
-	*   nor->lock_level_max); */
+	dev_dbg(nor->dev, "Get the max bp level: [%d]\n",
+	   nor->lock_level_max);
 
 	return level;
 }
@@ -2029,7 +2082,7 @@ static int spi_nor_setup(struct spi_nor *nor, const struct flash_info *info,
 		nor->program_opcode, nor->write_proto);
 	dev_dbg(nor->dev,
 		"Sector Erase: opcode=%02Xh, protocol=%03x, sector size=%zu\n",
-		nor->erase_opcode, nor->erase_proto, nor->mtd.erasesize);
+		nor->erase_opcode, nor->erase_proto, (size_t)nor->mtd.erasesize);
 
 	return 0;
 }
@@ -2116,8 +2169,11 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	if (name)
 		info = spi_nor_match_id(name);
 	/* Try to auto-detect if chip name wasn't specified or not found */
-	if (!info)
+	if (!info) {
+		dev_info(dev, "SPI Nor ID Table Version %s\n", SPI_NOR_IDS_VER);
 		info = spi_nor_read_id(nor);
+	}
+
 	if (IS_ERR_OR_NULL(info))
 		return -ENOENT;
 
@@ -2274,8 +2330,8 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 		return -EINVAL;
 	}
 
-	dev_info(dev, "%s (%lld Kbytes)\n", info->name,
-			(long long)mtd->size >> 10);
+	dev_info(dev, "%s (Chipsize %lld Mbytes, Blocksize %uKiB)\n",
+		info->name, (long long)mtd->size >> 20, mtd->erasesize / 1024);
 
 	dev_dbg(dev,
 		"mtd .name = %s, .size = 0x%llx (%lldMiB), "

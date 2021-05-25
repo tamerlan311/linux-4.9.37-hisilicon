@@ -114,6 +114,11 @@ static void hisi_spi_nor_init(struct hifmc_host *host)
 		hifmc_writel(host, FMC_CFG, reg);
 	}
 
+	/* hold on STR mode */
+	reg = hifmc_readl(host, FMC_GLOBAL_CFG);
+	reg &= (~FMC_GLOBAL_CFG_DTR_MODE);
+	hifmc_writel(host, FMC_GLOBAL_CFG, reg);
+
 	/* set timming */
 	reg = TIMING_CFG_TCSH(CS_HOLD_TIME)
 		| TIMING_CFG_TCSS(CS_SETUP_TIME)
@@ -128,6 +133,7 @@ static int hisi_spi_nor_prep(struct spi_nor *nor, enum spi_nor_ops ops)
 	struct hifmc_host *host = priv->host;
 	int ret;
 
+	mutex_lock(&fmc_switch_mutex);
 	mutex_lock(host->lock);
 
 	ret = clk_set_rate(host->clk, priv->clkrate);
@@ -155,6 +161,7 @@ static void hisi_spi_nor_unprep(struct spi_nor *nor, enum spi_nor_ops ops)
 
 	clk_disable_unprepare(host->clk);
 	mutex_unlock(host->lock);
+	mutex_unlock(&fmc_switch_mutex);
 }
 
 /******************************************************************************/
@@ -171,7 +178,7 @@ static int hisi_spi_nor_op_reg(struct spi_nor *nor,
 	reg = FMC_DATA_NUM_CNT(len);
 	hifmc_writel(host, FMC_DATA_NUM, reg);
 
-	reg = OP_CFG_FM_CS(priv->chipselect);
+	reg = OP_CFG_FM_CS(priv->chipselect) | OP_CFG_OEN_EN;
 	hifmc_writel(host, FMC_OP_CFG, reg);
 
 	hifmc_writel(host, FMC_INT_CLR, 0xff);
@@ -246,7 +253,8 @@ static int hisi_spi_nor_dma_transfer(struct spi_nor *nor, loff_t start_off,
 		if_type = get_if_type(nor->write_proto);
 	}
 	reg |= OP_CFG_MEM_IF_TYPE(if_type)
-		| OP_CFG_DUMMY_NUM(dummy);
+		| OP_CFG_DUMMY_NUM(dummy)
+		| OP_CFG_OEN_EN;
 	hifmc_writel(host, FMC_OP_CFG, reg);
 
 	hifmc_writel(host, FMC_INT_CLR, 0xff);
@@ -455,6 +463,11 @@ static int hisi_spi_nor_probe(struct platform_device *pdev)
 	struct hifmc_host *host;
 	int ret;
 
+	if (!fmc) {
+		dev_err(&pdev->dev, "get mfd fmc devices failed\n");
+		return -ENXIO;
+	}
+
 	host = devm_kzalloc(dev, sizeof(*host), GFP_KERNEL);
 	if (!host)
 		return -ENOMEM;
@@ -466,17 +479,8 @@ static int hisi_spi_nor_probe(struct platform_device *pdev)
 	host->iobase = fmc->iobase;
 	host->clk = fmc->clk;
 	host->lock = &fmc->lock;
-
-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
-	if (ret) {
-		dev_warn(dev, "Unable to set dma mask\n");
-		return ret;
-	}
-
-	host->buffer = dmam_alloc_coherent(dev, HIFMC_DMA_MAX_LEN,
-			&host->dma_buffer, GFP_KERNEL);
-	if (!host->buffer)
-		return -ENOMEM;
+	host->buffer = fmc->buffer;
+	host->dma_buffer = fmc->dma_buffer;
 
 	clk_prepare_enable(host->clk);
 	hisi_spi_nor_init(host);
