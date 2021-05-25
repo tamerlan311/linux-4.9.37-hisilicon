@@ -178,3 +178,4 @@ obj-$(CONFIG_FPGA)		+= fpga/
 obj-$(CONFIG_HI_DMAC)		+= hidmac/
 
 obj-$(CONFIG_ARCH_HISI_BVT)	+= hisilicon/
+obj-$(CONFIG_HI_VDMA_V100) += hi_vdmav100/
