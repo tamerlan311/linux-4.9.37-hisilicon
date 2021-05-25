@@ -1,14 +1,14 @@
 # define_trace.h needs to know how to find our header
 CFLAGS_trace.o			:= -I$(src)
-#ifndef CONFIG_USB_HISI_UDC
 
+ifndef CONFIG_USB_HISI_UDC
 udc-core-y			:= core.o trace.o
+obj-$(CONFIG_USB_GADGET)	+= udc-core.o
+endif
 
-#endif
 #
 # USB peripheral controller drivers
 #
-obj-$(CONFIG_USB_GADGET)	+= udc-core.o
 obj-$(CONFIG_USB_DUMMY_HCD)	+= dummy_hcd.o
 obj-$(CONFIG_USB_NET2272)	+= net2272.o
 obj-$(CONFIG_USB_NET2280)	+= net2280.o

@@ -53,7 +53,6 @@ uint8_t readpacket_buf[1024];
 /**
  * This function updates OTG.
  */
-extern void hisi_switch_func(int otg);
 static void dwc_otg_pcd_update_otg(dwc_otg_pcd_t * pcd, const unsigned reset)
 {
 
@@ -5361,11 +5360,9 @@ int32_t dwc_otg_pcd_handle_intr(dwc_otg_pcd_t * pcd)
 		}
 		if (gintr_status.b.erlysuspend) {
 			retval |= dwc_otg_pcd_handle_early_suspend_intr(pcd);
-			hisi_switch_func(0);
 		}
 		if (gintr_status.b.usbreset) {
 			retval |= dwc_otg_pcd_handle_usb_reset_intr(pcd);
-			hisi_switch_func(0);
 		}
 		if (gintr_status.b.enumdone) {
 			retval |= dwc_otg_pcd_handle_enum_done_intr(pcd);

@@ -904,6 +904,11 @@ int usb_gadget_ep_match_desc(struct usb_gadget *gadget,
 	type = usb_endpoint_type(desc);
 	max = 0x7ff & usb_endpoint_maxp(desc);
 
+	if (usb_endpoint_dir_in(desc) && !ep->caps.dir_in)
+		return 0;
+	if (usb_endpoint_dir_out(desc) && !ep->caps.dir_out)
+		return 0;
+
 	if (max > ep->maxpacket_limit)
 		return 0;
 
@@ -923,6 +928,8 @@ int usb_gadget_ep_match_desc(struct usb_gadget *gadget,
 			return 0;
 		break;
 	case USB_ENDPOINT_XFER_BULK:
+		if (!ep->caps.type_bulk)
+			return 0;
 		if (ep_comp && gadget_is_superspeed(gadget)) {
 			/* Get the number of required streams from the
 			 * EP companion descriptor and see if the EP
@@ -1303,6 +1310,87 @@ err1:
 	udc->gadget->dev.driver = NULL;
 	return ret;
 }
+
+int usb_gadget_probe_driver(struct usb_gadget_driver *driver)
+{
+	struct usb_udc		*udc = NULL;
+	int			ret = -ENODEV;
+
+	if (!driver || !driver->bind || !driver->setup)
+		return -EINVAL;
+
+	mutex_lock(&udc_lock);
+	if (driver->udc_name) {
+		list_for_each_entry(udc, &udc_list, list) {
+			ret = strcmp(driver->udc_name, dev_name(&udc->dev));
+			if (!ret)
+				break;
+		}
+		if (ret)
+			ret = -ENODEV;
+		else if (udc->driver)
+			ret = -EBUSY;
+		else
+			goto found;
+	} else {
+		list_for_each_entry(udc, &udc_list, list) {
+			/* For now we take the first one */
+			if (!udc->driver)
+				goto found;
+		}
+	}
+
+	if (!driver->match_existing_only) {
+		list_add_tail(&driver->pending, &gadget_driver_pending_list);
+		pr_info("udc-core: couldn't find an available UDC - added [%s] to list of pending drivers\n",
+			driver->function);
+		ret = 0;
+	}
+
+	mutex_unlock(&udc_lock);
+	return ret;
+found:
+	ret = udc_bind_to_driver(udc, driver);
+	mutex_unlock(&udc_lock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(usb_gadget_probe_driver);
+
+int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
+{
+	struct usb_udc		*udc = NULL;
+	int			ret = -ENODEV;
+
+	if (!driver || !driver->unbind)
+		return -EINVAL;
+
+	mutex_lock(&udc_lock);
+	list_for_each_entry(udc, &udc_list, list) {
+		if (udc->driver == driver) {
+			usb_gadget_remove_driver(udc);
+			usb_gadget_set_state(udc->gadget,
+					     USB_STATE_NOTATTACHED);
+
+			/* Maybe there is someone waiting for this UDC? */
+			check_pending_gadget_drivers(udc);
+			/*
+			 * For now we ignore bind errors as probably it's
+			 * not a valid reason to fail other's gadget unbind
+			 */
+			ret = 0;
+			break;
+		}
+	}
+
+	if (ret) {
+		list_del(&driver->pending);
+		ret = 0;
+	}
+	mutex_unlock(&udc_lock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(usb_gadget_unregister_driver);
+
 /* ------------------------------------------------------------------------- */
 
 static ssize_t usb_udc_srp_store(struct device *dev,
