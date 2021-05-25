@@ -204,4 +204,5 @@ source "drivers/fpga/Kconfig"
 
 source "drivers/hidmac/Kconfig"
 
+source "drivers/hisilicon/Kconfig"
 endmenu
