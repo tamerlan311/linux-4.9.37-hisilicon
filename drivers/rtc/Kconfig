@@ -3,7 +3,7 @@
 #
 
 config RTC_LIB
-	bool
+	bool "Real Time Clock LIB"
 
 config RTC_MC146818_LIB
 	bool

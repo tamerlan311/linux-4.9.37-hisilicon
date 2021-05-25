@@ -87,7 +87,7 @@ union u_spi_rw {
 #define FREQ_H_DEFAULT  0x8
 #define FREQ_L_DEFAULT  0x1B
 
-#define LV_CTL_DEFAULT  0x01
+#define LV_CTL_DEFAULT  0x20
 #define CLK_DIV_DEFAULT 0x4
 #define INT_RST_DEFAULT 0x0
 #define INT_MSK_DEFAULT 0x4
@@ -192,10 +192,10 @@ static int hibvt_rtc_read_time(struct device *dev, struct rtc_time *time)
 	}
 
 	if (raw_value & LV_INT_MASK) {
-		dev_err(dev,
-			"low voltage detected, date/time is not reliable.\n");
+		//dev_err(dev,
+		//	"low voltage detected, date/time is not reliable.\n");
 		hibvt_spi_write(rtc->regs, RTC_INT_CLR, 1);
-		return -EINVAL;
+		//return -EINVAL;
 	}
 
 	ret |= hibvt_spi_rtc_read(rtc->regs, RTC_LORD, &raw_value);
@@ -501,8 +501,8 @@ static int hibvt_rtc_init(struct hibvt_rtc *rtc)
 	}
  
 	if (val & LV_INT_MASK) {
-		dev_err(&rtc->rtc_dev->dev,
-			"low voltage detected, date/time is not reliable.\n");
+		//dev_err(&rtc->rtc_dev->dev,
+		//	"low voltage detected, date/time is not reliable.\n");
 		hibvt_spi_write(rtc->regs, RTC_INT_CLR, 1);
 	}
 
