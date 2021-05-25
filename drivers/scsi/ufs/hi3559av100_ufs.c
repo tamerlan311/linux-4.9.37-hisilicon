@@ -8,10 +8,11 @@
 #include "unipro.h"
 #include "ufshcd-pltfrm.h"
 #include "hi3559av100_ufs.h"
+#include "ufs_proc.h"
 
 #define UFS_PRINT printk
 #define UFS_AHIT_AH8ITV_MASK		(0x3FF)
-#define UFS_AHIT_AUTOH8_TIMER		(0x1001)
+#define UFS_AHIT_AUTOH8_TIMER		(0x0c01)
 
 #define UFS_AHIT_OFF            0x18
 #define UFS_UTRLRSR_OFF         0x60
@@ -22,6 +23,7 @@
 #define HIBERNATE_TIMER_SCALE_SHIFT (10)
 #define LP_AH8_PGE   (BIT(17))
 #define LP_PGE	(BIT(16))
+#define LP_AH8	(BIT(12))
 #define ULP_ULP_CTRLMODE (BIT(3))
 
 #define TX_SLEEP_CONTROL  0x00c80000
@@ -196,9 +198,9 @@ static int hiufs_phy_init(struct ufs_hba *hba, u32 hs_rate)
 	ufshcd_dme_set_attr(hba, 0x00FB0005, 0x00, 0x3, DME_LOCAL);
 
 	/* RX_DLF, lane0 */
-	ufshcd_dme_set_attr(hba, 0x00f60004, 0x00, 0x3, DME_LOCAL);
+	ufshcd_dme_set_attr(hba, 0x00f60004, 0x00, 0x2, DME_LOCAL);
 	/* RX_DLF, lane1 */
-	ufshcd_dme_set_attr(hba, 0x00f60005, 0x00, 0x3, DME_LOCAL);
+	ufshcd_dme_set_attr(hba, 0x00f60005, 0x00, 0x2, DME_LOCAL);
 
 	//modefy
 	/* RX H8_TIMEOUT_VAL, lane0 */
@@ -258,9 +260,9 @@ static int hiufs_phy_init(struct ufs_hba *hba, u32 hs_rate)
 
 	/* disable Vswing change */
     /* measure the power, can close it */
-    ufshcd_dme_set_attr(hba, 0x00C70000, 0x0, 0x3, DME_LOCAL);
+    /*ufshcd_dme_set_attr(hba, 0x00C70000, 0x0, 0x3, DME_LOCAL);*/
     /* measure the power, can close it */
-    ufshcd_dme_set_attr(hba, 0x00C80000, 0x0, 0x3, DME_LOCAL);
+    /*ufshcd_dme_set_attr(hba, 0x00C80000, 0x0, 0x3, DME_LOCAL);*/
 #if !defined(COMBO_PHY_V120)
     ufshcd_dme_set_attr(hba, 0x007A0000, 0x0, 0x1c, DME_LOCAL);
     ufshcd_dme_set_attr(hba, 0x007A0001, 0x0, 0x1c, DME_LOCAL);
@@ -295,9 +297,9 @@ static int hiufs_phy_init(struct ufs_hba *hba, u32 hs_rate)
 
 #if defined(COMBO_PHY_V120)
 	/*RG_PLL_RXHS_EN*/
-	ufshcd_dme_set_attr(hba, 0x00c50000, 0x00, 0x03, DME_LOCAL);
+	/*ufshcd_dme_set_attr(hba, 0x00c50000, 0x00, 0x03, DME_LOCAL);*/
 	/*RG_PLL_RXLS_EN*/
-	ufshcd_dme_set_attr(hba, 0x00c60000, 0x00, 0x03, DME_LOCAL);
+	/*ufshcd_dme_set_attr(hba, 0x00c60000, 0x00, 0x03, DME_LOCAL);*/
 	/*RX_HS_DATA_VALID_TIMER_VAL0*/
 	ufshcd_dme_set_attr(hba, 0x00E90004, 0x00, 0x00, DME_LOCAL);
 	/*RX_HS_DATA_VALID_TIMER_VAL0*/
@@ -363,7 +365,7 @@ static int hiufs_phy_init(struct ufs_hba *hba, u32 hs_rate)
 #endif
 
 	/* pll always on*/
-	ufshcd_dme_set_attr(hba, 0x00ca0000, 0x0, 0x3, DME_LOCAL);
+	ufshcd_dme_set_attr(hba, 0x00ca0000, 0x0, 0x0, DME_LOCAL);
 	/* update */
 	ufshcd_dme_set_attr(hba, 0xD0850000, 0x0, 0x1, DME_LOCAL);
 
@@ -415,7 +417,7 @@ static int hiufs_connection_setup(struct ufs_hba *hba)
 
 	/*set the PA_Granularity  to 2. need to check in ASIC...*/
 	/*send_uic_command(0x02, 0x15aa0000, 0x00, 4, DME_LOCAL);*/
-	ufshcd_dme_set_attr(hba, 0x15aa0000, 0, 0x2, DME_LOCAL);
+	//ufshcd_dme_set_attr(hba, 0x15aa0000, 0, 0x2, DME_LOCAL);
 	/* Unipro DL_TC0TXFCThreshold */
 	/*PA_Hibern8Time*/
 	ufshcd_dme_set_attr(hba, 0x15a70000, 0x00, 0x80, DME_LOCAL);
@@ -432,16 +434,18 @@ static int hiufs_connection_setup(struct ufs_hba *hba)
 	ufshcd_writel(hba, UFS_UTP_RUN_BIT, UFS_UTMRLRSR_OFF);
 */
 
-#if 1
-/*#ifdef UFS_AUTO_H8_ENABLE*/
+#ifdef CONFIG_SCSI_UFS_CARD
+	regv = ufshcd_readl(hba, UFS_BUSTHRTL_OFF);
+	regv |= (LP_AH8_PGE || LP_AH8);
+	ufshcd_writel(hba, regv, UFS_BUSTHRTL_OFF);
 
+	/* enable auto H8 */
+	ufshcd_writel(hba, UFS_AHIT_AUTOH8_TIMER, REG_CONTROLLER_AHIT);
+#else
 	/* disable auto H8 Power-Gating */
 	regv = ufshcd_readl(hba, UFS_BUSTHRTL_OFF);
 	regv &= (uint32_t)(~LP_AH8_PGE);
 	ufshcd_writel(hba, regv, UFS_BUSTHRTL_OFF);
-
-	/* enable auto H8 */
-	/*ufshcd_writel(hba, UFS_AHIT_AUTOH8_TIMER, UFS_AHIT_OFF);*/
 #endif
 
 	return 0;
@@ -680,79 +684,90 @@ static void adapt_pll_to_power_mode(struct ufs_hba *hba,
 static void ufsphy_eye_configuration(struct ufs_hba *hba,
 		uint8_t pwrmode, uint8_t gear, uint8_t rate, uint32_t line)
 {
-
 	if (FAST_MODE == pwrmode || FASTAUTO_MODE == pwrmode) {
 		if (UFS_HS_G1 == gear) {
 			if (PA_HS_MODE_A == rate) {
 				ufshcd_dme_set_attr(hba, 0x007e0000, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x11, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0xf, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x6f, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x13, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0000, 0x00, 0x13, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0x20, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x20, DME_LOCAL);
 				if (line == 2) {
 				ufshcd_dme_set_attr(hba, 0x007e0001, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x11, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0xf, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x6f, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x13, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0001, 0x00, 0x13, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0x20, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x20, DME_LOCAL);
 				}
 			} else if (PA_HS_MODE_B == rate) {
 				ufshcd_dme_set_attr(hba, 0x007e0000, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x11, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0xf, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x6f, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x13, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0000, 0x00, 0x13, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0x20, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x20, DME_LOCAL);
 				if (line == 2) {
 				ufshcd_dme_set_attr(hba, 0x007e0001, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x11, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0xf, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x6f, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x13, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0001, 0x00, 0x13, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0x20, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x20, DME_LOCAL);
 				}
 			}
 
 		} else if (UFS_HS_G2 == gear) {
 			if (PA_HS_MODE_A == rate) {
 				ufshcd_dme_set_attr(hba, 0x007e0000, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x1a, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0x02, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x22, DME_LOCAL);
-				if (line == 2) {
-				ufshcd_dme_set_attr(hba, 0x007e0001, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x1a, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0x02, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x22, DME_LOCAL);
-				}
-			} else if (PA_HS_MODE_B == rate) {
-				ufshcd_dme_set_attr(hba, 0x007e0000, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x1e, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0x03, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x21, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0000, 0x00, 0x21, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0x23, DME_LOCAL);
 				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x23, DME_LOCAL);
 				if (line == 2) {
 				ufshcd_dme_set_attr(hba, 0x007e0001, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x1e, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0x03, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x21, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0001, 0x00, 0x21, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0x23, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x23, DME_LOCAL);
+				}
+			} else if (PA_HS_MODE_B == rate) {
+				ufshcd_dme_set_attr(hba, 0x007e0000, 0x00, 0x05, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x21, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0000, 0x00, 0x21, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0x23, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x23, DME_LOCAL);
+				if (line == 2) {
+				ufshcd_dme_set_attr(hba, 0x007e0001, 0x00, 0x05, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x21, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0001, 0x00, 0x21, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0x23, DME_LOCAL);
 				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x23, DME_LOCAL);
 				}
 			}
 		} else if (UFS_HS_G3 == gear) {
 			if (PA_HS_MODE_A == rate) {
 				ufshcd_dme_set_attr(hba, 0x007e0000, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x20, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x25, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x22, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0000, 0x00, 0x22, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0x26, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x26, DME_LOCAL);
 				if (line == 2) {
 				ufshcd_dme_set_attr(hba, 0x007e0001, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x20, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x25, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x22, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0001, 0x00, 0x22, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0x26, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x26, DME_LOCAL);
 				}
 			} else if (PA_HS_MODE_B == rate) {
 				ufshcd_dme_set_attr(hba, 0x007e0000, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x20, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x25, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0000, 0x00, 0x24, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0000, 0x00, 0x24, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370000, 0x00, 0x26, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007b0000, 0x00, 0x26, DME_LOCAL);
 				if (line == 2) {
 				ufshcd_dme_set_attr(hba, 0x007e0001, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x20, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0x05, DME_LOCAL);
-				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x25, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007f0001, 0x00, 0x24, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007d0001, 0x00, 0x24, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x00370001, 0x00, 0x26, DME_LOCAL);
+				ufshcd_dme_set_attr(hba, 0x007b0001, 0x00, 0x26, DME_LOCAL);
 				}
 			}
 		}
@@ -1000,12 +1015,12 @@ static int hiufs_pltfm_probe(struct platform_device *pdev)
 	vops = (struct ufs_hba_variant_ops *)of_id->data;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	crg_base = devm_ioremap_resource(dev, mem_res);
+	crg_base = devm_ioremap(dev, mem_res->start, resource_size(mem_res));
 	if (IS_ERR(*(void **)&crg_base))
 		return PTR_ERR(*(void **)&crg_base);
 	remap_vir_add.crg_base = crg_base;
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
-	misc_base = devm_ioremap_resource(dev, mem_res);
+	misc_base = devm_ioremap(dev, mem_res->start, resource_size(mem_res));
 	if (IS_ERR(*(void **)&misc_base))
 		return PTR_ERR(*(void **)&misc_base);
 	remap_vir_add.misc_base = misc_base;
@@ -1017,6 +1032,9 @@ static int hiufs_pltfm_probe(struct platform_device *pdev)
 	if (err)
 		dev_err(dev, "ufshcd_pltfrm_init() failed %d\n", err);
 
+#ifdef CONFIG_SCSI_UFS_CARD
+	ufs_proc_init();
+#endif
 	return err;
 }
 
@@ -1024,6 +1042,9 @@ static int hiufs_pltfm_remove(struct platform_device *pdev)
 {
 	struct ufs_hba *hba =  platform_get_drvdata(pdev);
 
+#ifdef CONFIG_SCSI_UFS_CARD
+	ufs_proc_shutdown();
+#endif
 	pm_runtime_get_sync(&(pdev)->dev);
 	ufshcd_remove(hba);
 

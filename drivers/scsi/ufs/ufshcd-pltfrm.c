@@ -39,6 +39,7 @@
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
+#include "ufs_proc.h"
 
 #define UFSHCD_DEFAULT_LANES_PER_DIRECTION		2
 #define UFSHCD_DEFAULT_PWM		FAST_MODE
@@ -231,6 +232,16 @@ out:
 	return err;
 }
 
+static void ufshcd_parse_cd_pin(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+	if (of_get_property(np, "cd-gpio", NULL))
+		hba->cd_gpio = of_get_named_gpio(np, "cd-gpio", 0);
+	else
+		hba->cd_gpio = -1;
+}
+
 #ifdef CONFIG_PM
 /**
  * ufshcd_pltfrm_suspend - suspend power management function
@@ -344,6 +355,16 @@ static void ufshcd_init_lanes_per_dir(struct ufs_hba *hba)
 	}
 }
 
+static void ufshcd_init_quirks(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+
+	if (of_property_read_bool(dev->of_node, "update-xfer-length")) {
+		dev_info(dev, "%s: Enable %s\n", __func__, "update-xfer-length");
+		hba->quirks |= UFSHCD_QUIRK_UPDATE_XFER_LENGTH;
+	}
+}
+
 /**
  * ufshcd_pltfrm_init - probe routine of the driver
  * @pdev: pointer to Platform device handle
@@ -395,11 +416,15 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 		goto dealloc_host;
 	}
 
+	ufshcd_parse_cd_pin(hba);
+
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
 	ufshcd_init_lanes_per_dir(hba);
 	ufshcd_init_powermode(hba);
+	ufshcd_init_quirks(hba);
+
 	err = ufshcd_init(hba, mmio_base, irq);
 	if (err) {
 		dev_err(dev, "Initialization failed\n");
@@ -408,6 +433,9 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 
 	platform_set_drvdata(pdev, hba);
 
+#ifdef CONFIG_SCSI_UFS_CARD
+	hba_list[slot_index++] = hba;
+#endif
 	return 0;
 
 out_disable_rpm:

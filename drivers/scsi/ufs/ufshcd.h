@@ -54,6 +54,8 @@
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 #include "unipro.h"
 
 #include <asm/irq.h>
@@ -70,6 +72,7 @@
 
 #define UFSHCD "ufshcd"
 #define UFSHCD_DRIVER_VERSION "0.2"
+#define UFSCARDHCD "ufscarddetect"
 
 struct ufs_hba;
 
@@ -340,6 +343,20 @@ struct ufs_init_prefetch {
 	u32 icc_level;
 };
 
+/* card status */
+enum ufs_card_status {
+	D_IGNORED = -1,
+	D_NO_DETECT = 0,
+	D_DETECT,
+};
+
+/* card detect handler action */
+enum {
+	H_BREAK = -1,
+	H_REMOVE = 0,
+	H_INSERT,
+};
+
 /**
  * struct ufs_hba - per adapter private structure
  * @mmio_base: UFSHCI base register address
@@ -392,6 +409,9 @@ struct ufs_init_prefetch {
  * @urgent_bkops_lvl: keeps track of urgent bkops level for device
  * @is_urgent_bkops_lvl_checked: keeps track if the urgent bkops level for
  *  device is known or not.
+ * @latest_card_status: card status decided by software recently
+ * @card_status_changed: indicate if there is a job that isn't processed
+ * @cd_gpio: GPIO number of card detection
  */
 struct ufs_hba {
 	void __iomem *mmio_base;
@@ -413,6 +433,8 @@ struct ufs_hba {
 	 * "UFS device" W-LU.
 	 */
 	struct scsi_device *sdev_ufs_device;
+	struct scsi_device *sdev_boot;
+	struct scsi_device *sdev_rpmb;
 
 	enum ufs_dev_pwr_mode curr_dev_pwr_mode;
 	enum uic_link_state uic_link_state;
@@ -436,6 +458,10 @@ struct ufs_hba {
 	void *priv;
 	unsigned int irq;
 	bool is_irq_enabled;
+
+	/* card irq */
+	unsigned int cd_irq;
+	bool is_cd_irq_enabled;
 
 	/* Interrupt aggregation support is broken */
 	#define UFSHCD_QUIRK_BROKEN_INTR_AGGR			UFS_BIT(0)
@@ -483,6 +509,12 @@ struct ufs_hba {
 	 */
 	#define UFSHCD_QUIRK_PRDT_BYTE_GRAN			UFS_BIT(7)
 
+	/*
+	 * This quirk needs to be enabled if the host controller enhances
+	 * performance by updating OPTIMAL TRANSFER LENGTH.
+	 */
+	#define UFSHCD_QUIRK_UPDATE_XFER_LENGTH			UFS_BIT(8)
+
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
 	/* Device deviations from standard UFS device spec. */
@@ -508,6 +540,13 @@ struct ufs_hba {
 	/* Work Queues */
 	struct work_struct eh_work;
 	struct work_struct eeh_work;
+
+	/* card detect & work queue */
+	int cd_gpio;
+	bool latest_card_status;
+	bool card_status_changed;
+	struct work_struct cd_work;
+	struct workqueue_struct *cd_wq;
 
 	/* HBA Errors */
 	u32 errors;
@@ -561,6 +600,8 @@ struct ufs_hba {
 
 	enum bkops_status urgent_bkops_lvl;
 	bool is_urgent_bkops_lvl_checked;
+
+	unsigned int error_count;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */

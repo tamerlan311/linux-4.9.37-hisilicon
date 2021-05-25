@@ -124,6 +124,7 @@ enum {
 	UFSHCD_STATE_ERROR,
 	UFSHCD_STATE_OPERATIONAL,
 	UFSHCD_STATE_EH_SCHEDULED,
+	UFSHCD_STATE_OFFLINE,
 };
 
 /* UFSHCD error handling flags */
@@ -232,6 +233,7 @@ static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 		struct ufs_pa_layer_attr *desired_pwr_mode);
 static int ufshcd_change_power_mode(struct ufs_hba *hba,
 			     struct ufs_pa_layer_attr *pwr_mode);
+
 void printf_layer_1_5(struct ufs_hba *hba)
 {
 	int i = 0;
@@ -1119,6 +1121,8 @@ void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	ufshcd_clk_scaling_start_busy(hba);
 	__set_bit(task_tag, &hba->outstanding_reqs);
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
+	/* Make sure that doorbell is committed immediately */
+	wmb();
 }
 
 /**
@@ -1664,6 +1668,11 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		set_host_byte(cmd, DID_ERROR);
 		cmd->scsi_done(cmd);
 		goto out_unlock;
+	case UFSHCD_STATE_OFFLINE:
+		set_host_byte(cmd, DID_NO_CONNECT);
+		scsi_dma_map(cmd);
+		cmd->scsi_done(cmd);
+		goto out_unlock;
 	default:
 		dev_WARN_ONCE(hba->dev, 1, "%s: invalid state %d\n",
 				__func__, hba->ufshcd_state);
@@ -1718,6 +1727,9 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		goto out;
 	}
+
+	/* Make sure descriptors are ready before ringing the task doorbell */
+	wmb();
 
 	/* issue command to the controller */
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -2318,7 +2330,7 @@ static int ufshcd_read_desc_param(struct ufs_hba *hba,
 
 	if (is_kmalloc)
 		memcpy(param_read_buf, &desc_buf[param_offset], param_size);
-out:
+/*out:*/
 	if (is_kmalloc)
 		kfree(desc_buf);
 	return ret;
@@ -3566,6 +3578,8 @@ static int ufshcd_slave_alloc(struct scsi_device *sdev)
 	/* REPORT SUPPORTED OPERATION CODES is not supported */
 	sdev->no_report_opcodes = 1;
 
+	/* WRITE SAME command is not supported */
+	sdev->no_write_same = 1;
 
 	ufshcd_set_queue_depth(sdev);
 
@@ -3782,6 +3796,9 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		break;
 	} /* end of switch */
 
+	if (ocs)
+		hba->error_count++;
+
 	return result;
 }
 
@@ -3805,6 +3822,57 @@ static void ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 }
 
 /**
+ * ufshcd_update_xfer_length - update return value from device
+ * @cmd: command from SCSI Midlayer
+ *
+ * Update the return value of OPTIMAL TRANSFER LENGTH to enhance
+ * read/write performance.
+ */
+static void ufshcd_update_xfer_length(struct scsi_cmnd *cmd)
+{
+	int i = 0;
+	int opt_xfer_buff = 0xc;
+	int size, sg_segments, good_bytes;
+	struct scatterlist *sg;
+	u8 *pvirt;
+	u32 min_len = 0x10;
+	u32 opt_xfer_len;
+
+	good_bytes = scsi_bufflen(cmd);
+	if (good_bytes == 0)
+		return;
+
+	sg_segments = scsi_dma_map(cmd);
+	if (sg_segments < 0)
+		return;
+
+	scsi_for_each_sg(cmd, sg, sg_segments, i)
+	{
+		pvirt = phys_to_virt(sg->dma_address);
+		size = cpu_to_le32(((u32) sg_dma_len(sg))-1);
+
+		/* Make sure OPTIMAL TRANSFER LENGTH buffer is in the segment */
+		if (opt_xfer_buff <= size) {
+			/* OPTIMAL TRANSFER LENGTH, buffer[12:15] */
+			opt_xfer_len = (*(pvirt + opt_xfer_buff) << 24) |
+			                  (*(pvirt + opt_xfer_buff + 1) << 16) |
+			                  (*(pvirt + opt_xfer_buff + 2) << 8) |
+			                  (*(pvirt + opt_xfer_buff + 3));
+			if ((opt_xfer_len != 0) && (opt_xfer_len < min_len))
+				*(pvirt + opt_xfer_buff + 3) = (min_len & 0xFF);
+			break;
+		}
+		opt_xfer_buff -= (size + 1);
+		good_bytes -= (size + 1);
+		if (good_bytes <= 0)
+			break;
+	};
+
+	scsi_dma_unmap(cmd);
+	return;
+}
+
+/**
  * __ufshcd_transfer_req_compl - handle SCSI and query command completion
  * @hba: per adapter instance
  * @completed_reqs: requests to complete
@@ -3821,6 +3889,12 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 		lrbp = &hba->lrb[index];
 		cmd = lrbp->cmd;
 		if (cmd) {
+			/* Inquiry command for Block Limits VPD */
+			if ((cmd->cmnd[0] == 0x12) &&
+			    (cmd->cmnd[2] == 0xb0) &&
+			    (hba->quirks & UFSHCD_QUIRK_UPDATE_XFER_LENGTH))
+				ufshcd_update_xfer_length(cmd);
+
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
@@ -4481,6 +4555,7 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 		 */
 		hba->saved_err |= hba->errors;
 		hba->saved_uic_err |= hba->uic_error;
+		hba->error_count++;
 
 		/* handle fatal errors only when link is functional */
 		if (hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL) {
@@ -4562,6 +4637,40 @@ static irqreturn_t ufshcd_intr(int irq, void *__hba)
 	spin_unlock(hba->host->host_lock);
 	return retval;
 }
+
+#ifdef CONFIG_SCSI_UFS_CARD
+static int ufshcd_check_card_detect(struct ufs_hba *hba)
+{
+	int ret = D_IGNORED;
+
+	if (gpio_is_valid(hba->cd_gpio))
+		ret = gpio_get_value(hba->cd_gpio) ?  D_NO_DETECT : D_DETECT;
+
+	return ret;
+}
+
+static irqreturn_t ufshcd_intr_card_detect(int irq, void *__hba)
+{
+	struct ufs_hba *hba = __hba;
+	unsigned long flags;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->card_status_changed = true;
+	hba->ufshcd_state = UFSHCD_STATE_OFFLINE;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	/*
+	 * This handler would not work during UFS driver's sleep mode.
+	 * That makes pending tasks failed when UFS driver enters
+	 * into suspend mode and interface re-establishment be permitted
+	 * only after UFS driver exit from suspend mode.
+	 */
+	if (!(work_pending(&hba->cd_work))) {
+		queue_work(hba->cd_wq, &hba->cd_work);
+	}
+	return IRQ_HANDLED;
+}
+#endif
 
 static int ufshcd_clear_tm_cmd(struct ufs_hba *hba, int tag)
 {
@@ -4647,6 +4756,9 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	wmb();
 
 	ufshcd_writel(hba, 1 << free_slot, REG_UTP_TASK_REQ_DOOR_BELL);
+
+	/* Make sure that doorbell is committed immediately */
+	wmb();
 
 	spin_unlock_irqrestore(host->host_lock, flags);
 
@@ -4859,6 +4971,10 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 	int err;
 	unsigned long flags;
 
+#ifdef CONFIG_SCSI_UFS_CARD
+	if (D_NO_DETECT == ufshcd_check_card_detect(hba))
+		return 0;
+#endif
 	/* Reset the host controller */
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	ufshcd_hba_stop(hba, false);
@@ -5113,8 +5229,6 @@ static void ufshcd_init_icc_levels(struct ufs_hba *hba)
 static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 {
 	int ret = 0;
-	struct scsi_device *sdev_rpmb;
-	struct scsi_device *sdev_boot;
 
 	hba->sdev_ufs_device = __scsi_add_device(hba->host, 0, 0,
 		ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_UFS_DEVICE_WLUN), NULL);
@@ -5125,25 +5239,25 @@ static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 	}
 	scsi_device_put(hba->sdev_ufs_device);
 
-	sdev_boot = __scsi_add_device(hba->host, 0, 0,
+	hba->sdev_boot = __scsi_add_device(hba->host, 0, 0,
 		ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_BOOT_WLUN), NULL);
-	if (IS_ERR(sdev_boot)) {
-		ret = PTR_ERR(sdev_boot);
+	if (IS_ERR(hba->sdev_boot)) {
+		ret = PTR_ERR(hba->sdev_boot);
 		goto remove_sdev_ufs_device;
 	}
-	scsi_device_put(sdev_boot);
+	scsi_device_put(hba->sdev_boot);
 
-	sdev_rpmb = __scsi_add_device(hba->host, 0, 0,
+	hba->sdev_rpmb = __scsi_add_device(hba->host, 0, 0,
 		ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_RPMB_WLUN), NULL);
-	if (IS_ERR(sdev_rpmb)) {
-		ret = PTR_ERR(sdev_rpmb);
+	if (IS_ERR(hba->sdev_rpmb)) {
+		ret = PTR_ERR(hba->sdev_rpmb);
 		goto remove_sdev_boot;
 	}
-	scsi_device_put(sdev_rpmb);
+	scsi_device_put(hba->sdev_rpmb);
 	goto out;
 
 remove_sdev_boot:
-	scsi_remove_device(sdev_boot);
+	scsi_remove_device(hba->sdev_boot);
 remove_sdev_ufs_device:
 	scsi_remove_device(hba->sdev_ufs_device);
 out:
@@ -5529,6 +5643,138 @@ static enum blk_eh_timer_return ufshcd_eh_timed_out(struct scsi_cmnd *scmd)
 	 */
 	return found ? BLK_EH_NOT_HANDLED : BLK_EH_RESET_TIMER;
 }
+
+#ifdef CONFIG_SCSI_UFS_CARD
+static int ufshcd_select_next_job(struct ufs_hba *hba, bool current_status)
+{
+	bool is_card_detected;
+
+	/*
+	 * We assume scenarios for 4 cases and decribe them
+	 * with following conventions
+	 *
+	 * Physical card Status (A) / Device file status (B)
+	 * Insertion (I) / Removal (R)
+	 *
+	 * 1) A = I
+	 * 	1-1) B = I : (I) -> R
+	 *	This might means bad card insertion that can cause
+	 *	something wrong for opertions.
+	 *
+	 *	1-2) B = R : (R) -> I
+	 *	Normal insertion
+	 *
+	 * 2) A = R
+	 * 	2-1) B = I : (I) -> R
+	 *	Normal removal
+	 *
+	 *	2-2) B = R : (R)
+	 *	Return because old status is 'removal'
+	 *	and any care isn't required.
+	 *
+	 *
+	 */
+	is_card_detected = (D_DETECT == ufshcd_check_card_detect(hba));
+	if (hba->latest_card_status == H_INSERT) {
+		return H_REMOVE;
+	} else {
+		if (is_card_detected)
+			return H_INSERT;
+		else
+			return H_BREAK;
+	}
+}
+
+static void ufshcd_card_detect_handler(struct work_struct *work)
+{
+	struct ufs_hba *hba;
+	unsigned long flags;
+	int tag;
+	unsigned long outstanding_reqs;
+	int current_status;
+	struct scsi_target *starget;
+	struct uic_command uic_cmd = {0};
+
+	hba = container_of(work, struct ufs_hba, cd_work);
+	msleep(50);
+	current_status = hba->latest_card_status;
+	while (1) {
+		pm_runtime_get_sync(hba->dev);
+
+		/*
+		 * There is a requirement of whether card detection interrupt
+		 * happens before terminating here not to miss the interrupt.
+		 * The hint should be wrapped by spin lock.
+		 */
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		if (unlikely(!hba->card_status_changed)) {
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+			return;
+		}
+		hba->card_status_changed = false;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+		current_status = ufshcd_select_next_job(hba, current_status);
+
+		if (current_status == H_INSERT) {
+			/*
+			 * On insertion, a total sequence to initialize
+			 * UFS interface is required.
+			 */
+
+			ufshcd_hba_enable(hba);
+			ufshcd_probe_hba(hba);
+
+			dev_err(hba->dev, "card inserted\n");
+			hba->latest_card_status = current_status;
+			hba->error_count = 0;
+			break;
+		} else if (current_status == H_REMOVE) {
+			/*
+			 * On removal, clearing slots and I/O completion
+			 * of pending tasks, if any, are required.
+			 */
+
+			spin_lock_irqsave(hba->host->host_lock, flags);
+			outstanding_reqs = hba->outstanding_reqs;
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+			if (outstanding_reqs) {
+				for_each_set_bit(tag, &outstanding_reqs, hba->nutrs)
+					ufshcd_clear_cmd(hba, tag);
+				__ufshcd_transfer_req_compl(hba, DID_NO_CONNECT);
+			}
+
+			uic_cmd.command = UIC_CMD_DME_RESET;
+			ufshcd_send_uic_cmd(hba, &uic_cmd);
+
+			spin_lock_irqsave(hba->host->host_lock, flags);
+			ufshcd_hba_stop(hba, true);
+			hba->ufshcd_state = UFSHCD_STATE_OFFLINE;
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+			/*
+			 * A device file removal is required on card removal
+			 */
+			if (!list_empty(&hba->host->__targets)) {
+				starget = list_first_entry(&hba->host->__targets,
+						struct scsi_target, siblings);
+				scsi_remove_device(hba->sdev_rpmb);
+				scsi_remove_device(hba->sdev_boot);
+				scsi_remove_device(hba->sdev_ufs_device);
+				scsi_remove_target(&starget->dev);
+			}
+
+			dev_err(hba->dev, "card removed\n");
+			hba->latest_card_status = current_status;
+			return;
+		} else {
+			dev_err(hba->dev, "returned\n");
+			break;
+		}
+	}
+	pm_runtime_put_sync(hba->dev);
+}
+#endif
 
 static struct scsi_host_template ufshcd_driver_template = {
 	.module			= THIS_MODULE,
@@ -6226,6 +6472,11 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	enum ufs_dev_pwr_mode req_dev_pwr_mode;
 	enum uic_link_state req_link_state;
 
+#ifdef CONFIG_SCSI_UFS_CARD
+	if (hba->ufshcd_state == UFSHCD_STATE_OFFLINE)
+		return 0;
+#endif
+
 	hba->pm_op_in_progress = 1;
 	if (!ufshcd_is_shutdown_pm(pm_op)) {
 		pm_lvl = ufshcd_is_runtime_pm(pm_op) ?
@@ -6608,6 +6859,9 @@ void ufshcd_remove(struct ufs_hba *hba)
 	ufshcd_exit_clk_gating(hba);
 	if (ufshcd_is_clkscaling_enabled(hba))
 		devfreq_remove_device(hba->devfreq);
+#ifdef CONFIG_SCSI_UFS_CARD
+	destroy_workqueue(hba->cd_wq);
+#endif
 	ufshcd_hba_exit(hba);
 }
 EXPORT_SYMBOL_GPL(ufshcd_remove);
@@ -6795,6 +7049,7 @@ static struct devfreq_dev_profile ufs_devfreq_profile = {
 int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 {
 	int err;
+	unsigned int cd_irq = 0;
 	struct Scsi_Host *host = hba->host;
 	struct device *dev = hba->dev;
 	if (!mmio_base) {
@@ -6853,6 +7108,14 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	INIT_WORK(&hba->eh_work, ufshcd_err_handler);
 	INIT_WORK(&hba->eeh_work, ufshcd_exception_event_handler);
 
+#ifdef CONFIG_SCSI_UFS_CARD
+	INIT_WORK(&hba->cd_work, ufshcd_card_detect_handler);
+	hba->cd_wq = alloc_workqueue("ufshcd_cd_wq", WQ_FREEZABLE, 0);
+	if (!hba->cd_wq) {
+		err = -ENOMEM;
+		goto out_error;
+	}
+#endif
 	/* Initialize UIC command mutex */
 	mutex_init(&hba->uic_cmd_mutex);
 
@@ -6925,8 +7188,38 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	 */
 	ufshcd_set_ufs_dev_active(hba);
 
+#ifndef CONFIG_SCSI_UFS_CARD
 	async_schedule(ufshcd_async_scan, hba);
+	hba->cd_irq = cd_irq;
+#else
+	if (gpio_is_valid(hba->cd_gpio) &&
+			!gpio_request(hba->cd_gpio, "UFSCARD")) {
+		cd_irq = gpio_to_irq(hba->cd_gpio);
+		dev_err(hba->dev, "card detection interrupt number = %d\n", cd_irq);
+		if (cd_irq &&
+			devm_request_irq(hba->dev, cd_irq, ufshcd_intr_card_detect,
+				IRQF_TRIGGER_RISING |
+				IRQF_TRIGGER_FALLING |
+				IRQF_ONESHOT,
+				UFSCARDHCD, hba) == 0) {
+			dev_warn(hba->dev, "success to request irq for card detect.\n");
+			enable_irq_wake(cd_irq);
+			hba->is_cd_irq_enabled = true;
+			hba->cd_irq = cd_irq;
+		} else
+			dev_warn(hba->dev, "cannot request irq for card detect.\n");
 
+	}
+
+	if (D_DETECT == ufshcd_check_card_detect(hba)) {
+		hba->latest_card_status = true;
+		async_schedule(ufshcd_async_scan, hba);
+	} else {
+		hba->latest_card_status = false;
+		ufshcd_hba_stop(hba, true);
+		hba->ufshcd_state = UFSHCD_STATE_OFFLINE;
+	}
+#endif
 	return 0;
 
 out_remove_scsi_host:
