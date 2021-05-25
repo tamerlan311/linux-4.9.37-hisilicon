@@ -15,11 +15,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef CONFIG_ARM64
 #include <mach/io.h>
-#endif
-#include <mach/platform.h>
-#include "pcie_hi3559av100.h"
+#include "pcie_hi3519av100.h"
 
 static void *dbi_base;
 static int __arch_pcie_info_setup(struct pcie_info *info, int *controllers_nr);
@@ -79,76 +76,63 @@ static inline int __arch_check_pcie_link(struct pcie_info *info)
             && (val & (1 << PCIE_RDLH_LINK_UP))) ? 1 : 0;
 }
 
-static int  __arch_get_port_nr(void)
-{
-    unsigned int val, mode;
-    int nr;
-    void *pcie_sys_stat;
-    unsigned int sys_ctrl_base;
-
-    /* Get sys ctrl  base address */
-    of_property_read_u32(g_of_node, "sys_ctrl_base", &sys_ctrl_base);
-
-    pcie_sys_stat = ioremap_nocache(sys_ctrl_base + REG_SC_STAT, sizeof(int));
-    if (!pcie_sys_stat) {
-        pr_err("ioremap pcie sys status register failed!\n");
-        return 0;
-    }
-
-    val = readl(pcie_sys_stat);
-    mode = (val >> 12) & 0x3;
-    switch (mode) {
-        case 0x1:
-            nr = 1;
-            break;
-
-        case 0x0:
-            nr = 2;
-            break;
-
-        default:
-            nr = 0;
-            break;
-    }
-
-    iounmap(pcie_sys_stat);
-
-    return nr;
-}
-
 /*
  * ret:
  */
 static int __arch_pcie_info_setup(struct pcie_info *info, int *controllers_nr)
 {
-    unsigned int mem_size;
-    unsigned int cfg_size;
-    int nr;
+    unsigned int pcie_mem_size;
+    unsigned int pcie_cfg_size;
+    unsigned int pcie_dbi_base;
+    unsigned int pcie_ep_conf_base;
+    unsigned int pcie_contrl;
+    int err;
 
     /* Get pcie deice memory size */
-    of_property_read_u32(g_of_node, "dev_mem_size", &mem_size);
+    err = of_property_read_u32(g_of_node, "dev_mem_size", &pcie_mem_size);
+    if (err) {
+        pcie_error("No dev_mem_size found!");
+        return -EINVAL;
+    }
 
     /* Get pcie config space size*/
-    of_property_read_u32(g_of_node, "dev_conf_size", &cfg_size);
-
-    nr = __arch_get_port_nr();
-    if (!nr) {
-        pr_err("Pcie port number: 0\n");
-        *controllers_nr = 0;
+    err = of_property_read_u32(g_of_node, "dev_conf_size", &pcie_cfg_size);
+    if (err) {
+        pcie_error("No dev_conf_size founcd!");
         return -EINVAL;
     }
 
-    if ((mem_size > __256MB__) || (cfg_size > __256MB__)) {
+    /* Get pcie dib base address */
+    err = of_property_read_u32(g_of_node, "pcie_dbi_base", &pcie_dbi_base);
+    if (err) {
+        pcie_error("No pcie_dbi_base found!");
+        return -EINVAL;
+    }
+
+    /* Get pcie device config base address */
+    err = of_property_read_u32(g_of_node, "ep_conf_base", &pcie_ep_conf_base);
+    if (err) {
+        pcie_error("No ep_conf_base found!");
+        return -EINVAL;
+    }
+
+    if ((pcie_mem_size > __128MB__) || (pcie_cfg_size > __128MB__)) {
         pcie_error(
             "Invalid parameter: pcie mem size[0x%x], pcie cfg size[0x%x]!",
-            mem_size, cfg_size);
+            pcie_mem_size, pcie_cfg_size);
         return -EINVAL;
     }
 
-    info->controller = 0;
+    err = of_property_read_u32(g_of_node, "pcie_controller", &pcie_contrl);
+    if (err) {
+        pcie_error("No pcie_controller found!");
+        return -EINVAL;
+    }
+
+    info->controller = pcie_contrl;
 
     /* RC configuration space */
-    info->conf_base_addr = (unsigned long)ioremap_nocache(PCIE_DBI_BASE,
+    info->conf_base_addr = (unsigned int)ioremap_nocache(pcie_dbi_base,
                            __8KB__);
     if (!info->conf_base_addr) {
         pcie_error("Address mapping for RC dbi failed!");
@@ -156,8 +140,8 @@ static int __arch_pcie_info_setup(struct pcie_info *info, int *controllers_nr)
     }
 
     /* Configuration space for all EPs */
-    info->base_addr = (unsigned long)ioremap_nocache(PCIE_EP_CONF_BASE,
-                      cfg_size);
+    info->base_addr = (unsigned int)ioremap_nocache(pcie_ep_conf_base,
+                      pcie_cfg_size);
     if (!info->base_addr) {
         iounmap((void *)info->conf_base_addr);
         pcie_error("Address mapping for EPs cfg failed!");
@@ -165,7 +149,6 @@ static int __arch_pcie_info_setup(struct pcie_info *info, int *controllers_nr)
     }
 
     return 0;
-
 }
 
 static void __arch_pcie_info_release(struct pcie_info *info)
@@ -183,8 +166,6 @@ static int __arch_pcie_sys_init(struct pcie_info *info)
 {
     unsigned int val;
     void *crg_base = (void *)ioremap_nocache(PERI_CRG_BASE, __8KB__);
-    void *misc_base = (void *)ioremap_nocache(MISC_CTRL_BASE, __4KB__);
-    void *sys_base = (void *)ioremap_nocache(SYS_CTRL_BASE, __4KB__);
 
     dbi_base = (void *)info->conf_base_addr;
 
@@ -211,88 +192,6 @@ static int __arch_pcie_sys_init(struct pcie_info *info)
     writel(val, crg_base + PERI_CRG99);
     mdelay(10);
 
-    val = readl(sys_base + SYS_SATA);
-    if((val & (0x3 << PCIE_MODE)) == 0) {
-        /*X2 select phy reset from crg*/
-        val = readl(crg_base + PERI_CRG98);
-        val |= (0x1 << phy1_srs_req_sel) | (0x1 << phy0_srs_req_sel);
-        writel(val, crg_base + PERI_CRG98);
-        mdelay(10);
-
-        /*X2 reset phy reset*/
-        val = readl(crg_base + PERI_CRG98);
-        val |= ((0x1 << phy1_srs_req) | (0x1 << phy0_srs_req));
-        writel(val, crg_base + PERI_CRG98);
-        udelay(500);
-
-        /*X2 release phy reset*/
-        val = readl(crg_base + PERI_CRG98);
-        val &= ((~(0x1 << phy1_srs_req)) & (~(0x1 << phy0_srs_req)));
-        writel(val, crg_base + PERI_CRG98);
-
-        /*
-         * X2 seperate_rate=1
-         */
-        writel(0x90f, misc_base + MISC_CTRL5);
-        writel(0x94f, misc_base + MISC_CTRL5);
-        writel(0x90f, misc_base + MISC_CTRL5);
-        writel(0x0, misc_base + MISC_CTRL5);
-        writel(0x92f, misc_base + MISC_CTRL5);
-        writel(0x96f, misc_base + MISC_CTRL5);
-        writel(0x92f, misc_base + MISC_CTRL5);
-        writel(0x0, misc_base + MISC_CTRL5);
-        mdelay(10);
-
-        /*
-         * X2 split_cp_dis
-         */
-        writel(0xd11, misc_base + MISC_CTRL5);
-        writel(0xd51, misc_base + MISC_CTRL5);
-        writel(0xd11, misc_base + MISC_CTRL5);
-        writel(0x0, misc_base + MISC_CTRL5);
-        writel(0xd31, misc_base + MISC_CTRL5);
-        writel(0xd71, misc_base + MISC_CTRL5);
-        writel(0xd31, misc_base + MISC_CTRL5);
-        writel(0x0, misc_base + MISC_CTRL5);
-        mdelay(10);
-    } else {
-
-        /*X1 select phy reset from crg*/
-        val = readl(crg_base + PERI_CRG98);
-        val |= (0x1 << phy0_srs_req_sel);
-        writel(val, crg_base + PERI_CRG98);
-        mdelay(10);
-
-        /*X1 reset phy reset*/
-        val = readl(crg_base + PERI_CRG98);
-        val |= (0x1 << phy0_srs_req);
-        writel(val, crg_base + PERI_CRG98);
-        udelay(500);
-
-        /*X1 release phy reset*/
-        val = readl(crg_base + PERI_CRG98);
-        val &= ~(0x1 << phy0_srs_req);
-        writel(val, crg_base + PERI_CRG98);
-
-        /*
-         * X1 seperate_rate=1
-         */
-        writel(0x90f, misc_base + MISC_CTRL5);
-        writel(0x94f, misc_base + MISC_CTRL5);
-        writel(0x90f, misc_base + MISC_CTRL5);
-        writel(0x0, misc_base + MISC_CTRL5);
-        mdelay(10);
-
-        /*
-         * X1 split_cp_dis
-         */
-        writel(0xd11, misc_base + MISC_CTRL5);
-        writel(0xd51, misc_base + MISC_CTRL5);
-        writel(0xd11, misc_base + MISC_CTRL5);
-        writel(0x0, misc_base + MISC_CTRL5);
-        mdelay(10);
-
-    };
 
     /*
      * PCIE RC work mode
@@ -315,14 +214,6 @@ static int __arch_pcie_sys_init(struct pcie_info *info)
     mdelay(10);
 
     /*
-     *  * Set PCIe support the identification Board card
-     */
-    val = readl(dbi_base + PCI_CARD);
-    val |= (1 << 3);
-    writel(val, dbi_base + PCI_CARD);
-    mdelay(10);
-
-    /*
      * Set PCIE controller class code to be PCI-PCI bridge device
      */
     val = readl(dbi_base + PCI_CLASS_REVISION);
@@ -330,6 +221,7 @@ static int __arch_pcie_sys_init(struct pcie_info *info)
     val |= (0x60400 << 8);
     writel(val, dbi_base + PCI_CLASS_REVISION);
     udelay(1000);
+
 
     /*
      * Enable controller
@@ -343,16 +235,16 @@ static int __arch_pcie_sys_init(struct pcie_info *info)
     val |= 7;
     writel(val, dbi_base + PCI_COMMAND);
 
-#ifdef CONFIG_ENABLE_PCIE_1
     /* set pcie to gen 1*/
+#ifdef PCIE_GEN1_ENABLE
     writel(0x1, dbi_base + 0x8BC);
     val = readl(dbi_base + 0x7C);
     val = ((val >> 4) << 4) | 0x1;
     writel(val, dbi_base + 0x7C);
 #endif
 
-    iounmap(misc_base);
     iounmap(crg_base);
+
     return 0;
 }
 
@@ -360,7 +252,6 @@ static void __arch_pcie_sys_exit(void)
 {
     unsigned int val;
     void *crg_base = (void *)ioremap_nocache(PERI_CRG_BASE, __8KB__);
-
     /*
      * Disable PCIE
      */

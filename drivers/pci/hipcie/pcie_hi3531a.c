@@ -259,6 +259,15 @@ void set_pcie_phy0_porta(void *crg_base)
 {
     unsigned int val;
 
+    val = readl(crg_base + REG_CRG72);
+    val |= (0x1 << 2);
+    writel(val, crg_base + REG_CRG72);
+
+    udelay(500);
+    val = readl(crg_base + REG_CRG72);
+    val &= ~(0x1 << 2);
+    writel(val, crg_base + REG_CRG72);
+
     writel(0x41a, misc_ctrl_virt + MISC_CTRL77);
     writel(0x45a, misc_ctrl_virt + MISC_CTRL77);
     writel(0x41a, misc_ctrl_virt + MISC_CTRL77);
@@ -270,14 +279,21 @@ void set_pcie_phy0_porta(void *crg_base)
     writel(0x303, misc_ctrl_virt + MISC_CTRL77);
     writel(0x0, misc_ctrl_virt + MISC_CTRL77);
 
-	val = readl(crg_base + REG_CRG72);
-	val &= ~(0x1 << 2);
-	writel(val, crg_base + REG_CRG72);
+
 }
 
 void set_pice_phy0_portb(void *crg_base)
 {
     unsigned int val;
+
+    val = readl(crg_base + REG_CRG72);
+    val |=  (0x1 << 3);
+    writel(val, crg_base + REG_CRG72);
+
+    udelay(500);
+    val = readl(crg_base + REG_CRG72);
+    val &= ~(0x1 << 3);
+    writel(val, crg_base + REG_CRG72);
 
     writel(0x43a, misc_ctrl_virt + MISC_CTRL77);
     writel(0x47a, misc_ctrl_virt + MISC_CTRL77);
@@ -290,14 +306,21 @@ void set_pice_phy0_portb(void *crg_base)
     writel(0x323, misc_ctrl_virt + MISC_CTRL77);
     writel(0x0, misc_ctrl_virt + MISC_CTRL77);
 
-	val = readl(crg_base + REG_CRG72);
-	val &= ~(0x1 << 3);
-	writel(val, crg_base + REG_CRG72);
+
 }
 
 void set_pcie_phy1_porta(void *crg_base)
 {
     unsigned int val;
+
+    val = readl(crg_base + REG_CRG72);
+    val |= (0x1 << 10);
+    writel(val, crg_base + REG_CRG72);
+
+    udelay(500);
+    val = readl(crg_base + REG_CRG72);
+    val &= ~(0x1 << 10);
+    writel(val, crg_base + REG_CRG72);
 
     writel(0x41a, misc_ctrl_virt + MISC_CTRL78);
     writel(0x45a, misc_ctrl_virt + MISC_CTRL78);
@@ -309,14 +332,21 @@ void set_pcie_phy1_porta(void *crg_base)
     writel(0x303, misc_ctrl_virt + MISC_CTRL78);
     writel(0x0, misc_ctrl_virt + MISC_CTRL78);
 
-	val = readl(crg_base + REG_CRG72);
-	val &= ~(0x1 << 10);
-	writel(val, crg_base + REG_CRG72);
+
 }
 
 void set_pcie_phy1_portb(void *crg_base)
 {
     unsigned int val;
+
+    val = readl(crg_base + REG_CRG72);
+    val |= (0x1 << 11);
+    writel(val, crg_base + REG_CRG72);
+
+    udelay(500);
+    val = readl(crg_base + REG_CRG72);
+    val &= ~(0x1 << 11);
+    writel(val, crg_base + REG_CRG72);
 
     writel(0x43a, misc_ctrl_virt + MISC_CTRL78);
     writel(0x47a, misc_ctrl_virt + MISC_CTRL78);
@@ -328,9 +358,7 @@ void set_pcie_phy1_portb(void *crg_base)
     writel(0x323, misc_ctrl_virt + MISC_CTRL78);
     writel(0x0, misc_ctrl_virt + MISC_CTRL78);
 
-	val = readl(crg_base + REG_CRG72);
-	val &= ~(0x1 << 11);
-	writel(val, crg_base + REG_CRG72);
+
 }
 
 void set_pcie0_para(void *crg_base)
@@ -346,23 +374,24 @@ void set_pcie0_para(void *crg_base)
         case 0x3:
         case 0x9:
         case 0xb:
-			set_pcie_phy0_porta(crg_base);
-
             val = readl(crg_base + REG_CRG73);
             val |= (0x1 << 7);
             writel(val, crg_base + REG_CRG73);
+
+            set_pcie_phy0_porta(crg_base);
 
             break;
         case 0x2:
         case 0xa:
         case 0xc:
         case 0x4:
-			set_pcie_phy0_porta(crg_base);
-			set_pice_phy0_portb(crg_base);
-
             val = readl(crg_base + REG_CRG73);
             val |= (0x1 << 7);
             writel(val, crg_base + REG_CRG73);
+
+            set_pcie_phy0_porta(crg_base);
+            set_pice_phy0_portb(crg_base);
+
 
             break;
         default:
@@ -382,29 +411,33 @@ void set_pcie1_para(void *crg_base)
     switch(flag) {
         case 0x3:
         case 0xb:
-			set_pice_phy0_portb(crg_base);
-
             val = readl(crg_base + REG_CRG73);
             val |= (0x1 << 15);
             writel(val, crg_base + REG_CRG73);
+
+            set_pice_phy0_portb(crg_base);
+
+
 
             break;
         case 0xc:
-			set_pcie_phy1_porta(crg_base);
-
             val = readl(crg_base + REG_CRG73);
             val |= (0x1 << 15);
             writel(val, crg_base + REG_CRG73);
+
+            set_pcie_phy1_porta(crg_base);
+
 
             break;
 
         case 0x4:
-			set_pcie_phy1_porta(crg_base);
-			set_pcie_phy1_portb(crg_base);
-
             val = readl(crg_base + REG_CRG73);
             val |= (0x1 << 15);
             writel(val, crg_base + REG_CRG73);
+
+            set_pcie_phy1_porta(crg_base);
+            set_pcie_phy1_portb(crg_base);
+
 
             break;
         default:

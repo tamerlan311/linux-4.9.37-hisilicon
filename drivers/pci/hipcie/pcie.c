@@ -108,7 +108,7 @@ struct pcie_info {
     /*
      * Root bus number
      */
-	u8		root_bus_nr;
+    int     root_bus_nr;
     enum        pcie_controller controller;
 
     /*
@@ -146,6 +146,8 @@ static DEFINE_SPINLOCK(cw_lock);
 #include "pcie_hi3559av100.c"
 #elif defined(CONFIG_ARCH_HI3531A)
 #include "pcie_hi3531a.c"
+#elif defined(CONFIG_ARCH_HI3519AV100)
+#include "pcie_hi3519av100.c"
 #else
 #error You must have defined CONFIG_ARCH_HI35xx...
 #endif
@@ -496,7 +498,12 @@ static int pci_common_init(struct platform_device *pdev, struct hw_pci *hipcie)
     int pcie_contrl;
     LIST_HEAD(res);
 
-	of_property_read_u32(dn, "pcie_controller", &pcie_contrl);
+    ret = of_property_read_u32(dn, "pcie_controller", &pcie_contrl);
+    if (ret) {
+        pr_err("%s:No pcie_controller found!\n", __func__);
+        return -EINVAL;
+    }
+
     ret = of_pci_get_host_bridge_resources(dn, 0, 0xff, &res, &io_addr);
     if (ret) {
         return ret;
@@ -539,11 +546,17 @@ static int pci_common_init_bvt(struct platform_device *pdev, struct hw_pci *hipc
 
     LIST_HEAD(res);
 
-	of_property_read_u32(dn, "pcie_controller", &pcie_contrl);
-	if (pcie_contrl == 0)
+    ret = of_property_read_u32(dn, "pcie_controller", &pcie_contrl);
+    if (ret) {
+        pr_err("%s:No pcie_controller found!\n", __func__);
+        return -EINVAL;
+    }
+
+    if (pcie_contrl == 0) {
         bus_start = 0;
-	else
+    } else {
         bus_start = 2;
+    }
 
     ret = of_pci_get_host_bridge_resources(dn, bus_start, 0xff, &res, &io_addr);
     if (ret) {
@@ -578,13 +591,19 @@ static int pci_common_init_bvt(struct platform_device *pdev, struct hw_pci *hipc
 
 static int __init pcie_init(struct platform_device *pdev)
 {
+    int err;
+
     g_of_node = pdev->dev.of_node;
     if (!g_of_node) {
         pr_err("get node from dts failed! controller:%d\n", pcie_controllers_nr);
         return -EIO;
     }
 
-	of_property_read_u32(g_of_node, "pcie_controller", &pcie_controllers_nr);
+    err = of_property_read_u32(g_of_node, "pcie_controller", &pcie_controllers_nr);
+    if (err) {
+        pr_err("%s:No pcie_controller found!\n", __func__);
+        return -EINVAL;
+    }
 
     if (__arch_pcie_info_setup(pcie_info, &pcie_controllers_nr)) {
         return -EIO;

@@ -1,6 +1,6 @@
 menuconfig HIPCIE
 	bool "Hisilicon PCI Express support"
-	depends on PCI && (ARCH_HI3559AV100 || ARCH_HI3531A)
+	depends on PCI && (ARCH_HI3559AV100 || ARCH_HI3531A || ARCH_HI3519AV100)
 	default y if PCI
 	default n if ! PCI
 	help
@@ -15,7 +15,7 @@ menu "PCI Express configs"
 config LIMIT_MAX_RD_REQ_SIZE
 	bool "limit pcie max read request size"
 	default y
-	depends on PCI && (ARCH_HI3559AV100 || ARCH_HI3531A)
+	depends on PCI && (ARCH_HI3559AV100 || ARCH_HI3531A || ARCH_HI3519AV100)
 	help
 	The default max read request size of pcie device is 512 Byte. When pcie use
 	the card of pcie-to-sata to connect to the sata disk, with the default max read
