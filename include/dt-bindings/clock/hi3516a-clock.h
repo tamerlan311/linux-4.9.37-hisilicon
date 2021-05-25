@@ -99,12 +99,7 @@
 #define HI3516A_TIME0_1_CLK     2
 #define HI3516A_TIME1_2_CLK     3
 #define HI3516A_TIME1_3_CLK     4
-#define HI3516A_TIME2_4_CLK     5
-#define HI3516A_TIME2_5_CLK     6
-#define HI3516A_TIME3_6_CLK     7
-#define HI3516A_TIME3_7_CLK     8
 
 #define HI3516A_SYS_NR_CLKS     10
-#define HI3516A_SYS_NR_RSTS     0x10
 
 #endif  /* __DTS_HI3516A_CLOCK_H */

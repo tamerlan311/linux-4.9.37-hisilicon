@@ -65,7 +65,7 @@ struct hi3516a_clk_pll {
 };
 
 static const struct
-hisi_fixed_rate_clock hi3516a_fixed_rate_clks_crg[] = {
+hisi_fixed_rate_clock hi3516a_fixed_rate_clks_crg[] __initconst = {
 	{ HI3516A_FIXED_3M, "3m", NULL, 0, 3000000, },
 	{ HI3516A_FIXED_6M, "6m", NULL, 0, 6000000, },
 	{ HI3516A_FIXED_13P5M, "13.5m", NULL, 0, 13500000, },
@@ -103,25 +103,25 @@ hisi_fixed_rate_clock hi3516a_fixed_rate_clks_crg[] = {
 	{ HI3516A_FIXED_1188M, "1188m", NULL, 0, 1188000000UL, },
 };
 
-static const char *const sysaxi_mux_p[] = {"198m", "148.5m"};
-static const char *const uart_mux_p[] = {"clk_sysapb", "6m"};
-static const char *const snor_mux_p[] = {"24m", "75m", "125m"};
-static const char *const snand_mux_p[] = {"24m", "75m", "125m"};
-static const char *const nand_mux_p[] = {"24m", "198m"};
-static const char *const eth_phy_mux_p[] = {"50m", "25m"};
-static const char *const a7_mux_p[] = {"400m", "500m", "apll"};
-static const char *const mmc_mux_p[] = {"50m", "100m", "25m", "75m"};
+static const char *const sysaxi_mux_p[] __initconst = {"198m", "148.5m"};
+static const char *const uart_mux_p[] __initconst = {"clk_sysapb", "6m"};
+static const char *const snor_mux_p[] __initconst = {"24m", "75m", "125m"};
+static const char *const snand_mux_p[] __initconst = {"24m", "75m", "125m"};
+static const char *const nand_mux_p[] __initconst = {"24m", "198m"};
+static const char *const eth_phy_mux_p[] __initconst = {"50m", "25m"};
+static const char *const a7_mux_p[] __initconst = {"400m", "500m", "apll"};
+static const char *const mmc_mux_p[] __initconst = {"50m", "100m", "25m", "75m"};
 
-static u32 sysaxi_mux_table[] = {0, 1};
-static u32 uart_mux_table[] = {0, 1};
-static u32 snor_mux_table[] = {0, 1, 2};
-static u32 snand_mux_table[] = {0, 1, 2};
-static u32 nand_mux_table[] = {0, 1};
-static u32 eth_phy_mux_table[] = {0, 1};
-static u32 a7_mux_table[] = {2, 1, 0};
-static u32 mmc_mux_table[] = {0, 1, 2, 3};
+static u32 sysaxi_mux_table[] __initdata = {0, 1};
+static u32 uart_mux_table[] __initdata = {0, 1};
+static u32 snor_mux_table[] __initdata = {0, 1, 2};
+static u32 snand_mux_table[] __initdata = {0, 1, 2};
+static u32 nand_mux_table[] __initdata = {0, 1};
+static u32 eth_phy_mux_table[] __initdata = {0, 1};
+static u32 a7_mux_table[] __initdata = {2, 1, 0};
+static u32 mmc_mux_table[] __initdata = {0, 1, 2, 3};
 
-static const struct hisi_mux_clock hi3516a_mux_clks_crg[] = {
+static const struct hisi_mux_clock hi3516a_mux_clks_crg[] __initconst = {
 	{ HI3516A_SYSAXI_CLK, "sysaxi_mux", sysaxi_mux_p,
 		ARRAY_SIZE(sysaxi_mux_p),
 		CLK_SET_RATE_PARENT, 0x30, 3, 1, 0, sysaxi_mux_table, },
@@ -147,12 +147,12 @@ static const struct hisi_mux_clock hi3516a_mux_clks_crg[] = {
 
 /* fixed factor clocks */
 static struct hisi_fixed_factor_clock
-				hi3516a_fixed_factor_clks[] = {
+				hi3516a_fixed_factor_clks[] __initdata = {
 	{ HI3516A_SYSAXI_CLK, "clk_sysapb", "sysaxi_mux", 1, 4,
 		CLK_SET_RATE_PARENT, },
 };
 
-static const struct hisi_gate_clock hi3516a_gate_clks[] = {
+static const struct hisi_gate_clock hi3516a_gate_clks[] __initconst = {
 	/* spi nor */
 	{ HI3516A_SNOR_CLK, "clk_snor", "snor_mux",
 		CLK_SET_RATE_PARENT, 0xc0, 1, 0, },
@@ -193,6 +193,7 @@ static const struct hisi_gate_clock hi3516a_gate_clks[] = {
 		CLK_SET_RATE_PARENT, 0xe4, 13, 0, },
 	{ HI3516A_SPI1_CLK, "clk_spi1", "clk_sysapb",
 		CLK_SET_RATE_PARENT, 0xe4, 14, 0, },
+	/* dmac */
 	{ HI3516A_DMAC_CLK, "clk_dmac", "50m",
 		CLK_SET_RATE_PARENT, 0xd8, 5, 0, },
 };
@@ -204,7 +205,7 @@ static struct hi3516a_pll_clock hi3516a_pll_clks[] __initdata = {
 
 #define to_pll_clk(_hw) container_of(_hw, struct hi3516a_clk_pll, hw)
 
-static void hi3516a_calc_pll(u32 *frac_val, u32 *postdiv1_val, u32 *postdiv2_val,
+static void __init hi3516a_calc_pll(u32 *frac_val, u32 *postdiv1_val, u32 *postdiv2_val,
 		u32 *fbdiv_val, u32 *refdiv_val, u64 rate)
 {
 	u64 rem;
@@ -217,7 +218,7 @@ static void hi3516a_calc_pll(u32 *frac_val, u32 *postdiv1_val, u32 *postdiv2_val
 	*frac_val = rem;
 }
 
-static int clk_pll_set_rate(struct clk_hw *hw,
+static int __init clk_pll_set_rate(struct clk_hw *hw,
 		unsigned long rate,
 		unsigned long parent_rate)
 {
@@ -252,7 +253,7 @@ static int clk_pll_set_rate(struct clk_hw *hw,
 	return 0;
 }
 
-static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
+static unsigned long __init clk_pll_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
 {
 	struct hi3516a_clk_pll *clk = to_pll_clk(hw);
@@ -284,19 +285,19 @@ static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
 	return rate;
 }
 
-static int clk_pll_determine_rate(struct clk_hw *hw,
+static int __init clk_pll_determine_rate(struct clk_hw *hw,
 		struct clk_rate_request *req)
 {
 	return req->rate;
 }
 
-static struct clk_ops clk_pll_ops = {
+static struct clk_ops clk_pll_ops __initdata = {
 	.set_rate = clk_pll_set_rate,
 	.determine_rate = clk_pll_determine_rate,
 	.recalc_rate = clk_pll_recalc_rate,
 };
 
-void __init hi3516a_clk_register_pll(struct hi3516a_pll_clock *clks,
+static int __init hi3516a_clk_register_pll(struct hi3516a_pll_clock *clks,
 		int nums, struct hisi_clock_data *data)
 {
 	void __iomem *base = data->base;
@@ -309,7 +310,7 @@ void __init hi3516a_clk_register_pll(struct hi3516a_pll_clock *clks,
 
 		p_clk = kzalloc(sizeof(*p_clk), GFP_KERNEL);
 		if (!p_clk)
-			return;
+			return -1;
 
 		init.name = clks[i].name;
 		init.flags = CLK_IS_BASIC;
@@ -344,26 +345,30 @@ void __init hi3516a_clk_register_pll(struct hi3516a_pll_clock *clks,
 		data->clk_data.clks[clks[i].id] = clk;
 	}
 
-
+	return 0;
 }
 
-static struct hisi_clock_data *hi3516a_clk_register(
-		struct platform_device *pdev)
+static void __init hi3516a_clk_crg_init(struct device_node *np)
 {
 	struct hisi_clock_data *clk_data;
+	unsigned int count = 0;
 	int ret;
 
-	clk_data = hisi_clk_alloc(pdev, HI3516A_CRG_NR_CLKS);
-	if (!clk_data)
-		return ERR_PTR(-ENOMEM);
+	clk_data = hisi_clk_init(np, HI3516A_CRG_NR_CLKS);
+	if (!clk_data) {
+		pr_err("%s: failed to allocate CRG clock data\n", __func__);
+		return;
+	}
 
 	ret = hisi_clk_register_fixed_rate(hi3516a_fixed_rate_clks_crg,
 			ARRAY_SIZE(hi3516a_fixed_rate_clks_crg), clk_data);
 	if (ret)
-		return ERR_PTR(ret);
+		goto err;
 
-	hi3516a_clk_register_pll(hi3516a_pll_clks,
+	ret = hi3516a_clk_register_pll(hi3516a_pll_clks,
 			ARRAY_SIZE(hi3516a_pll_clks), clk_data);
+	if (ret)
+		goto unregister_fixed_rate;
 
 	ret = hisi_clk_register_mux(hi3516a_mux_clks_crg,
 			ARRAY_SIZE(hi3516a_mux_clks_crg), clk_data);
@@ -380,12 +385,16 @@ static struct hisi_clock_data *hi3516a_clk_register(
 	if (ret)
 		goto unregister_factor;
 
-	ret = of_clk_add_provider(pdev->dev.of_node,
+	ret = of_clk_add_provider(np,
 			of_clk_src_onecell_get, &clk_data->clk_data);
 	if (ret)
 		goto unregister_gate;
 
-	return clk_data;
+	if (!of_property_read_u32(np, "#reset-cells", &count) && (count == 2))
+		if (hibvt_reset_init(np, HI3516A_CRG_NR_RSTS))
+			goto err;
+
+	return;
 
 unregister_gate:
 	hisi_clk_unregister_gate(hi3516a_gate_clks,
@@ -399,95 +408,56 @@ unregister_mux:
 unregister_fixed_rate:
 	hisi_clk_unregister_fixed_rate(hi3516a_fixed_rate_clks_crg,
 			ARRAY_SIZE(hi3516a_fixed_rate_clks_crg), clk_data);
-	return ERR_PTR(ret);
+err:
+	pr_err("%s: failed to init CRG clock\n", __func__);
+	return;
 }
+CLK_OF_DECLARE(hi3516a_clk_crg, "hisilicon,hi3516a-clock",
+					hi3516a_clk_crg_init);
 
-static void hi3516a_clk_unregister(struct platform_device *pdev)
-{
-	struct hisi_crg_dev *crg = platform_get_drvdata(pdev);
+/* clock in system control */
+static const char *const timer_mux_p[] __initconst = {"3m", "clk_sysapb"};
+static u32 timer_mux_table[] __initdata = {0, 1};
 
-	of_clk_del_provider(pdev->dev.of_node);
+static const struct hisi_mux_clock hi3516a_mux_clks_sc_clk[] __initconst = {
+	{ HI3516A_TIME0_0_CLK, "timer00", timer_mux_p,
+		    ARRAY_SIZE(timer_mux_p), CLK_SET_RATE_PARENT,
+			    0x0, 16, 1, 0, timer_mux_table, },
 
-	hisi_clk_unregister_gate(hi3516a_gate_clks,
-			ARRAY_SIZE(hi3516a_gate_clks), crg->clk_data);
-	hisi_clk_unregister_mux(hi3516a_mux_clks_crg,
-			ARRAY_SIZE(hi3516a_mux_clks_crg), crg->clk_data);
-	hisi_clk_unregister_fixed_factor(hi3516a_fixed_factor_clks,
-			ARRAY_SIZE(hi3516a_fixed_factor_clks), crg->clk_data);
-	hisi_clk_unregister_fixed_rate(hi3516a_fixed_rate_clks_crg,
-			ARRAY_SIZE(hi3516a_fixed_rate_clks_crg), crg->clk_data);
-}
+	{ HI3516A_TIME0_1_CLK, "timer01", timer_mux_p,
+		    ARRAY_SIZE(timer_mux_p), CLK_SET_RATE_PARENT,
+			    0x0, 18, 1, 0, timer_mux_table, },
 
-static const struct hisi_crg_funcs hi3516a_crg_funcs = {
-	.register_clks = hi3516a_clk_register,
-	.unregister_clks = hi3516a_clk_unregister,
+	{ HI3516A_TIME1_2_CLK, "timer12", timer_mux_p,
+		    ARRAY_SIZE(timer_mux_p), CLK_SET_RATE_PARENT,
+			    0x0, 20, 1, 0, timer_mux_table, },
+
+	{ HI3516A_TIME1_3_CLK, "timer13", timer_mux_p,
+		    ARRAY_SIZE(timer_mux_p), CLK_SET_RATE_PARENT,
+			    0x0, 22, 1, 0, timer_mux_table, },
 };
 
-
-static const struct of_device_id hi3516a_crg_match_table[] = {
-	{
-		.compatible = "hisilicon,hi3516a-clock",
-		.data = &hi3516a_crg_funcs
-	},
-	{ }
-};
-MODULE_DEVICE_TABLE(of, hi3516a_crg_match_table);
-
-static int hi3516a_crg_probe(struct platform_device *pdev)
+static void __init hi3516a_sc_clk_init(struct device_node *np)
 {
-	struct hisi_crg_dev *crg;
+	struct hisi_clock_data *clk_data;
+	int ret;
 
-	crg = devm_kmalloc(&pdev->dev, sizeof(*crg), GFP_KERNEL);
-	if (!crg)
-		return -ENOMEM;
-
-	crg->funcs = of_device_get_match_data(&pdev->dev);
-	if (!crg->funcs)
-		return -ENOENT;
-
-	crg->rstc = hisi_reset_init(pdev);
-	if (!crg->rstc)
-		return -ENOMEM;
-
-	crg->clk_data = crg->funcs->register_clks(pdev);
-	if (IS_ERR(crg->clk_data)) {
-		hisi_reset_exit(crg->rstc);
-		return PTR_ERR(crg->clk_data);
+	clk_data = hisi_clk_init(np, HI3516A_SYS_NR_CLKS);
+	if (!clk_data) {
+		pr_err("%s: failed to allocate %s clock data\n",
+				__func__, np->name);
+		return;
 	}
 
-	platform_set_drvdata(pdev, crg);
-	return 0;
+	ret = hisi_clk_register_mux(hi3516a_mux_clks_sc_clk,
+			ARRAY_SIZE(hi3516a_mux_clks_sc_clk), clk_data);
+	if (ret) {
+		pr_err("%s: failed to register %s mux clock\n",
+				__func__, np->name);
+		return;
+	}
 }
 
-static int hi3516a_crg_remove(struct platform_device *pdev)
-{
-	struct hisi_crg_dev *crg = platform_get_drvdata(pdev);
+CLK_OF_DECLARE(hi3516a_clk_sysctrl, "hisilicon,hi3516a-sysctrl",
+		hi3516a_sc_clk_init);
 
-	hisi_reset_exit(crg->rstc);
-	crg->funcs->unregister_clks(pdev);
-	return 0;
-}
-
-static struct platform_driver hi3516a_crg_driver = {
-	.probe          = hi3516a_crg_probe,
-	.remove     = hi3516a_crg_remove,
-	.driver         = {
-		.name   = "hi3516a-clock",
-		.of_match_table = hi3516a_crg_match_table,
-	},
-};
-
-static int __init hi3516a_crg_init(void)
-{
-	return platform_driver_register(&hi3516a_crg_driver);
-}
-core_initcall(hi3516a_crg_init);
-
-static void __exit hi3516a_crg_exit(void)
-{
-	platform_driver_unregister(&hi3516a_crg_driver);
-}
-module_exit(hi3516a_crg_exit);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("HiSilicon Hi3516A CRG Driver");
