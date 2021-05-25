@@ -50,6 +50,10 @@
 #include "himci_hi3516a.c"
 #endif
 
+#ifdef CONFIG_ARCH_HI3518EV20X
+#include "himci_hi3518ev20x.c"
+#endif
+
 #define DRIVER_NAME "himci"
 #define CMD_DES_PAGE_SIZE	(2 * PAGE_SIZE)
 
@@ -102,11 +106,45 @@ static void himci_sys_reset(struct himci_host *host)
 	local_irq_restore(flags);
 }
 
-static void himci_ctrl_power(struct himci_host *host, unsigned int flag)
+static void himci_ctrl_power(struct himci_host *host,
+		unsigned int flag, unsigned int force)
 {
+	unsigned int port;
+
 	himci_trace(2, "begin");
 
-	himci_writel(flag, host->base + MCI_PWREN);
+	port = host->port;
+
+	if (host->power_status != flag || force == FORCE_ENABLE) {
+		unsigned int reg_value;
+
+		if (flag == POWER_OFF) {
+			reg_value = himci_readl(host->base + MCI_RESET_N);
+			reg_value &= ~(MMC_RST_N << port);
+			himci_writel(reg_value, host->base + MCI_RESET_N);
+		}
+
+		reg_value = himci_readl(host->base + MCI_PWREN);
+		if (flag == POWER_OFF)
+			reg_value &= ~(0x1 << port);
+		else
+			reg_value |= (0x1 << port);
+
+		himci_writel(reg_value, host->base + MCI_PWREN);
+
+		if (flag == POWER_ON) {
+			reg_value = himci_readl(host->base + MCI_RESET_N);
+			reg_value |= (MMC_RST_N << port);
+			himci_writel(reg_value, host->base + MCI_RESET_N);
+		}
+
+		if (in_interrupt())
+			mdelay(100);
+		else
+			msleep(100);
+
+		host->power_status = flag;
+	}
 }
 
 /**********************************************
@@ -118,8 +156,13 @@ static unsigned int himci_sys_card_detect(struct himci_host *host)
 	unsigned int card_status;
 
 	card_status = readl(host->base + MCI_CDETECT);
+	card_status &= (HIMCI_CARD0 << host->port);
+	if (card_status)
+		card_status = 1;
+	else
+		card_status = 0;
 
-	return card_status & HIMCI_CARD0;
+	return card_status;
 }
 
 /**********************************************
@@ -129,7 +172,7 @@ static unsigned int himci_sys_card_detect(struct himci_host *host)
 static unsigned int himci_ctrl_card_readonly(struct himci_host *host)
 {
 	unsigned int card_value = himci_readl(host->base + MCI_WRTPRT);
-	return card_value & HIMCI_CARD0;
+	return card_value & (HIMCI_CARD0 << host->port);
 }
 
 static int himci_wait_cmd(struct himci_host *host)
@@ -185,15 +228,18 @@ static void himci_control_cclk(struct himci_host *host, unsigned int flag)
 	himci_assert(host);
 
 	reg = himci_readl(host->base + MCI_CLKENA);
-	if (flag == ENABLE)
-		reg |= CCLK_ENABLE;
-	else
-		reg &= 0xffff0000;
+	if (flag == ENABLE) {
+		reg |= (CCLK_ENABLE << host->port);
+		reg |= (CCLK_LOW_POWER << host->port);
+	} else {
+		reg &= ~(CCLK_ENABLE << host->port);
+		reg &= ~(CCLK_LOW_POWER << host->port);
+	}
 	himci_writel(reg, host->base + MCI_CLKENA);
 
 	cmd_reg.cmd_arg = himci_readl(host->base + MCI_CMD);
 	cmd_reg.bits.start_cmd = 1;
-	cmd_reg.bits.card_number = 0;
+	cmd_reg.bits.card_number = host->port;
 	cmd_reg.bits.cmd_index = 0;
 	cmd_reg.bits.data_transfer_expected = 0;
 	cmd_reg.bits.update_clk_reg_only = 1;
@@ -233,10 +279,12 @@ static void himci_set_cclk(struct himci_host *host, unsigned int cclk)
 
 	host->hclk = hclk;
 	host->cclk = reg_value ? (hclk / (reg_value * 2)) : hclk;
-	himci_writel(reg_value, host->base + MCI_CLKDIV);
+	himci_writel((reg_value << (host->port * 8)),
+			host->base + MCI_CLKDIV);
 
 	clk_cmd.cmd_arg = himci_readl(host->base + MCI_CMD);
 	clk_cmd.bits.start_cmd = 1;
+	clk_cmd.bits.card_number = host->port;
 	clk_cmd.bits.update_clk_reg_only = 1;
 	clk_cmd.bits.cmd_index = 0;
 	clk_cmd.bits.data_transfer_expected = 0;
@@ -255,6 +303,11 @@ static void himci_init_host(struct himci_host *host)
 	himci_assert(host);
 
 	himci_sys_reset(host);
+
+#ifdef CONFIG_ARCH_HI3518EV20X
+	/* sd use clk0 emmc use clk1 */
+	himci_writel(0x4, host->base + MCI_CLKSRC);
+#endif
 
 	/* set drv/smpl phase shift */
 	tmp_reg |= SMPL_PHASE_DFLT | DRV_PHASE_DFLT;
@@ -408,12 +461,13 @@ static int himci_setup_data(struct himci_host *host, struct mmc_data *data)
 			des[des_cnt].idmac_des_next_addr = host->dma_paddr
 				+ (des_cnt + 1) * sizeof(struct himci_des);
 
-			if (sg_length >= 0x1F00) {
-				des[des_cnt].idmac_des_buf_size = 0x1F00;
-				sg_length -= 0x1F00;
-				sg_phyaddr += 0x1F00;
+			/* buffer size <= 4k */
+			if (sg_length >= 0x1000) {
+				des[des_cnt].idmac_des_buf_size = 0x1000;
+				sg_length -= 0x1000;
+				sg_phyaddr += 0x1000;
 			} else {
-				/* FIXME:data alignment */
+				/* data alignment */
 				des[des_cnt].idmac_des_buf_size = sg_length;
 				sg_length = 0;
 			}
@@ -526,7 +580,7 @@ static int himci_exec_cmd(struct himci_host *host,
 	else
 		cmd_regs.bits.volt_switch = 0;
 
-	cmd_regs.bits.card_number = 0;
+	cmd_regs.bits.card_number = host->port;
 	cmd_regs.bits.cmd_index = cmd->opcode;
 	cmd_regs.bits.start_cmd = 1;
 	cmd_regs.bits.update_clk_reg_only = 0;
@@ -806,9 +860,7 @@ static int himci_wait_card_complete(struct himci_host *host,
 static void himci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct himci_host *host = mmc_priv(mmc);
-	int byte_cnt = 0, trans_cnt;
-	int fifo_count = 0, tmp_reg;
-	int ret = 0;
+	int byte_cnt = 0, fifo_count = 0, ret = 0, tmp_reg;
 	unsigned long flags;
 
 	himci_trace(2, "begin");
@@ -895,6 +947,8 @@ static void himci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 		if (mrq->stop) {
 #ifdef CONFIG_SEND_AUTO_STOP
+			int trans_cnt;
+
 			trans_cnt = himci_readl(host->base + MCI_TCBCNT);
 			/* send auto stop */
 			if ((trans_cnt == byte_cnt) && (!(host->is_tuning))) {
@@ -946,7 +1000,7 @@ static int himci_do_voltage_switch(struct himci_host *host,
 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
 		/* Set 1.8V Signal Enable in the MCI_UHS_REG to 1 */
 		himci_trace(3, "switch voltage 330");
-		ctrl &= ~HI_SDXC_CTRL_VDD_180;
+		ctrl &= ~(HI_SDXC_CTRL_VDD_180 << host->port);
 		himci_writel(ctrl, host->base + MCI_UHS_REG);
 
 		/* Wait for 5ms */
@@ -954,7 +1008,7 @@ static int himci_do_voltage_switch(struct himci_host *host,
 
 		/* 3.3V regulator output should be stable within 5 ms */
 		ctrl = himci_readl(host->base + MCI_UHS_REG);
-		if (!(ctrl & HI_SDXC_CTRL_VDD_180)) {
+		if (!(ctrl & (HI_SDXC_CTRL_VDD_180 << host->port ))) {
 			/* config Pin drive capability */
 			himci_set_drv_cap(host, 0);
 			return 0;
@@ -963,7 +1017,7 @@ static int himci_do_voltage_switch(struct himci_host *host,
 			himci_error("signalling voltage failed\n");
 			return -EIO;
 		}
-	} else if (!(ctrl & HI_SDXC_CTRL_VDD_180) &&
+	} else if (!(ctrl & (HI_SDXC_CTRL_VDD_180 << host->port)) &&
 		  (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180)) {
 		/* Stop SDCLK */
 		himci_trace(3, "switch voltage 180");
@@ -973,18 +1027,22 @@ static int himci_do_voltage_switch(struct himci_host *host,
 		/*
 		 * Enable 1.8V Signal Enable in the MCI_UHS_REG
 		 */
-		ctrl |= HI_SDXC_CTRL_VDD_180;
+		ctrl |= (HI_SDXC_CTRL_VDD_180 << host->port);
 		himci_writel(ctrl, host->base + MCI_UHS_REG);
 
 		/* Wait for 5ms */
 		usleep_range(8000, 8500);
 
 		ctrl = himci_readl(host->base + MCI_UHS_REG);
-		if (ctrl & HI_SDXC_CTRL_VDD_180) {
+		if (ctrl & (HI_SDXC_CTRL_VDD_180 << host->port)) {
 			/* Provide SDCLK again and wait for 1ms */
 			himci_control_cclk(host, ENABLE);
 			usleep_range(1000, 1500);
 
+			if (host->mmc->caps2 & MMC_CAP2_HS200) {
+				/* eMMC needn't to check the int status*/
+				return 0;
+			}
 			/*
 			 * If CMD11 return CMD down, then the card
 			 * was successfully switched to 1.8V signaling.
@@ -992,6 +1050,8 @@ static int himci_do_voltage_switch(struct himci_host *host,
 			ctrl = himci_readl(host->base + MCI_RINTSTS);
 			if ((ctrl & VOLT_SWITCH_INT_STATUS)
 					&& (ctrl & CD_INT_STATUS)) {
+				himci_writel(VOLT_SWITCH_INT_STATUS | CD_INT_STATUS,
+						host->base + MCI_RINTSTS);
 				/* config Pin drive capability */
 				himci_set_drv_cap(host, 1);
 				return 0;
@@ -1003,6 +1063,18 @@ static int himci_do_voltage_switch(struct himci_host *host,
 		 * failed. We power cycle the card, and retry initialization
 		 * sequence by setting S18R to 0.
 		 */
+
+		ctrl &= ~(HI_SDXC_CTRL_VDD_180 << host->port);
+		himci_writel(ctrl, host->base + MCI_UHS_REG);
+
+		/* Wait for 5ms */
+		usleep_range(5000, 5500);
+
+		himci_ctrl_power(host, POWER_OFF, FORCE_DISABLE);
+		/* Wait for 1ms as per the spec */
+		usleep_range(1000, 1500);
+		himci_ctrl_power(host, POWER_ON, FORCE_DISABLE);
+
 		himci_control_cclk(host, DISABLE);
 
 		/* Wait for 1ms as per the spec */
@@ -1179,20 +1251,16 @@ static void himci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	himci_assert(host);
 
 	himci_trace(3, "ios->power_mode = %d ", ios->power_mode);
+	if (!ios->clock)
+		himci_control_cclk(host, DISABLE);
+
 	switch (ios->power_mode) {
 	case MMC_POWER_OFF:
-		/*
-		 * Set controller working voltage as 3.3V before power off.
-		 */
-		ctrl = himci_readl(host->base + MCI_UHS_REG);
-		ctrl &= ~HI_SDXC_CTRL_VDD_180;
-		himci_writel(ctrl, host->base + MCI_UHS_REG);
-
-		himci_ctrl_power(host, POWER_OFF);
+		himci_ctrl_power(host, POWER_OFF, FORCE_DISABLE);
 		break;
 	case MMC_POWER_UP:
 	case MMC_POWER_ON:
-		himci_ctrl_power(host, POWER_ON);
+		himci_ctrl_power(host, POWER_ON, FORCE_DISABLE);
 		break;
 	}
 	himci_trace(3, "ios->clock = %d ", ios->clock);
@@ -1204,8 +1272,8 @@ static void himci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		/* speed mode check, if it is DDR50 set DDR mode */
 		if (ios->timing == MMC_TIMING_UHS_DDR50) {
 			ctrl = himci_readl(host->base + MCI_UHS_REG);
-			if (!(HI_SDXC_CTRL_DDR_REG & ctrl)) {
-				ctrl |= HI_SDXC_CTRL_DDR_REG;
+			if (!((HI_SDXC_CTRL_DDR_REG << host->port) & ctrl)) {
+				ctrl |= (HI_SDXC_CTRL_DDR_REG << host->port);
 				himci_writel(ctrl, host->base + MCI_UHS_REG);
 			}
 		}
@@ -1213,8 +1281,8 @@ static void himci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		himci_control_cclk(host, DISABLE);
 		if (ios->timing != MMC_TIMING_UHS_DDR50) {
 			ctrl = himci_readl(host->base + MCI_UHS_REG);
-			if (HI_SDXC_CTRL_DDR_REG & ctrl) {
-				ctrl &= ~HI_SDXC_CTRL_DDR_REG;
+			if ((HI_SDXC_CTRL_DDR_REG << host->port) & ctrl) {
+				ctrl &= ~(HI_SDXC_CTRL_DDR_REG << host->port);
 				himci_writel(ctrl, host->base + MCI_UHS_REG);
 			}
 		}
@@ -1222,15 +1290,17 @@ static void himci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	/* set bus_width */
 	himci_trace(3, "ios->bus_width = %d ", ios->bus_width);
-	if (ios->bus_width == MMC_BUS_WIDTH_4) {
-		tmp_reg = himci_readl(host->base + MCI_CTYPE);
-		tmp_reg |= CARD_WIDTH;
+	tmp_reg = himci_readl(host->base + MCI_CTYPE);
+	tmp_reg &= ~((CARD_WIDTH_0 | CARD_WIDTH_1) << host->port);
+
+	if (ios->bus_width == MMC_BUS_WIDTH_8) {
+		tmp_reg |= (CARD_WIDTH_0 << host->port);
 		himci_writel(tmp_reg, host->base + MCI_CTYPE);
-	} else {
-		tmp_reg = himci_readl(host->base + MCI_CTYPE);
-		tmp_reg &= ~CARD_WIDTH;
+	} else if (ios->bus_width == MMC_BUS_WIDTH_4) {
+		tmp_reg |= (CARD_WIDTH_1 << host->port);
 		himci_writel(tmp_reg, host->base + MCI_CTYPE);
-	}
+	} else
+		himci_writel(tmp_reg, host->base + MCI_CTYPE);
 }
 
 static void himci_enable_sdio_irq(struct mmc_host *mmc, int enable)
@@ -1273,6 +1343,26 @@ static int himci_get_ro(struct mmc_host *mmc)
 	return ret;
 }
 
+static void himci_hw_reset(struct mmc_host *mmc)
+{
+	unsigned int reg_value;
+	struct himci_host *host = mmc_priv(mmc);
+	unsigned int port = host->port;
+
+	reg_value = himci_readl(host->base + MCI_RESET_N);
+	reg_value &= ~(MMC_RST_N << port);
+	himci_writel(reg_value, host->base + MCI_RESET_N);
+
+	/* For eMMC, minimum is 1us but give it 10us for good measure */
+	udelay(10);
+	reg_value = himci_readl(host->base + MCI_RESET_N);
+	reg_value |= (MMC_RST_N << port);
+	himci_writel(reg_value, host->base + MCI_RESET_N);
+
+	/* For eMMC, minimum is 200us but give it 300us for good measure */
+	usleep_range(300, 1000);
+}
+
 static const struct mmc_host_ops himci_ops = {
 	.request = himci_request,
 	.set_ios = himci_set_ios,
@@ -1280,6 +1370,7 @@ static const struct mmc_host_ops himci_ops = {
 	.start_signal_voltage_switch = himci_start_signal_voltage_switch,
 	.execute_tuning	= himci_execute_tuning,
 	.enable_sdio_irq = himci_enable_sdio_irq,
+	.hw_reset = himci_hw_reset,
 	.get_cd = himci_get_card_detect,
 };
 
@@ -1339,10 +1430,11 @@ static int himci_of_parse(struct device_node *np, struct mmc_host *mmc)
 	if (ret)
 		return ret;
 
-	if (of_property_read_u32(np, "min-frequency", &mmc->caps))
+	if (of_property_read_u32(np, "min-frequency", &mmc->f_min))
 		mmc->f_min = MMC_CCLK_MIN;
 
-	of_property_read_u32(np, "devid", &host->devid);
+	if (of_property_read_u32(np, "devid", &host->devid))
+		return -EINVAL;
 
 	if (of_find_property(np, "cap-mmc-hw-reset", &len))
 		mmc->caps |= MMC_CAP_HW_RESET;
@@ -1398,6 +1490,14 @@ static int __init himci_probe(struct platform_device *pdev)
 	pdev->id = host->devid;
 	host->pdev = pdev;
 	host->mmc = mmc;
+#ifdef CONFIG_ARCH_HI3518EV20X
+	if (host->mmc->caps & MMC_CAP_HW_RESET)
+		host->port = 1;
+	else
+		host->port = 0;
+#else
+	host->port = 0;
+#endif
 	host->dma_vaddr = dma_alloc_coherent(&pdev->dev, CMD_DES_PAGE_SIZE,
 			&host->dma_paddr, GFP_KERNEL);
 	if (!host->dma_vaddr) {
@@ -1495,7 +1595,7 @@ static int __exit himci_remove(struct platform_device *pdev)
 		mmc_remove_host(mmc);
 		free_irq(host->irq, host);
 		del_timer_sync(&host->timer);
-		himci_ctrl_power(host, POWER_OFF);
+		himci_ctrl_power(host, POWER_OFF, FORCE_DISABLE);
 		himci_control_cclk(host, DISABLE);
 		devm_iounmap(&pdev->dev, host->base);
 		dma_free_coherent(&pdev->dev, CMD_DES_PAGE_SIZE, host->dma_vaddr,
@@ -1592,6 +1692,7 @@ EXPORT_SYMBOL(himci_mmc_rescan);
 static const struct of_device_id
 himci_match[] __maybe_unused = {
 	{.compatible = "hisilicon,hi3516a-himci"},
+	{.compatible = "hisilicon,hi3518ev20x-himci"},
 	{},
 };
 

@@ -17,6 +17,8 @@ extern int trace_level;
 #define NOT_FOUND       -1
 #define POWER_ON	1
 #define POWER_OFF	0
+#define FORCE_ENABLE     1
+#define FORCE_DISABLE    0
 
 #define CARD_UNPLUGED	1
 #define CARD_PLUGED	0
@@ -33,7 +35,7 @@ extern int trace_level;
 #define MMC_CCLK_MIN      100000
 
 /* Base address of SD card register */
-#define HI_MCI_INTR               (48+32)
+#define HI_MCI_INTR               (49+32)
 
 #define himci_trace(level, msg...) do { \
 	if ((level) >= trace_level) { \
@@ -102,6 +104,7 @@ struct himci_host {
 	unsigned int	   cclk;
 	struct clk	*clk;
 	struct reset_control *crg_rst;
+	unsigned int	port;
 };
 
 union cmd_arg_u {

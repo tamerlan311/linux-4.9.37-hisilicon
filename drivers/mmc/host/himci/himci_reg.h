@@ -33,6 +33,7 @@
 #define MCI_VERID		0x6C
 #define MCI_HCON		0x70
 #define MCI_UHS_REG		0x74
+#define MCI_RESET_N     0x78
 #define MCI_BMOD		0x80
 #define MCI_DBADDR		0x88
 #define MCI_IDSTS		0x8C
@@ -41,23 +42,6 @@
 #define MCI_BUFADDR		0x98
 #define MCI_CARDTHRCTL		0x100
 #define MCI_UHS_REG_EXT     0x108
-/* MCI_UHS_REG(0x74) details */
-#define HI_SDXC_CTRL_VDD_180	(0x1<<0)
-#define HI_SDXC_CTRL_DDR_REG	(0x1<<16)
-
-/* MCI_BMOD(0x80) details */
-#define BMOD_SWR		(0x1<<0)
-#define BURST_INCR		(0x1<<1)
-#define BMOD_DMA_EN		(0x1<<7)
-#define BURST_8			(0x2<<8)
-#define BURST_16		(0x3<<8)
-
-/* MCI_CTRL(0x00) details */
-#define CTRL_RESET             (1<<0)
-#define FIFO_RESET             (1<<1)
-#define DMA_RESET              (1<<2)
-#define INTR_EN                (1<<4)
-#define USE_INTERNAL_DMA       (1<<25)
 
 /* IDMAC DEST1 details */
 #define DMA_BUFFER		(0x2000)
@@ -69,26 +53,26 @@
 #define DMA_DES_FIRST_DES	(1<<3)
 #define DMA_DES_LAST_DES	(1<<2)
 
-/* MCI_CDETECT(0x50) details */
-#define HIMCI_CARD0		(0x1<<0)
+/* MCI_CTRL(0x00) details */
+#define CTRL_RESET             (1<<0)
+#define FIFO_RESET             (1<<1)
+#define DMA_RESET              (1<<2)
+#define INTR_EN                (1<<4)
+#define USE_INTERNAL_DMA       (1<<25)
+
+/* MCI_CLKENA(0x10) details */
+#define CCLK_ENABLE		(0x1<<0)
+#define CCLK_LOW_POWER	(0x1<<16)
 
 /* MCI_TIMEOUT(0x14) details: */
 /*bit 31-8: data read timeout param*/
 #define DATA_TIMEOUT		(0xffffff<<8)
-
 /* bit 7-0: response timeout param */
 #define RESPONSE_TIMEOUT	0xff
 
-/* MCI_CLKENA(0x10) details */
-#define CCLK_ENABLE		(0x1<<0)	/* bit 0: enable of card clk*/
-
-
-
 /* MCI_CTYPE(0x18) details */
-#define CARD_WIDTH		(0x1<<0)
-
-/* MCI_CARDTHRCTL(0x100) details */
-#define RW_THRESHOLD_SIZE	(0x2000001)
+#define CARD_WIDTH_0		(0x1<<16)
+#define CARD_WIDTH_1		(0x1<<0)
 
 /* MCI_INTMASK(0x24) details:
    bit 16-1: mask MMC host controller each interrupt
@@ -96,16 +80,6 @@
 #define ALL_INT_MASK		0x1ffff
 #define DTO_INT_MASK		(0x1<<3)
 #define SDIO_INT_MASK		(0x1<<16)
-
-/* MCI_UHS_REG_EXT(0x108) details */
-/* bit[19:16] sampling phase */
-#define CLK_SMPL_PHS_SHIFT	(16)
-#define CLK_SMPL_PHS_MASK	(0x7<<16)
-
-/* bit[26:23] drv phase */
-#define CLK_DRV_PHS_SHIFT	(23)
-#define CLK_DRV_PHS_MASK	(0x7<<23)
-#define DEFAULT_PHASE		0x1050000
 
 /* MCI_CMD(0x2c) details:
    bit 31: cmd execute or load start param of interface clk bit
@@ -184,5 +158,35 @@
 #define BURST_SIZE		(0x6<<28)
 #define RX_WMARK		(0x7f<<16)
 #define TX_WMARK          (0x80)
+
+/* MCI_CDETECT(0x50) details */
+#define HIMCI_CARD0		(0x1<<0)
+
+/* MCI_UHS_REG(0x74) details */
+#define HI_SDXC_CTRL_VDD_180	(0x1<<0)
+#define HI_SDXC_CTRL_DDR_REG	(0x1<<16)
+
+/* MCI_RESET_N(0x78) details */
+#define MMC_RST_N   (0x1<<0)
+
+/* MCI_BMOD(0x80) details */
+#define BMOD_SWR		(0x1<<0)
+#define BURST_INCR		(0x1<<1)
+#define BMOD_DMA_EN		(0x1<<7)
+#define BURST_8			(0x2<<8)
+#define BURST_16		(0x3<<8)
+
+/* MCI_CARDTHRCTL(0x100) details */
+#define RW_THRESHOLD_SIZE	(0x2000001)
+
+/* MCI_UHS_REG_EXT(0x108) details */
+/* bit[19:16] sampling phase */
+#define CLK_SMPL_PHS_SHIFT	(16)
+#define CLK_SMPL_PHS_MASK	(0x7<<16)
+
+/* bit[26:23] drv phase */
+#define CLK_DRV_PHS_SHIFT	(23)
+#define CLK_DRV_PHS_MASK	(0x7<<23)
+#define DEFAULT_PHASE		0x1050000
 
 #endif

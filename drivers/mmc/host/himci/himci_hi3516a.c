@@ -15,8 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-
-#define MMC_CRG_MIN			25000000
+#define MMC_CRG_MIN		25000000
 
 #define TUNING_START_PHASE	0
 #define TUNING_END_PHASE	7
