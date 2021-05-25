@@ -29,6 +29,7 @@
 #define SNOR_MFR_WINBOND	0xef
 #define SNOR_MFR_ESMT		0x8c
 #define SNOR_MFR_GD			0xc8
+#define SNOR_MFR_XTX        0x0b
 
 /* Flash set the RESET# from */
 #define SPI_NOR_SR_RST_MASK	BIT(7)
@@ -149,7 +150,7 @@
 #define SR_SRWD			BIT(7)	/* SR write protect */
 
 #define SR_QUAD_EN_MX		BIT(6)	/* Macronix Quad I/O */
-
+#define CR_DUMMY_CYCLE          (0x03 << 6) /* Macronix dummy cycle bits */
 /* Enhanced Volatile Configuration Register bits */
 #define EVCR_DUAL_EN_MICRON	BIT(6)	/* Micron Dual I/O */
 #define EVCR_QUAD_EN_MICRON	BIT(7)	/* Micron Quad I/O */
@@ -159,6 +160,9 @@
 
 /* Configuration Register bits. */
 #define CR_QUAD_EN_SPAN		BIT(1)	/* Spansion Quad I/O */
+
+/* Status Register bits. */
+#define SR_QUAD_EN_XTX      BIT(1)
 
 /* Supported modes */
 enum spi_nor_mode_index {
@@ -351,6 +355,7 @@ struct spi_nor {
 	unsigned int lock_level_max;
 	unsigned char level;
 #endif
+	u32 clkrate;
 	void *priv;
 };
 

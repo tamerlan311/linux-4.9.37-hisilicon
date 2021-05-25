@@ -51,6 +51,7 @@ struct hifmc_host {
 	struct spi_nor	*nor[HIFMC_MAX_CHIP_NUM];
 	struct hifmc_priv priv[HIFMC_MAX_CHIP_NUM];
 	u32 num_chip;
+	unsigned int dma_len;
 };
 
 /******************************************************************************/
@@ -131,12 +132,14 @@ static int hisi_spi_nor_prep(struct spi_nor *nor, enum spi_nor_ops ops)
 {
 	struct hifmc_priv *priv = nor->priv;
 	struct hifmc_host *host = priv->host;
+	u32 clkrate;
 	int ret;
 
 	mutex_lock(&fmc_switch_mutex);
 	mutex_lock(host->lock);
 
-	ret = clk_set_rate(host->clk, priv->clkrate);
+	clkrate = min_t(u32, priv->clkrate, nor->clkrate);
+	ret = clk_set_rate(host->clk, clkrate);
 	if (ret)
 		goto out;
 
@@ -166,7 +169,7 @@ static void hisi_spi_nor_unprep(struct spi_nor *nor, enum spi_nor_ops ops)
 
 /******************************************************************************/
 static int hisi_spi_nor_op_reg(struct spi_nor *nor,
-				u8 opcode, int len, u8 optype)
+				u8 opcode, u32 len, u8 optype)
 {
 	struct hifmc_priv *priv = nor->priv;
 	struct hifmc_host *host = priv->host;
@@ -275,8 +278,8 @@ static ssize_t hisi_spi_nor_read(struct spi_nor *nor, loff_t from, size_t len,
 	size_t offset;
 	int ret;
 
-	for (offset = 0; offset < len; offset += HIFMC_DMA_MAX_LEN) {
-		size_t trans = min_t(size_t, HIFMC_DMA_MAX_LEN, len - offset);
+	for (offset = 0; offset < len; offset += host->dma_len) {
+		size_t trans = min_t(size_t, host->dma_len, len - offset);
 
 		ret = hisi_spi_nor_dma_transfer(nor,
 			from + offset, host->dma_buffer, trans, FMC_OP_READ);
@@ -298,8 +301,8 @@ static ssize_t hisi_spi_nor_write(struct spi_nor *nor, loff_t to,
 	size_t offset;
 	int ret;
 
-	for (offset = 0; offset < len; offset += HIFMC_DMA_MAX_LEN) {
-		size_t trans = min_t(size_t, HIFMC_DMA_MAX_LEN, len - offset);
+	for (offset = 0; offset < len; offset += host->dma_len) {
+		size_t trans = min_t(size_t, host->dma_len, len - offset);
 
 		memcpy(host->buffer, write_buf + offset, trans);
 		ret = hisi_spi_nor_dma_transfer(nor,
@@ -481,6 +484,7 @@ static int hisi_spi_nor_probe(struct platform_device *pdev)
 	host->lock = &fmc->lock;
 	host->buffer = fmc->buffer;
 	host->dma_buffer = fmc->dma_buffer;
+	host->dma_len = fmc->dma_len;
 
 	clk_prepare_enable(host->clk);
 	hisi_spi_nor_init(host);

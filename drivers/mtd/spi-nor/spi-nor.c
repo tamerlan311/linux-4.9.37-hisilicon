@@ -81,6 +81,7 @@ struct flash_info {
 					 */
 
 	const struct spi_nor_basic_flash_parameter *params;
+	u32 clkrate;
 };
 
 #define JEDEC_MFR(info)	((info)->id[0])
@@ -185,7 +186,7 @@ static u8 spi_nor_convert_opcode(u8 opcode,
 				 const struct spi_nor_address_entry *entries,
 				 size_t num_entries)
 {
-	int min, max;
+	unsigned int min, max;
 
 	min = 0;
 	max = num_entries - 1;
@@ -252,7 +253,7 @@ static void spi_nor_set_4byte_opcodes(struct spi_nor *nor,
 
 /* Enable/disable 4-byte addressing mode. */
 static inline int set_4byte(struct spi_nor *nor, const struct flash_info *info,
-			    int enable)
+			    u32 enable)
 {
 	int status;
 	bool need_wren = false;
@@ -299,14 +300,15 @@ static inline int spi_nor_sr_ready(struct spi_nor *nor)
 		return !(sr & SR_WIP);
 }
 
-static inline int spi_nor_fsr_ready(struct spi_nor *nor)
+static inline unsigned int spi_nor_fsr_ready(struct spi_nor *nor)
 {
 	int fsr = read_fsr(nor);
+	unsigned int ufsr = (unsigned int)fsr;
 
 	if (fsr < 0)
 		return fsr;
 	else
-		return fsr & FSR_READY;
+		return ufsr & FSR_READY;
 }
 
 static int spi_nor_ready(struct spi_nor *nor)
@@ -841,6 +843,7 @@ static int spi_nor_is_locked(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 static int spansion_quad_enable(struct spi_nor *nor);
 static int macronix_quad_enable(struct spi_nor *nor);
 static int gd_quad_enable(struct spi_nor *nor);
+static int xtx_quad_enable(struct spi_nor *nor);
 
 #define SNOR_EON_RD_MODES			\
 	(SNOR_MODE_SLOW |			\
@@ -987,6 +990,23 @@ static const struct spi_nor_basic_flash_parameter mxic_params = {
 
 };
 
+static const struct spi_nor_basic_flash_parameter xmc_params = {
+	.rd_modes		= SNOR_RD_MODES,
+	.reads[SNOR_MIDX_SLOW]	= SNOR_OP_READ(0, 0, SPINOR_OP_READ),
+	.reads[SNOR_MIDX_1_1_1]	= SNOR_OP_READ(0, 8, SPINOR_OP_READ_FAST),
+	.reads[SNOR_MIDX_1_1_2]	= SNOR_OP_READ(0, 8, SPINOR_OP_READ_1_1_2),
+	.reads[SNOR_MIDX_1_2_2]	= SNOR_OP_READ(0, 8, SPINOR_OP_READ_1_2_2),
+	.reads[SNOR_MIDX_1_1_4]	= SNOR_OP_READ(0, 8, SPINOR_OP_READ_1_1_4),
+	.reads[SNOR_MIDX_1_4_4]	= SNOR_OP_READ(0, 24, SPINOR_OP_READ_1_4_4),
+
+	.wr_modes		= SNOR_WR_MODES,
+	.page_programs[SNOR_MIDX_1_1_1]	= SPINOR_OP_PP,
+	.page_programs[SNOR_MIDX_1_1_4]	= SPINOR_OP_PP_1_1_4,
+
+	.erase_types[0]		= SNOR_OP_ERASE_64K(SPINOR_OP_SE),
+
+};
+
 static const struct spi_nor_basic_flash_parameter micron_params = {
 	.rd_modes		= SNOR_RD_MODES,
 	.reads[SNOR_MIDX_SLOW]	= SNOR_OP_READ(0, 0, SPINOR_OP_READ),
@@ -1021,6 +1041,24 @@ static const struct spi_nor_basic_flash_parameter micron_4k_params = {
 	.erase_types[1]		= SNOR_OP_ERASE_4K(SPINOR_OP_BE_4K),
 };
 
+static const struct spi_nor_basic_flash_parameter xtx_params = {
+	.rd_modes		= SNOR_RD_MODES,
+	.reads[SNOR_MIDX_SLOW]	= SNOR_OP_READ(0, 0, SPINOR_OP_READ),
+	.reads[SNOR_MIDX_1_1_1]	= SNOR_OP_READ(0, 8, SPINOR_OP_READ_FAST),
+	.reads[SNOR_MIDX_1_1_2]	= SNOR_OP_READ(0, 8, SPINOR_OP_READ_1_1_2),
+	.reads[SNOR_MIDX_1_2_2]	= SNOR_OP_READ(0, 8, SPINOR_OP_READ_1_2_2),
+	.reads[SNOR_MIDX_1_1_4]	= SNOR_OP_READ(0, 8, SPINOR_OP_READ_1_1_4),
+	.reads[SNOR_MIDX_1_4_4]	= SNOR_OP_READ(0, 24, SPINOR_OP_READ_1_4_4),
+
+	.wr_modes		= SNOR_WR_MODES,
+	.page_programs[SNOR_MIDX_1_1_1]	= SPINOR_OP_PP,
+	.page_programs[SNOR_MIDX_1_1_4]	= SPINOR_OP_PP_1_1_4,
+
+	.erase_types[0]		= SNOR_OP_ERASE_64K(SPINOR_OP_SE),
+
+	.enable_quad_io         = xtx_quad_enable,
+
+};
 #define PARAMS(_name) .params = &_name##_params
 
 /* Used when the "_ext_id" is two bytes at most */
@@ -1060,6 +1098,10 @@ static const struct spi_nor_basic_flash_parameter micron_4k_params = {
 		.addr_width = (_addr_width),				\
 		.flags = (_flags),
 
+/* Different from spi-max-frequency in DTS, the clk here stands for the clock 
+ * rate on SPI interface, it is half of the FMC CRG configuration */
+#define CLK_MHZ_2X(clk)  .clkrate = (clk * 2000000),
+
 /* NOTE: double check command sets and memory organization when you add
  * more nor chips.  This current list focusses on newer chips, which
  * have been converging on command sets which including JEDEC ID.
@@ -1071,10 +1113,11 @@ static const struct spi_nor_basic_flash_parameter micron_4k_params = {
  * For historical (and compatibility) reasons (before we got above config) some
  * old entries may be missing 4K flag.
  */
-#define SPI_NOR_IDS_VER     "1.0"
+#define SPI_NOR_IDS_VER     "1.2"
 
-/******* SPI Nor ID Table **************************************************
+/******* SPI Nor ID Table ************************************************************************
  * Version   Manufacturer    	Chip Name    		Chipsize	Block	Vol  	Operation
+ *		Macronix/MXIC	MX25V1635F              2M	        64K     3V3
  * 1.0		Macronix/MXIC	MX25L1606E		2M		64K	3V3
  *		Macronix/MXIC	MX25L6436F		8M		64K	3V3
  *		Macronix/MXIC	MX25R6435F		8M		64K	1V8/3V3 Add 14chips
@@ -1091,27 +1134,33 @@ static const struct spi_nor_basic_flash_parameter micron_4k_params = {
  *		Micron		N25Q128A11/MT25QU128AB  16M     	64K     1V8
  *		Micron		N25QL128A		16M     	64K     3V3
  *		Micron		MT25QU256A		32M     	64K     1V8
- *			Micron			MT25Q256A		32M     64K     3V3
+ *		Micron		MT25QL256A		32M     	64K     3V3
  *		Winbond		W25Q16(B/C)V/S25FL016K	2M		64K     3V3
  *		Winbond		W25Q32(B/F)V		4M		64K     3V3
  *		Winbond		W25Q32FW		4M		64K     1V8
  *		Winbond		W25Q64FW		8M		64K     1V8
- *			Winbond			W25Q64FV		8M		64K     3V3
+ *		Winbond		W25Q64FV(SPI)/W25Q64JV_IQ	8M		64K     3V3
  *		Winbond		W25Q128FW		16M     	64K     1V8
  *		Winbond		W25Q128(B/F)V		16M     	64K     3V3
- *			Winbond			W25Q128JV		16M     64K     3V3  DTR
+ *		Winbond		W25Q128JV_IM		16M     	64K     3V3  	DTR
  *		ESMT/CFEON	EN25Q32B		4M      	64K     3V3
  *		ESMT/CFEON	EN25Q64			8M      	64K     3V3
  *		ESMT/CFEON	EN25Q128		16M     	64K     3V3
  *		ESMT/CFEON	F25L64QA		8M      	64K     3V3
+ *		GD		GD25Q16C	        2M		64K     3V3
  *		GD		GD25Q64			8M      	64K     3V3
  *		GD		GD25LQ128		16M     	64K     1V8
  *		GD		GD25Q128		16M     	64K     3V3
+ *		GD		GD25Q256		32M     	64K     3V3
  *		GD		GD25LQ64C		8M      	64K     1V8
  *		GD		GD25Q32			4M      	64K     3V3
  *		Paragon		PN25F16S		2M		64K     3V3
  *		Paragon		PN25F32S		4M      	64K     3V3
- *****************************************************************************/
+ * 1.1		ESMT/CFEON	EN25QH64A		8M      	64K     3V3
+ * 1.2		XMC		XM25QH64AHIG		8M      	64K     3V3
+ * 		XMC		XM25QH128A		16M		64K	3V3
+ * 		XMC		XM25QH128B		16M		64K	3V3
+ ********************************************************************************************/
 static const struct flash_info spi_nor_ids[] = {
 	/* Atmel -- some are (confusingly) marketed as "DataFlash" */
 	{ "at25fs010",  INFO(0x1f6601, 0, 32 * 1024,   4, SECT_4K) },
@@ -1131,18 +1180,23 @@ static const struct flash_info spi_nor_ids[] = {
 	/* EON -- en25xxx */
 	{ "en25f32",    INFO(0x1c3116, 0, 64 * 1024,   64, SECT_4K) },
 	{ "en25p32",    INFO(0x1c2016, 0, 64 * 1024,   64, 0) },
-	{ "en25q32b",   INFO(0x1c3016, 0, 64 * 1024,   64, 0), PARAMS(eon) },
+	{ "en25q32b",   INFO(0x1c3016, 0, 64 * 1024,   64,
+			SPI_NOR_QUAD_READ), PARAMS(eon), CLK_MHZ_2X(104) },
 	{ "en25p64",    INFO(0x1c2017, 0, 64 * 1024,  128, 0) },
-	{ "en25q64",    INFO(0x1c3017, 0, 64 * 1024,  128, SECT_4K),
-		PARAMS(eon) },
-	{ "en25q128",   INFO(0x1c3018, 0, 64 * 1024,  256, 0), PARAMS(eon) },
+	{ "en25q64",    INFO(0x1c3017, 0, 64 * 1024,  128,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(eon), CLK_MHZ_2X(104) },
+	{ "en25qh64a",    INFO(0x1c7017, 0, 64 * 1024,  128,
+			SPI_NOR_QUAD_READ), PARAMS(eon), CLK_MHZ_2X(104) },
+	{ "en25q128",   INFO(0x1c3018, 0, 64 * 1024,  256,
+			SPI_NOR_QUAD_READ), PARAMS(eon), CLK_MHZ_2X(104) },
 	{ "en25qh128",  INFO(0x1c7018, 0, 64 * 1024,  256, 0) },
 	{ "en25qh256",  INFO(0x1c7019, 0, 64 * 1024,  512, 0) },
 	{ "en25s64",	INFO(0x1c3817, 0, 64 * 1024,  128, SECT_4K) },
 
 	/* ESMT */
 	{ "f25l32pa", INFO(0x8c2016, 0, 64 * 1024, 64, SECT_4K) },
-	{ "f25l64qa", INFO(0x8c4117, 0, 64 * 1024, 128, 0), PARAMS(esmt) },
+	{ "f25l64qa", INFO(0x8c4117, 0, 64 * 1024, 128,
+					SPI_NOR_QUAD_READ), PARAMS(esmt), CLK_MHZ_2X(84) },
 
 	/* Everspin */
 	{ "mr25h256", CAT25_INFO(32 * 1024, 1, 256, 2, SPI_NOR_NO_ERASE
@@ -1154,13 +1208,23 @@ static const struct flash_info spi_nor_ids[] = {
 	{ "mb85rs1mt", INFO(0x047f27, 0, 128 * 1024, 1, SPI_NOR_NO_ERASE) },
 
 	/* GigaDevice 3.3V */
-	{ "gd25q16c", INFO(0xc84015, 0, 64 * 1024, 32, SECT_4K), PARAMS(gd) },
-	{ "gd25q32", INFO(0xc84016, 0, 64 * 1024,  64, SECT_4K), PARAMS(gd) },
-	{ "gd25q64", INFO(0xc84017, 0, 64 * 1024, 128, SECT_4K), PARAMS(gd) },
-	{ "gd25q128", INFO(0xc84018, 0, 64 * 1024, 256, SECT_4K), PARAMS(gd) },
+	{ "gd25q16c", INFO(0xc84015, 0, 64 * 1024, 32,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(gd), CLK_MHZ_2X(120) },
+	{ "gd25q32", INFO(0xc84016, 0, 64 * 1024,  64,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(gd), CLK_MHZ_2X(120) },
+	{ "gd25q64", INFO(0xc84017, 0, 64 * 1024, 128,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(gd), CLK_MHZ_2X(120) },
+	{ "gd25q128", INFO(0xc84018, 0, 64 * 1024, 256,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(gd), CLK_MHZ_2X(80) },
+	{ "gd25q256", INFO(0xc84019, 0, 64 * 1024, 512,
+			SECT_4K | SPI_NOR_QUAD_READ | SPI_NOR_4B_OPCODES), PARAMS(gd), CLK_MHZ_2X(80) },
 	/* GigaDevice 1.8V */
-	{ "gd25lq64", INFO(0xc86017, 0, 64 * 1024, 128, SECT_4K), PARAMS(gd) },
-	{ "gd25lq128", INFO(0xc86018, 0, 64 * 1024, 256, SECT_4K), PARAMS(gd) },
+	{ "gd25lq16c", INFO(0xc86015, 0, 64 * 1024, 32,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(gd), CLK_MHZ_2X(104) },
+	{ "gd25lq64", INFO(0xc86017, 0, 64 * 1024, 128,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(gd), CLK_MHZ_2X(133) },
+	{ "gd25lq128", INFO(0xc86018, 0, 64 * 1024, 256,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(gd), CLK_MHZ_2X(133) },
 
 	/* Intel/Numonyx -- xxxs33b */
 	{ "160s33b",  INFO(0x898911, 0, 64 * 1024,  32, 0) },
@@ -1176,55 +1240,72 @@ static const struct flash_info spi_nor_ids[] = {
 	{ "mx25l4005a",  INFO(0xc22013, 0, 64 * 1024,   8, SECT_4K) },
 	{ "mx25l8005",   INFO(0xc22014, 0, 64 * 1024,  16, 0) },
 	{ "mx25l1606e",  INFO(0xc22015, 0, 64 * 1024,  32, SECT_4K
-			| SPI_NOR_DUAL_READ) },
+			| SPI_NOR_DUAL_READ), CLK_MHZ_2X(80) },
 	{ "mx25l3205d",  INFO(0xc22016, 0, 64 * 1024,  64, 0) },
 	{ "mx25l3255e",  INFO(0xc29e16, 0, 64 * 1024,  64, SECT_4K) },
-	{ "mx25l6436f",  INFO(0xc22017, 0, 64 * 1024, 128, 0), PARAMS(mxic) },
-	{ "mx25l12835f", INFO(0xc22018, 0, 64 * 1024, 256, 0), PARAMS(mxic) },
+	{ "mx25l6436f",  INFO(0xc22017, 0, 64 * 1024, 128,
+			SPI_NOR_QUAD_READ), PARAMS(mxic), CLK_MHZ_2X(133) },
+	{ "mx25l12835f", INFO(0xc22018, 0, 64 * 1024, 256,
+			SPI_NOR_QUAD_READ), PARAMS(mxic), CLK_MHZ_2X(84) },
 	{ "mx25l12855e", INFO(0xc22618, 0, 64 * 1024, 256, 0) },
-	{ "mx25l25635f", INFO(0xc22019, 0, 64 * 1024, 512, 0), PARAMS(mxic) },
+	{ "mx25l25635f", INFO(0xc22019, 0, 64 * 1024, 512,
+			SPI_NOR_QUAD_READ | SPI_NOR_4B_OPCODES), PARAMS(mxic), CLK_MHZ_2X(84) },
 	{ "mx25l25673g", INFO(0xc22019, 0, 64 * 1024, 512, SPI_NOR_QUAD_READ
 			| SPI_NOR_4B_OPCODES) },
 	{ "mx25l25655e", INFO(0xc22619, 0, 64 * 1024, 512, 0) },
 	{ "mx66l51235l", INFO(0xc2201a, 0, 64 * 1024, 1024, SPI_NOR_QUAD_READ)},
 	{ "mx66l1g55g",  INFO(0xc2261b, 0, 64 * 1024, 2048, SPI_NOR_QUAD_READ)},
-	{ "mx25v1635f",  INFO(0xc22315, 0, 64 * 1024, 32 , 0), PARAMS(mxic) },
+	{ "mx25v1635f",  INFO(0xc22315, 0, 64 * 1024, 32 ,
+			SPI_NOR_QUAD_READ), PARAMS(mxic), CLK_MHZ_2X(80) },
 	/* Macronix/MXIC Wide Voltage Range 1.65~3.6V */
-	{ "mx25r6435f",  INFO(0xc22817, 0, 64 * 1024, 128, SPI_NOR_DUAL_READ
-			| SPI_NOR_QUAD_READ) },
+	{ "mx25r6435f",  INFO(0xc22817, 0, 64 * 1024, 128,
+			SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ), CLK_MHZ_2X(80) },
 	/* Macronix/MXIC 1.8V */
+	{ "mx25u1633f",  INFO(0xc22535, 0, 64 * 1024, 32,
+			SPI_NOR_QUAD_READ), PARAMS(mxic), CLK_MHZ_2X(80) },
 	{ "mx25u6435f",  INFO(0xc22537, 0, 64 * 1024, 128,
-			SECT_4K), PARAMS(mxic) },
-	{ "mx25u12835f", INFO(0xc22538, 0, 64 * 1024, 256, 0), PARAMS(mxic) },
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(mxic), CLK_MHZ_2X(84) },
+	{ "mx25u12835f", INFO(0xc22538, 0, 64 * 1024, 256,
+			SPI_NOR_QUAD_READ), PARAMS(mxic), CLK_MHZ_2X(84) },
 	{ "mx25u25635f", INFO(0xc22539, 0, 64 * 1024, 512,
-			SPI_NOR_4B_OPCODES), PARAMS(mxic) },
+			SPI_NOR_QUAD_READ | SPI_NOR_4B_OPCODES), PARAMS(mxic), CLK_MHZ_2X(84) },
 	{ "mx25u51245g", INFO(0xc2253a, 0, 64 * 1024, 1024,
-			SPI_NOR_4B_OPCODES), PARAMS(mxic) },
+			SPI_NOR_QUAD_READ | SPI_NOR_4B_OPCODES), PARAMS(mxic), CLK_MHZ_2X(166) },
 
 	/* Micron 3.3V */
-	{ "n25q032",     INFO(0x20ba16, 0, 64 * 1024,   64, 0),
-			PARAMS(micron) },
-	{ "n25q064",     INFO(0x20ba17, 0, 64 * 1024,  128, 0),
-			PARAMS(micron_4k) },
-	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024,  256, 0),
-			PARAMS(micron) },
-	{ "mt25ql256a/n25q256a",  INFO(0x20ba19, 0, 64 * 1024,  512, 0),
-			PARAMS(micron) },
+	{ "n25q032",     INFO(0x20ba16, 0, 64 * 1024,   64, SPI_NOR_QUAD_READ),
+			PARAMS(micron), CLK_MHZ_2X(84) },
+	{ "n25q064",     INFO(0x20ba17, 0, 64 * 1024,  128, SPI_NOR_QUAD_READ),
+			PARAMS(micron_4k), CLK_MHZ_2X(108) },
+	{ "n25q128a13",  INFO(0x20ba18, 0, 64 * 1024,  256, SPI_NOR_QUAD_READ),
+			PARAMS(micron), CLK_MHZ_2X(108) },
+ 	{ "mt25ql256a",  INFO(0x20ba19, 0x1044, 64 * 1024,  512, SPI_NOR_QUAD_READ),
+			PARAMS(micron), CLK_MHZ_2X(108) },
 	{ "n25q512ax3",  INFO(0x20ba20, 0, 64 * 1024, 1024, USE_FSR),
 			PARAMS(micron_4k) },
-	{ "n25q00",      INFO(0x20ba21, 0, 64 * 1024, 2048, USE_FSR),
-			PARAMS(micron_4k) },
+	{ "n25q00",      INFO(0x20ba21, 0, 64 * 1024, 2048, USE_FSR | SPI_NOR_QUAD_READ),
+			PARAMS(micron_4k), CLK_MHZ_2X(80) },
 	/* Micron 1.8V */
-	{ "n25q032a",    INFO(0x20bb16, 0, 64 * 1024,   64, 0),
-			PARAMS(micron) },
-	{ "n25q064a",    INFO(0x20bb17, 0, 64 * 1024,  128, 0),
-			PARAMS(micron) },
-	{ "mt25qu128a/n25q128a11",  INFO(0x20bb18, 0, 64 * 1024,  256, 0),
-			PARAMS(micron) },
-	{ "mt25qu256a",  INFO(0x20bb19, 0, 64 * 1024,  512, 0),
-			PARAMS(micron) },
-	{ "n25q512a",    INFO(0x20bb20, 0, 64 * 1024, 1024, USE_FSR),
-			PARAMS(micron_4k) },
+	{ "n25q032a",    INFO(0x20bb16, 0, 64 * 1024,   64, SPI_NOR_QUAD_READ),
+			PARAMS(micron), CLK_MHZ_2X(108) },
+	{ "n25q064a",    INFO(0x20bb17, 0, 64 * 1024,  128, SPI_NOR_QUAD_READ),
+			PARAMS(micron), CLK_MHZ_2X(108) },
+	{ "mt25qu128a/n25q128a11",  INFO(0x20bb18, 0, 64 * 1024,  256, SPI_NOR_QUAD_READ),
+			PARAMS(micron), CLK_MHZ_2X(108) },
+	{ "mt25qu256a",  INFO(0x20bb19, 0, 64 * 1024,  512,
+			SPI_NOR_4B_OPCODES | SPI_NOR_QUAD_READ), PARAMS(micron), CLK_MHZ_2X(108) },
+	{ "n25q512a",    INFO(0x20bb20, 0, 64 * 1024, 1024, USE_FSR | SPI_NOR_QUAD_READ),
+			PARAMS(micron_4k), CLK_MHZ_2X(80) },
+
+	/* XMC */
+	{ "xm25qh64a",    INFO(0x207017, 0, 64 * 1024,   128, SPI_NOR_QUAD_READ),
+			PARAMS(xmc), CLK_MHZ_2X(104) },
+	{ "xm25qh64b",    INFO(0x206017, 0, 64 * 1024,   128, SPI_NOR_QUAD_READ),
+			PARAMS(xmc), CLK_MHZ_2X(104) },
+	{ "xm25qh128a",   INFO(0x207018, 0, 64 * 1024,   256, SPI_NOR_QUAD_READ),
+			PARAMS(xmc), CLK_MHZ_2X(104) },
+	{ "xm25qh128b",   INFO(0x206018, 0, 64 * 1024,   256, SPI_NOR_QUAD_READ),
+			PARAMS(xmc), CLK_MHZ_2X(104) },
 
 	/* PMC */
 	{ "pm25lv512",	INFO(0,        0, 32 * 1024,    2, SECT_4K_PMC) },
@@ -1240,12 +1321,12 @@ static const struct flash_info spi_nor_ids[] = {
 			SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
 	{ "s25fl256s0", INFO(0x010219, 0x4d00, 256 * 1024, 128, 0) },
 	{ "s25fl256s1", INFO(0x010219, 0x4d01,  64 * 1024, 512,
-			SPI_NOR_4B_OPCODES), PARAMS(spansion) },
+			 SPI_NOR_4B_OPCODES | SPI_NOR_QUAD_READ), PARAMS(spansion), CLK_MHZ_2X(104) },
 	{ "s25fl512s",	INFO(0x010220, 0x4d00, 256 * 1024, 256,
 			SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
 	{ "s70fl01gs",	INFO(0x010221, 0x4d00, 256 * 1024, 256, 0) },
 	{ "s25fl127s/129p1", INFO(0x012018, 0x4d01, 64 * 1024, 256,
-			SECT_4K), PARAMS(spansion) },
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(spansion), CLK_MHZ_2X(108) },
 	{ "s25sl12800", INFO(0x012018, 0x0300, 256 * 1024,  64, 0) },
 	{ "s25sl12801", INFO(0x012018, 0x0301,  64 * 1024, 256, 0) },
 	{ "s25fl128s",	INFO6(0x012018, 0x4d0180, 64 * 1024, 256, SECT_4K
@@ -1263,8 +1344,8 @@ static const struct flash_info spi_nor_ids[] = {
 			| SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
 	{ "s25fl008k",	INFO(0xef4014,      0,  64 * 1024,  16, SECT_4K
 			| SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
-	{ "w25x16/s25fl016k",	INFO(0xef4015,      0,  64 * 1024,  32,
-			SECT_4K), PARAMS(winbond) },
+	{ "w25Q16jv-iq/s25fl016k",	INFO(0xef4015,      0,  64 * 1024,  32,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(winbond), CLK_MHZ_2X(84) },
 	/* { "s25fl064k",	INFO(0xef4017,      0,  64 * 1024, 128, SECT_4K
 			| SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) }, */
 	{ "s25fl132k",	INFO(0x014016,      0,  64 * 1024,  64, SECT_4K) },
@@ -1332,30 +1413,32 @@ static const struct flash_info spi_nor_ids[] = {
 			| SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
 	{ "w25x32", INFO(0xef3016, 0, 64 * 1024,  64, SECT_4K) },
 	{ "w25q32", INFO(0xef4016, 0, 64 * 1024,  64,
-			SECT_4K), PARAMS(winbond) },
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(winbond), CLK_MHZ_2X(80) },
 	{ "w25x64", INFO(0xef3017, 0, 64 * 1024, 128, SECT_4K) },
-	{ "w25q64/s25fl064k", INFO(0xef4017, 0, 64 * 1024, 128,
-			SECT_4K), PARAMS(winbond) },
+	{ "w25q64fv(spi)/w25q64jv_iq", INFO(0xef4017, 0, 64 * 1024, 128,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(winbond), CLK_MHZ_2X(80) },
 	{ "w25q80", INFO(0xef5014, 0, 64 * 1024,  16, SECT_4K) },
 	{ "w25q80bl", INFO(0xef4014, 0, 64 * 1024,  16, SECT_4K) },
-	{ "w25q128", INFO(0xef4018, 0, 64 * 1024, 256,
-			SECT_4K), PARAMS(winbond) },
+	{ "w25q128(b/f)v", INFO(0xef4018, 0, 64 * 1024, 256,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(winbond), CLK_MHZ_2X(104) },
+  	{ "w25q128jv_im", INFO(0xef7018, 0, 64 * 1024, 256,
+			SECT_4K | SPI_NOR_QUAD_READ), PARAMS(winbond), CLK_MHZ_2X(80) },
 	{ "w25q256", INFO(0xef4019, 0, 64 * 1024, 512,
-			SECT_4K), PARAMS(winbond) },
+			SECT_4K | SPI_NOR_QUAD_READ | SPI_NOR_4B_OPCODES), PARAMS(winbond), CLK_MHZ_2X(80) },
 	/* Winbond 1.8V */
 	{ "w25q32fw", INFO(0xef6016, 0, 64 * 1024,  64,
 			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
-			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB), PARAMS(winbond) },
+			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB), PARAMS(winbond), CLK_MHZ_2X(80) },
 	{ "w25q64dw", INFO(0xef6017, 0, 64 * 1024, 128,
 			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
-			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB), PARAMS(winbond) },
+			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB), PARAMS(winbond), CLK_MHZ_2X(80) },
 	{ "w25q128fw", INFO(0xef6018, 0, 64 * 1024, 256,
 			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
-			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB), PARAMS(winbond) },
+			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB), PARAMS(winbond), CLK_MHZ_2X(80) },
 	{ "w25q256jw", INFO(0xef8019, 0, 64 * 1024, 512,
 			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
 			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB | SPI_NOR_4B_OPCODES),
-			PARAMS(winbond) },
+			PARAMS(winbond), CLK_MHZ_2X(80) },
 
 	/* Catalyst / On Semiconductor -- non-JEDEC */
 	{ "cat25c11", CAT25_INFO(16, 8, 16, 1, SPI_NOR_NO_ERASE
@@ -1369,9 +1452,17 @@ static const struct flash_info spi_nor_ids[] = {
 	{ "cat25128", CAT25_INFO(2048, 8, 64, 2, SPI_NOR_NO_ERASE
 			| SPI_NOR_NO_FR) },
 	/* Paragon 3.3V */
-	{ "pn25f16s", INFO(0xe04015, 0, 64 * 1024,  32, 0), PARAMS(paragon) },
-	{ "pn25f32s", INFO(0xe04016, 0, 64 * 1024,  64, 0), PARAMS(paragon) },
+	{ "pn25f16s", INFO(0xe04015, 0, 64 * 1024,  32,
+			SPI_NOR_QUAD_READ), PARAMS(paragon), CLK_MHZ_2X(80) },
+	{ "pn25f32s", INFO(0xe04016, 0, 64 * 1024,  64,
+			SPI_NOR_QUAD_READ), PARAMS(paragon), CLK_MHZ_2X(80) },
 
+	/* XTX */
+	{ "xt25f128b", INFO(0x0b4018, 0, 64 * 1024,  256,
+		SPI_NOR_QUAD_READ), PARAMS(xtx), CLK_MHZ_2X(70) },
+
+	{ "xt25f64b", INFO(0x0b4017, 0, 64 * 1024,  128,
+		SPI_NOR_QUAD_READ), PARAMS(xtx), CLK_MHZ_2X(70) },
 	{ },
 };
 
@@ -1610,6 +1701,41 @@ static int macronix_quad_enable(struct spi_nor *nor)
 	return 0;
 }
 
+static int xtx_quad_enable(struct spi_nor *nor)
+{
+	u8 ret, val_h,val_l;
+	/* read SR high 8bit*/
+	val_h = read_cr(nor);
+	if (val_h < 0)
+		return val_h;
+
+	if (val_h & SR_QUAD_EN_XTX)
+		return 0;
+
+	/* Update the Quad Enable bit. */
+	dev_dbg(nor->dev, "setting xtx Quad Enable (non-volatile) bit\n");
+
+	write_enable(nor);
+
+	/* read SR low 8bit*/
+	val_l = read_sr(nor);
+
+	/* write SR */
+	nor->cmd_buf[0] = val_l;
+	nor->cmd_buf[1] = val_h;
+	nor->write_reg(nor, SPINOR_OP_WRSR, nor->cmd_buf, 2);
+
+	if (spi_nor_wait_till_ready(nor))
+		return 1;
+
+	ret = read_cr(nor);
+	if (!(ret > 0 && (ret & SR_QUAD_EN_XTX))) {
+		dev_err(nor->dev, "xtx Quad bit not set\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
 /*
  * Write status Register and configuration register with 2 bytes
  * The first byte will be written to the status register, while the
@@ -1626,7 +1752,7 @@ static int write_sr_cr(struct spi_nor *nor, u16 val)
 
 static int spansion_quad_enable(struct spi_nor *nor)
 {
-	int ret;
+	unsigned int ret;
 	u16 val;
 
 	ret = read_cr(nor);
@@ -1782,6 +1908,13 @@ static int set_quad_mode(struct spi_nor *nor, const struct flash_info *info)
 		status = gd_quad_enable(nor);
 		if (status) {
 			dev_err(nor->dev, "GD quad-read not enabled\n");
+			return -EINVAL;
+		}
+		return status;
+	case SNOR_MFR_XTX:
+		status = xtx_quad_enable(nor);
+		if (status) {
+			dev_err(nor->dev, "xtx quad-read not enabled\n");
 			return -EINVAL;
 		}
 		return status;
@@ -2092,6 +2225,29 @@ static int spi_nor_config(struct spi_nor *nor, const struct flash_info *info,
 			 struct spi_nor_modes *modes)
 {
 	int ret;
+	unsigned char cval,val;
+
+	if (JEDEC_MFR(info) == SNOR_MFR_MACRONIX){
+		val = read_sr(nor);
+		if (val < 0)
+			return val;
+
+		/* read Configuration Register for macronix's spi nor flash */
+		ret = nor->read_reg(nor, SPINOR_OP_RDSR3, &cval, 1);
+		if(ret < 0){
+			dev_err(nor->dev, "error %d reading config Reg.\n", ret);
+			return ret;
+		}
+
+		/* check the bit[6:7] whether is set in uboot when use DTR mode;if it was set and clear it. */
+		/* pay attention to sequence of issuing WRSR instruction */
+		if (cval & CR_DUMMY_CYCLE){
+			write_enable(nor);
+			nor->cmd_buf[0]=val;
+			nor->cmd_buf[1]=(cval & (~CR_DUMMY_CYCLE));
+			ret = nor->write_reg(nor, SPINOR_OP_WRSR, nor->cmd_buf, 2);
+		}
+	}
 
 	if (params) {
 		ret = spi_nor_setup(nor, info, params, modes);
@@ -2323,6 +2479,14 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	} else {
 		nor->addr_width = 3;
 	}
+
+	/* choose the suitable clockrate */
+	if ((info->flags & (SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ)) /* device supports dual or quad */
+		&& (modes->rd_modes & (~SNOR_MODE_SLOW)) /* controller supports fast mode */
+		&& info->clkrate)
+		nor->clkrate = info->clkrate;
+	else
+		nor->clkrate = 24000000;
 
 	if (nor->addr_width > SPI_NOR_MAX_ADDR_WIDTH) {
 		dev_err(dev, "address width is too large: %u\n",
