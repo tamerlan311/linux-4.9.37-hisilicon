@@ -66,7 +66,7 @@ struct transfer_desc {
     struct virt_dma_desc virt_desc;
 
     dma_addr_t llis_busaddr;
-	u32 *llis_vaddr;
+    u64 *llis_vaddr;
     u32 ccfg;
     size_t size;
     bool done;
@@ -109,7 +109,7 @@ struct hiedmacv310_driver_data {
     struct hiedmacv310_phy_chan *phy_chans;
     struct dma_pool *pool;
     unsigned int misc_ctrl_base;
-	unsigned int irq;
+    int irq;
     unsigned int id;
     struct clk *clk;
     struct clk *axi_clk;
@@ -120,7 +120,7 @@ struct hiedmacv310_driver_data {
 };
 
 #ifdef DEBUG_HIEDMAC
-void dump_lli(u32 *llis_vaddr, unsigned int num)
+void dump_lli(u64 *llis_vaddr, unsigned int num)
 {
 
     hiedmac_lli *plli = (hiedmac_lli *)llis_vaddr;
@@ -140,7 +140,7 @@ void dump_lli(u32 *llis_vaddr, unsigned int num)
 }
 
 #else
-void dump_lli(u32 *llis_vaddr, unsigned int num)
+void dump_lli(u64 *llis_vaddr, unsigned int num)
 {
 }
 #endif
@@ -174,13 +174,15 @@ static struct dma_chan *hiedma_of_xlate(struct of_phandle_args *dma_spec,
     struct hiedmacv310_driver_data *hiedmac = ofdma->of_dma_data;
     struct hiedmacv310_dma_chan *edmac_dma_chan = NULL;
     struct dma_chan *dma_chan;
-	struct regmap *misc = hiedmac->misc_regmap;
+    struct regmap *misc = NULL;
     unsigned int signal = 0, request_num = 0;
     unsigned int reg = 0, offset = 0;
 
     if (!hiedmac) {
         return NULL;
     }
+
+    misc = hiedmac->misc_regmap;
 
     if (dma_spec->args_count != 2) {
         hiedmacv310_error("args count not true!\n");
@@ -192,11 +194,19 @@ static struct dma_chan *hiedma_of_xlate(struct of_phandle_args *dma_spec,
 
     hiedmacv310_trace(3, "host->id = %d,signal = %d, request_num = %d\n", hiedmac->id, signal, request_num);
 
+    if (misc != NULL) {
+        #ifdef CONFIG_ACCESS_M7_DEV
+        offset = hiedmac->misc_ctrl_base;
+        reg = 0xc0;
+        regmap_write(misc, offset, reg);
+        #else
         offset = hiedmac->misc_ctrl_base + (request_num & (~0x3));
         regmap_read(misc, offset, &reg);
         reg &= ~(0x3f << ((request_num & 0x3) << 3));
         reg |= signal << ((request_num & 0x3) << 3);
         regmap_write(misc, offset, reg);
+        #endif
+    }
 
     hiedmacv310_trace(3, "offset = 0x%x, reg = 0x%x\n", offset, reg);
 
@@ -211,6 +221,7 @@ static struct dma_chan *hiedma_of_xlate(struct of_phandle_args *dma_spec,
 
     return dma_get_slave_channel(dma_chan);
 }
+
 
 static int get_of_probe(struct hiedmacv310_driver_data *hiedmac)
 {
@@ -251,6 +262,13 @@ static int get_of_probe(struct hiedmacv310_driver_data *hiedmac)
     if (IS_ERR(hiedmac->base)) {
         return PTR_ERR(hiedmac->base);
     }
+#if defined(CONFIG_ARCH_HI3516CV500) || defined(CONFIG_ARCH_HI3516DV300) || \
+    defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200) || \
+    defined(CONFIG_ARCH_HI3516EV200) || defined(CONFIG_ARCH_HI3516EV300) || \
+    defined(CONFIG_ARCH_HI3518EV300) || defined(CONFIG_ARCH_HI3516DV200)
+    hiedmac->misc_regmap = 0;
+    np = np ;
+#else
     hiedmac->misc_regmap = syscon_regmap_lookup_by_phandle(np, "misc_regmap");
     if (IS_ERR(hiedmac->misc_regmap)) {
         return PTR_ERR(hiedmac->misc_regmap);
@@ -262,7 +280,7 @@ static int get_of_probe(struct hiedmacv310_driver_data *hiedmac)
         hiedmacv310_error( "get dma-misc_ctrl_base fail\n");
         return -ENODEV;
     }
-
+#endif
     hiedmac->irq = platform_get_irq(platdev, 0);
     if (unlikely(hiedmac->irq < 0)) {
         return -ENODEV;
@@ -321,12 +339,11 @@ static enum dma_status hiedmac_tx_status(struct dma_chan *chan,
         tsf_desc = edmac_dma_chan->at;
 
         if (!phychan || !tsf_desc) {
-			bytes = 0;
             spin_unlock_irqrestore(&edmac_dma_chan->virt_chan.lock, flags);
             goto out;
         }
         curr_lli = (hiedmacv310_readl(hiedmac->base + HIEDMAC_Cx_LLI_L(phychan->id)) & (~(HIEDMAC_LLI_ALIGN - 1)));
-		curr_lli |= (hiedmacv310_readl(hiedmac->base + HIEDMAC_Cx_LLI_H(phychan->id)) & 0xffffffff) << 32;
+        curr_lli |= ((u64)(hiedmacv310_readl(hiedmac->base + HIEDMAC_Cx_LLI_H(phychan->id)) & 0xffffffff) << 32);
         curr_residue_bytes = hiedmacv310_readl(hiedmac->base + HIEDMAC_Cx_CURR_CNT0(phychan->id));
         if (curr_lli == 0) {
             /* It means non-lli mode */
@@ -505,7 +522,6 @@ static void hiedmac_pause_phy_chan(struct hiedmacv310_dma_chan *edmac_dma_chan)
         hiedmacv310_error(":channel%u timeout waiting for pause, timeout:%d\n",
                           phychan->id, timeout);
     }
-	return 0;
 }
 
 static int hiedmac_pause(struct dma_chan *chan)
@@ -515,7 +531,7 @@ static int hiedmac_pause(struct dma_chan *chan)
 
     spin_lock_irqsave(&edmac_dma_chan->virt_chan.lock, flags);
 
-	if (!edmac_dma_chan->phychan && !edmac_dma_chan->at) {
+    if (!edmac_dma_chan->phychan) {
         spin_unlock_irqrestore(&edmac_dma_chan->virt_chan.lock, flags);
         return 0;
     }
@@ -536,8 +552,6 @@ static void hiedmac_resume_phy_chan(struct hiedmacv310_dma_chan *edmac_dma_chan)
     val = hiedmacv310_readl(hiedmac->base + HIEDMAC_Cx_CONFIG(phychan->id));
     val |= CCFG_EN;
     hiedmacv310_writel(val, hiedmac->base + HIEDMAC_Cx_CONFIG(phychan->id));
-
-	return 0;
 }
 
 static int hiedmac_resume(struct dma_chan *chan)
@@ -547,7 +561,7 @@ static int hiedmac_resume(struct dma_chan *chan)
 
     spin_lock_irqsave(&edmac_dma_chan->virt_chan.lock, flags);
 
-	if (!edmac_dma_chan->phychan && !edmac_dma_chan->at) {
+    if (!edmac_dma_chan->phychan) {
         spin_unlock_irqrestore(&edmac_dma_chan->virt_chan.lock, flags);
         return 0;
     }
@@ -682,7 +696,7 @@ struct transfer_desc *hiedmac_init_tsf_desc (
 
     if (edmac_dma_chan->signal >= 0) {
         hiedmacv310_trace(2, "edmac_dma_chan->signal = %d\n", edmac_dma_chan->signal);
-		config |= edmac_dma_chan->signal << HIEDMAC_CXCONFIG_SIGNAL_SHIFT;
+        config |= (unsigned int)edmac_dma_chan->signal << HIEDMAC_CXCONFIG_SIGNAL_SHIFT;
     }
 
     config |= HIEDMAC_CXCONFIG_DEV_MEM_TYPE << HIEDMAC_CXCONFIG_TSF_TYPE_SHIFT;
@@ -759,7 +773,7 @@ static struct dma_async_tx_descriptor *hiedmac_perp_slave_sg(
         num++;
     }
 
-	last_plli = (hiedmac_lli *)(tsf_desc->llis_vaddr + (num - 1)*sizeof(hiedmac_lli));
+    last_plli = (hiedmac_lli *)((unsigned long)tsf_desc->llis_vaddr + (num - 1) * sizeof(hiedmac_lli));
     last_plli->next_lli |= HIEDMAC_LLI_DISABLE;
     dump_lli(tsf_desc->llis_vaddr, num);
 
@@ -814,7 +828,7 @@ static struct dma_async_tx_descriptor *hiedmac_prep_dma_memcpy(
         num++;
     } while(len);
 
-	last_plli = (hiedmac_lli *)(tsf_desc->llis_vaddr + (num - 1)*sizeof(hiedmac_lli));
+    last_plli = (hiedmac_lli *)((unsigned long)tsf_desc->llis_vaddr + (num - 1) * sizeof(hiedmac_lli));
     last_plli->next_lli |= HIEDMAC_LLI_DISABLE;
     dump_lli(tsf_desc->llis_vaddr, num);
 
@@ -844,6 +858,7 @@ static struct dma_async_tx_descriptor *hiemdac_prep_dma_cyclic(
 
     tsf_desc->llis_vaddr = dma_pool_alloc(hiedmac->pool, GFP_NOWAIT, &tsf_desc->llis_busaddr);
     if (!tsf_desc->llis_vaddr) {
+        hiedmac_free_tsf_desc(hiedmac, tsf_desc);
         hiedmacv310_error("malloc memory from pool fail !\n");
         return 0;
     }
@@ -870,7 +885,7 @@ static struct dma_async_tx_descriptor *hiemdac_prep_dma_cyclic(
 
         since += length;
         if (since >= period_len) {
-			plli = (hiedmac_lli *)(tsf_desc->llis_vaddr + (num)*sizeof(hiedmac_lli));
+            plli = (hiedmac_lli *)((unsigned long)tsf_desc->llis_vaddr + (num) * sizeof(hiedmac_lli));
             plli->config |= HIEDMAC_CXCONFIG_ITC_EN << HIEDMAC_CXCONFIG_ITC_EN_SHIFT;
             since -= period_len;
         }
@@ -879,9 +894,9 @@ static struct dma_async_tx_descriptor *hiemdac_prep_dma_cyclic(
         num++;
     } while(total);
 
-	last_plli = (hiedmac_lli *)(tsf_desc->llis_vaddr + (num - 1)*sizeof(hiedmac_lli));
+    last_plli = (hiedmac_lli *)((unsigned long)tsf_desc->llis_vaddr + (num - 1) * sizeof(hiedmac_lli));
 
-	last_plli->next_lli = (u64)(tsf_desc->llis_vaddr);
+    last_plli->next_lli = (unsigned long)(tsf_desc->llis_vaddr);
 
     dump_lli(tsf_desc->llis_vaddr, num);
 
@@ -974,6 +989,10 @@ static irqreturn_t hiemdacv310_irq(int irq, void *dev)
         if (temp) {
             phy_chan = &hiedmac->phy_chans[i];
             chan = phy_chan->serving;
+            if (!chan) {
+                hiedmacv310_error("error interrupt on chan: %d!\n", i);
+                continue;
+            }
             tsf_desc = chan->at;
 
             channel_tc_status = hiedmacv310_readl(hiedmac->base + HIEDMAC_INT_TC1_RAW);
@@ -986,9 +1005,6 @@ static irqreturn_t hiemdacv310_irq(int irq, void *dev)
             channel_tc_status = (channel_tc_status >> i) & 0x01;
             if (channel_tc_status) {
                 hiedmacv310_writel(channel_tc_status << i, hiedmac->base + HIEDMAC_INT_TC2_RAW);
-			if (!chan) {
-				hiedmacv310_error("error interrupt on chan: %d!\n",i);
-				continue;
             }
 
             channel_err_status[0] = hiedmacv310_readl(hiedmac->base + HIEDMAC_INT_ERR1);
@@ -1053,6 +1069,11 @@ static int hiedmac_init_virt_channels(struct hiedmacv310_driver_data *hiedmac,
 
     for (i = 0; i < channels; i++) {
         chan = kzalloc(sizeof(struct hiedmacv310_dma_chan), GFP_KERNEL);
+        if (!chan) {
+            hiedmacv310_error("fail to allocate memory for virt channels!");
+            return -1;
+        }
+
         chan->host = hiedmac;
         chan->state = HIEDMAC_CHAN_IDLE;
         chan->signal = -1;
@@ -1080,9 +1101,9 @@ void hiedmac_free_virt_channels(struct dma_device *dmadev)
 }
 
 
-#define MAX_TSFR_LLIS           512
-#define EDMACV300_LLI_WORDS     64
-#define EDMACV300_POOL_ALIGN    64
+#define MAX_TSFR_LLIS           32
+#define EDMACV300_LLI_WORDS     16
+#define EDMACV300_POOL_ALIGN    16
 
 static int __init hiedmacv310_probe(struct platform_device *pdev)
 {

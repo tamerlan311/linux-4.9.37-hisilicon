@@ -29,9 +29,14 @@
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 
-#ifdef CONFIG_HI_DMAC
+#if defined(CONFIG_HI_DMAC)
 #include <linux/hidmac.h>
 #endif
+
+#if defined(CONFIG_HIEDMAC)
+#include <linux/hiedmac.h>
+#endif
+
 /*
  * I2C Registers offsets
  */
@@ -486,7 +491,7 @@ static void hibvt_i2c_cfg_cmd(struct hibvt_i2c_dev *i2c)
     hibvt_i2c_cmdreg_set(i2c, CMD_EXIT, &offset);
 }
 
-#ifdef CONFIG_HI_DMAC
+#if defined(CONFIG_HI_DMAC) || defined(CONFIG_HIEDMAC)
 int dma_to_i2c(unsigned long src, unsigned int dst, unsigned int length)
 {
     int chan;
@@ -815,7 +820,7 @@ static int hibvt_i2c_xfer(struct i2c_adapter *adap,
 	i2c->irq = -1;
 
     while (i2c->msg_idx < i2c->msg_num) {
-#ifdef CONFIG_HI_DMAC
+#if defined(CONFIG_HI_DMAC) || defined(CONFIG_HIEDMAC)
         if ((i2c->msg->len >= CONFIG_DMA_MSG_MIN_LEN) && (i2c->msg->len <= CONFIG_DMA_MSG_MAX_LEN)) {
             status = hibvt_i2c_dma_xfer_one_msg(i2c);
             if (status) {

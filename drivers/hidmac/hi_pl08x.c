@@ -131,13 +131,11 @@ irqreturn_t dmac_isr(int irq, void *dev_id)
     /*decide which channel has trigger the interrupt*/
     for (i = 0; i < DMAC_MAX_CHANNELS; i++) {
         if ((((channel_status >> i) & 0x1) == 0x01)) {
-			/* [HSCP201306240006],l00181524,20130625 */
             /* The INT status should be read first then clear it */
             /* CLR_INT(i); */
             dmac_readw(dma->regbase + DMAC_INTTCSTATUS, channel_tc_status);
             dmac_readw(dma->regbase + DMAC_INTERRORSTATUS, channel_err_status);
             CLR_INT(i);
-			/*??HSCP201403110002?? l00183122 20140723*/
             if (g_channel_status[i] == DMAC_CHN_VACANCY
                     && (function[i]) == NULL) {
                 if ((0x01 == ((channel_tc_status >> i) & 0x01)))

@@ -176,6 +176,7 @@ obj-$(CONFIG_ANDROID)		+= android/
 obj-$(CONFIG_NVMEM)		+= nvmem/
 obj-$(CONFIG_FPGA)		+= fpga/
 obj-$(CONFIG_HI_DMAC)		+= hidmac/
+obj-$(CONFIG_HIEDMAC)		+= hiedmac/
 
 obj-$(CONFIG_ARCH_HISI_BVT)	+= hisilicon/
 obj-$(CONFIG_HI_VDMA_V100) += hi_vdmav100/

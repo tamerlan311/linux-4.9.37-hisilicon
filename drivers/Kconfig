@@ -204,6 +204,8 @@ source "drivers/fpga/Kconfig"
 
 source "drivers/hidmac/Kconfig"
 
+source "drivers/hiedmac/Kconfig"
+
 source "drivers/hisilicon/Kconfig"
 
 source "drivers/hi_vdmav100/Kconfig"
