@@ -5,6 +5,7 @@ Required properties:
 	* "hisilicon,hisi-femac-v1"
 	* "hisilicon,hisi-femac-v2"
 	and one of the following soc strings:
+	* "hisilicon,hi3516cv500-femac"
 	* "hisilicon,hi3516cv300-femac"
 	* "hisilicon,hi3536dv100-femac"
 	* "hisilicon,hi3518ev20x-femac"

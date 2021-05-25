@@ -124,57 +124,109 @@ static void higmac_set_desc_depth(struct higmac_netdev_local *priv,
 {
     u32 reg;
     int i;
+    u32 val;
 
     writel(BITS_RX_FQ_DEPTH_EN, priv->gmac_iobase + RX_FQ_REG_EN);
-	writel(rx << DESC_WORD_SHIFT, priv->gmac_iobase + RX_FQ_DEPTH);
+    val = readl(priv->gmac_iobase + RX_FQ_DEPTH);
+    val &= ~Q_ADDR_HI8_MASK;
+    val |= rx << DESC_WORD_SHIFT;
+    writel(val, priv->gmac_iobase + RX_FQ_DEPTH);
     writel(0, priv->gmac_iobase + RX_FQ_REG_EN);
 
     writel(BITS_RX_BQ_DEPTH_EN, priv->gmac_iobase + RX_BQ_REG_EN);
-	writel(rx << DESC_WORD_SHIFT, priv->gmac_iobase + RX_BQ_DEPTH);
+    val = readl(priv->gmac_iobase + RX_BQ_DEPTH);
+    val &= ~Q_ADDR_HI8_MASK;
+    val |= rx << DESC_WORD_SHIFT;
+    writel(val, priv->gmac_iobase + RX_BQ_DEPTH);
     for (i = 1; i < priv->num_rxqs; i++) {
         reg = RX_BQ_DEPTH_QUEUE(i);
-		writel(rx << DESC_WORD_SHIFT, priv->gmac_iobase + reg);
+        val = readl(priv->gmac_iobase + reg);
+        val &= ~Q_ADDR_HI8_MASK;
+        val |= rx << DESC_WORD_SHIFT;
+        writel(val, priv->gmac_iobase + reg);
     }
     writel(0, priv->gmac_iobase + RX_BQ_REG_EN);
 
     writel(BITS_TX_BQ_DEPTH_EN, priv->gmac_iobase + TX_BQ_REG_EN);
-	writel(tx << DESC_WORD_SHIFT, priv->gmac_iobase + TX_BQ_DEPTH);
+    val = readl(priv->gmac_iobase + TX_BQ_DEPTH);
+    val &= ~Q_ADDR_HI8_MASK;
+    val |= tx << DESC_WORD_SHIFT;
+    writel(val, priv->gmac_iobase + TX_BQ_DEPTH);
     writel(0, priv->gmac_iobase + TX_BQ_REG_EN);
 
     writel(BITS_TX_RQ_DEPTH_EN, priv->gmac_iobase + TX_RQ_REG_EN);
-	writel(tx << DESC_WORD_SHIFT, priv->gmac_iobase + TX_RQ_DEPTH);
+    val = readl(priv->gmac_iobase + TX_RQ_DEPTH);
+    val &= ~Q_ADDR_HI8_MASK;
+    val |= tx << DESC_WORD_SHIFT;
+    writel(val, priv->gmac_iobase + TX_RQ_DEPTH);
     writel(0, priv->gmac_iobase + TX_RQ_REG_EN);
 }
 
 static void higmac_set_rx_fq(struct higmac_netdev_local *priv,
                              dma_addr_t phy_addr)
 {
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+    u32 val;
+#endif
     writel(BITS_RX_FQ_START_ADDR_EN, priv->gmac_iobase + RX_FQ_REG_EN);
-	writel(phy_addr, priv->gmac_iobase + RX_FQ_START_ADDR);
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+    val = readl(priv->gmac_iobase + RX_FQ_DEPTH);
+    val &= Q_ADDR_HI8_MASK;
+    val |= (phy_addr >> REG_BIT_WIDTH) << Q_ADDR_HI8_OFFSET;
+    writel(val, priv->gmac_iobase + RX_FQ_DEPTH);
+#endif
+    writel((u32)phy_addr, priv->gmac_iobase + RX_FQ_START_ADDR);
     writel(0, priv->gmac_iobase + RX_FQ_REG_EN);
 }
 
 static void higmac_set_rx_bq(struct higmac_netdev_local *priv,
                              dma_addr_t phy_addr)
 {
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+    u32 val;
+#endif
     writel(BITS_RX_BQ_START_ADDR_EN, priv->gmac_iobase + RX_BQ_REG_EN);
-	writel(phy_addr, priv->gmac_iobase + RX_BQ_START_ADDR);
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+    val = readl(priv->gmac_iobase + RX_BQ_DEPTH);
+    val &= Q_ADDR_HI8_MASK;
+    val |= (phy_addr >> REG_BIT_WIDTH) << Q_ADDR_HI8_OFFSET;
+    writel(val, priv->gmac_iobase + RX_BQ_DEPTH);
+#endif
+    writel((u32)phy_addr, priv->gmac_iobase + RX_BQ_START_ADDR);
     writel(0, priv->gmac_iobase + RX_BQ_REG_EN);
 }
 
 static void higmac_set_tx_bq(struct higmac_netdev_local *priv,
                              dma_addr_t phy_addr)
 {
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+    u32 val;
+#endif
     writel(BITS_TX_BQ_START_ADDR_EN, priv->gmac_iobase + TX_BQ_REG_EN);
-	writel(phy_addr, priv->gmac_iobase + TX_BQ_START_ADDR);
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+    val = readl(priv->gmac_iobase + TX_BQ_DEPTH);
+    val &= Q_ADDR_HI8_MASK;
+    val |= (phy_addr >> REG_BIT_WIDTH) << Q_ADDR_HI8_OFFSET;
+    writel(val, priv->gmac_iobase + TX_BQ_DEPTH);
+#endif
+    writel((u32)phy_addr, priv->gmac_iobase + TX_BQ_START_ADDR);
     writel(0, priv->gmac_iobase + TX_BQ_REG_EN);
 }
 
 static void higmac_set_tx_rq(struct higmac_netdev_local *priv,
                              dma_addr_t phy_addr)
 {
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+    u32 val;
+#endif
     writel(BITS_TX_RQ_START_ADDR_EN, priv->gmac_iobase + TX_RQ_REG_EN);
-	writel(phy_addr, priv->gmac_iobase + TX_RQ_START_ADDR);
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+    val = readl(priv->gmac_iobase + TX_RQ_DEPTH);
+    val &= Q_ADDR_HI8_MASK;
+    val |= (phy_addr >> REG_BIT_WIDTH) << Q_ADDR_HI8_OFFSET;
+    writel(val, priv->gmac_iobase + TX_RQ_DEPTH);
+#endif
+    writel((u32)phy_addr, priv->gmac_iobase + TX_RQ_START_ADDR);
     writel(0, priv->gmac_iobase + TX_RQ_REG_EN);
 }
 
@@ -182,6 +234,9 @@ static void higmac_hw_set_desc_addr(struct higmac_netdev_local *priv)
 {
     u32 reg;
     int i;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+    u32 val;
+#endif
 
     higmac_set_rx_fq(priv, priv->rx_fq.phys_addr);
     higmac_set_rx_bq(priv, priv->rx_bq.phys_addr);
@@ -192,7 +247,13 @@ static void higmac_hw_set_desc_addr(struct higmac_netdev_local *priv)
         reg = RX_BQ_START_ADDR_QUEUE(i);
         writel(BITS_RX_BQ_START_ADDR_EN,
                priv->gmac_iobase + RX_BQ_REG_EN);
-		writel(priv->pool[3 + i].phys_addr, priv->gmac_iobase + reg);
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+        val = readl(priv->gmac_iobase + reg);
+        val &= Q_ADDR_HI8_MASK;
+        val |= ((priv->pool[3 + i].phys_addr) >> REG_BIT_WIDTH) << Q_ADDR_HI8_OFFSET;
+        writel(val, priv->gmac_iobase + reg);
+#endif
+        writel((u32)(priv->pool[3 + i].phys_addr), priv->gmac_iobase + reg);
         writel(0, priv->gmac_iobase + RX_BQ_REG_EN);
     }
 }
@@ -584,7 +645,7 @@ static void higmac_hw_set_mac_addr(struct net_device *dev)
     writel(val, priv->gmac_iobase + STATION_ADDR_LOW);
 }
 
-static void higmac_rx_refill(struct higmac_netdev_local *priv);
+static u32 higmac_rx_refill(struct higmac_netdev_local *priv);
 
 static void higmac_free_rx_skb(struct higmac_netdev_local *ld)
 {
@@ -678,6 +739,7 @@ static int higmac_net_set_mac_address(struct net_device *dev, void *p)
 }
 
 #define HIGMAC_LINK_CHANGE_PROTECT
+#define HIGMAC_MAC_TX_RESET_IN_LINKUP
 
 #ifdef HIGMAC_LINK_CHANGE_PROTECT
 #define HIGMAC_MS_TO_NS        (1000000ULL)
@@ -707,6 +769,23 @@ static void higmac_linkup_flush(struct higmac_netdev_local *ld)
 }
 #endif
 
+#ifdef HIGMAC_MAC_TX_RESET_IN_LINKUP
+static void higmac_mac_tx_state_engine_reset(struct higmac_netdev_local *priv)
+{
+    u32 val;
+
+    val = readl(priv->gmac_iobase + MAC_CLEAR);
+    val |= BIT_TX_SOFT_RESET;
+    writel(val, priv->gmac_iobase + MAC_CLEAR);
+
+    mdelay(5);
+
+    val = readl(priv->gmac_iobase + MAC_CLEAR);
+    val &= ~BIT_TX_SOFT_RESET;
+    writel(val, priv->gmac_iobase + MAC_CLEAR);
+}
+#endif
+
 static void higmac_adjust_link(struct net_device *dev)
 {
     struct higmac_netdev_local *priv = netdev_priv(dev);
@@ -724,6 +803,9 @@ static void higmac_adjust_link(struct net_device *dev)
             higmac_linkup_flush(priv);
 #endif
             higmac_config_port(dev, phy->speed, phy->duplex);
+#ifdef HIGMAC_MAC_TX_RESET_IN_LINKUP
+            higmac_mac_tx_state_engine_reset(priv);
+#endif
 #ifdef HIGMAC_LINK_CHANGE_PROTECT
             spin_unlock_irqrestore(&priv->txlock, txflags);
 #endif
@@ -804,10 +886,43 @@ static void higmac_destroy_sg_desc_queue(struct higmac_netdev_local *ld)
     }
 }
 
+static bool higmac_rx_fq_empty(struct higmac_netdev_local *priv)
+{
+    u32 start, end;
+
+    start = readl(priv->gmac_iobase + RX_FQ_WR_ADDR);
+    end = readl(priv->gmac_iobase + RX_FQ_RD_ADDR);
+
+    if (start == end) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+static bool higmac_rxq_has_packets(struct higmac_netdev_local *priv, int rxq_id)
+{
+    u32 rx_bq_rd_reg, rx_bq_wr_reg;
+    u32 start, end;
+
+    rx_bq_rd_reg = RX_BQ_RD_ADDR_QUEUE(rxq_id);
+    rx_bq_wr_reg = RX_BQ_WR_ADDR_QUEUE(rxq_id);
+
+    start = readl(priv->gmac_iobase + rx_bq_rd_reg);
+    end = readl(priv->gmac_iobase + rx_bq_wr_reg);
+
+    if (start == end) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
 static void higmac_monitor_func(unsigned long arg)
 {
     struct net_device *dev = (struct net_device *)arg;
     struct higmac_netdev_local *ld = netdev_priv(dev);
+    u32 refill_cnt;
 
     if (!ld || !netif_running(dev)) {
         higmac_trace(7, "network driver is stopped.");
@@ -815,20 +930,30 @@ static void higmac_monitor_func(unsigned long arg)
     }
 
     spin_lock(&ld->rxlock);
-	higmac_rx_refill(ld);
+    refill_cnt = higmac_rx_refill(ld);
+    if (!refill_cnt && higmac_rx_fq_empty(ld)) {
+        int rxq_id;
+
+        for (rxq_id = 0; rxq_id < ld->num_rxqs; rxq_id++) {
+            if (higmac_rxq_has_packets(ld, rxq_id)) {
+                napi_schedule(&ld->q_napi[rxq_id].napi);
+            }
+        }
+    }
     spin_unlock(&ld->rxlock);
 
     ld->monitor.expires = jiffies + HIGMAC_MONITOR_TIMER;
     mod_timer(&ld->monitor, ld->monitor.expires);
 }
 
-static void higmac_rx_refill(struct higmac_netdev_local *priv)
+static u32 higmac_rx_refill(struct higmac_netdev_local *priv)
 {
     struct higmac_desc *desc;
     struct sk_buff *skb;
     u32 start, end, num, pos, i;
     u32 len = HIETH_MAX_FRAME_SIZE;
     dma_addr_t addr;
+    u32 refill_cnt = 0;
 
     /* software write pointer */
     start = dma_cnt(readl(priv->gmac_iobase + RX_FQ_WR_ADDR));
@@ -858,7 +983,10 @@ static void higmac_rx_refill(struct higmac_netdev_local *priv)
         }
 
         desc = priv->rx_fq.desc + pos;
-		desc->data_buff_addr = addr;
+        desc->data_buff_addr = (u32)addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+        desc->reserve31 = addr >> REG_BIT_WIDTH;
+#endif
         priv->rx_fq.skb[pos] = skb;
         priv->rx_skb[pos] = skb;
 
@@ -868,6 +996,7 @@ static void higmac_rx_refill(struct higmac_netdev_local *priv)
         desc->descvid = DESC_VLD_FREE;
         desc->skb_id = pos;
 
+        refill_cnt++;
         pos = dma_ring_incr(pos, RX_DESC_NUM);
     }
 
@@ -878,9 +1007,12 @@ static void higmac_rx_refill(struct higmac_netdev_local *priv)
      */
     HIGMAC_SYNC_BARRIER();
 
-	if (pos != start)
+    if (pos != start) {
         writel(dma_byte(pos), priv->gmac_iobase + RX_FQ_WR_ADDR);
     }
+
+    return refill_cnt;
+}
 
 static int higmac_rx(struct net_device *dev, int limit, int rxq_id)
 {
@@ -940,6 +1072,9 @@ static int higmac_rx(struct net_device *dev, int limit, int rxq_id)
 
         if (!HAS_CAP_CCI(ld->hw_cap)) {
             addr = desc->data_buff_addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+            addr |= (dma_addr_t)(desc->reserve31) << REG_BIT_WIDTH;
+#endif
             dma_unmap_single(ld->dev, addr, HIETH_MAX_FRAME_SIZE,
                              DMA_FROM_DEVICE);
         }
@@ -1072,6 +1207,11 @@ static int higmac_xmit_release_gso(struct higmac_netdev_local *ld,
     if (pkt_type == PKT_NORMAL) {
         if (!HAS_CAP_CCI(ld->hw_cap)) {
             addr = tx_rq_desc->data_buff_addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+            addr |= (dma_addr_t)(tx_rq_desc->reserve_desc2 &
+                                 TX_DESC_HI8_MASK)
+                    << REG_BIT_WIDTH;
+#endif
             len = tx_rq_desc->desc1.tx.data_len;
             dma_unmap_single(ld->dev, addr, len, DMA_TO_DEVICE);
         }
@@ -1086,10 +1226,20 @@ static int higmac_xmit_release_gso(struct higmac_netdev_local *ld,
             desc_cur = ld->dma_sg_desc + desc_offset;
 
             addr = desc_cur->linear_addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+            addr |= (dma_addr_t)(desc_cur->reserv3 >>
+                                 SG_DESC_HI8_OFFSET)
+                    << REG_BIT_WIDTH;
+#endif
             len = desc_cur->linear_len;
             dma_unmap_single(ld->dev, addr, len, DMA_TO_DEVICE);
             for (i = 0; i < nfrags; i++) {
                 addr = desc_cur->frags[i].addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+                addr |= (dma_addr_t)(desc_cur->frags[i].reserved >>
+                                     SG_DESC_HI8_OFFSET)
+                        << REG_BIT_WIDTH;
+#endif
                 len = desc_cur->frags[i].size;
                 dma_unmap_page(ld->dev, addr, len,
                                DMA_TO_DEVICE);
@@ -1155,6 +1305,11 @@ static void higmac_xmit_reclaim(struct net_device *dev)
             }
         } else if (!HAS_CAP_CCI(priv->hw_cap)) {
             addr = desc->data_buff_addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+            addr |= (dma_addr_t)(desc->rxhash &
+                                 TX_DESC_HI8_MASK)
+                    << REG_BIT_WIDTH;
+#endif
             dma_unmap_single(priv->dev, addr, skb->len,
                              DMA_TO_DEVICE);
         }
@@ -1212,7 +1367,7 @@ static int higmac_poll(struct napi_struct *napi, int budget)
         ints = readl(priv->gmac_iobase + raw_int_reg);
         ints &= raw_int_mask;
         writel(ints, priv->gmac_iobase + raw_int_reg);
-	} while (ints);
+    } while (ints || higmac_rxq_has_packets(priv, q_napi->rxq_id));
 
     if (work_done < budget) {
         napi_complete(napi);
@@ -1245,7 +1400,7 @@ static irqreturn_t higmac_interrupt(int irq, void *dev_id)
     ints &= raw_int_mask;
     writel(ints, ld->gmac_iobase + raw_int_reg);
 
-	if (likely(ints)) {
+    if (likely(ints || higmac_rxq_has_packets(ld, q_napi->rxq_id))) {
         higmac_irq_disable_queue(ld, q_napi->rxq_id);
         napi_schedule(&q_napi->napi);
     }
@@ -1511,13 +1666,24 @@ static int higmac_xmit_gso(struct higmac_netdev_local *ld, struct sk_buff *skb,
                 pr_err("Normal Packet DMA Mapping fail.\n");
                 return -EFAULT;
             }
-			tx_bq_desc->data_buff_addr = addr;
+            tx_bq_desc->data_buff_addr = (u32)addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+            tx_bq_desc->reserve_desc2 = (addr >> REG_BIT_WIDTH) &
+                                        TX_DESC_HI8_MASK;
+#endif
         } else {
-			tx_bq_desc->data_buff_addr = virt_to_phys(skb->data);
+            addr = virt_to_phys(skb->data);
+            tx_bq_desc->data_buff_addr = (u32)addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+            tx_bq_desc->reserve_desc2 = (addr >> REG_BIT_WIDTH) &
+                                        TX_DESC_HI8_MASK;
+#endif
         }
     } else {
         struct sg_desc *desc_cur;
         int i;
+        dma_addr_t dma_addr;
+        phys_addr_t phys_addr;
 
         if (unlikely(((ld->sg_head + 1) % ld->sg_count) ==
                      ld->sg_tail)) {
@@ -1546,9 +1712,16 @@ static int higmac_xmit_gso(struct higmac_netdev_local *ld, struct sk_buff *skb,
                 pr_err("DMA Mapping fail.");
                 return -EFAULT;
             }
-			desc_cur->linear_addr = addr;
+            desc_cur->linear_addr = (u32)dma_addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+            desc_cur->reserv3 = (dma_addr >> REG_BIT_WIDTH) << SG_DESC_HI8_OFFSET;
+#endif
         } else {
-			desc_cur->linear_addr = virt_to_phys(skb->data);
+            phys_addr = virt_to_phys(skb->data);
+            desc_cur->linear_addr = (u32)phys_addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+            desc_cur->reserv3 = (phys_addr >> REG_BIT_WIDTH) << SG_DESC_HI8_OFFSET;
+#endif
         }
 
         for (i = 0; i < nfrags; i++) {
@@ -1564,16 +1737,29 @@ static int higmac_xmit_gso(struct higmac_netdev_local *ld, struct sk_buff *skb,
                     pr_err("skb frag DMA Mapping fail.");
                     return -EFAULT;
                 }
-				desc_cur->frags[i].addr = addr;
+                desc_cur->frags[i].addr = (u32)dma_addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+                desc_cur->frags[i].reserved =
+                    (dma_addr >> REG_BIT_WIDTH) << SG_DESC_HI8_OFFSET;
+#endif
             } else {
-				desc_cur->frags[i].addr =
+                phys_addr =
                     page_to_phys(skb_frag_page(frag)) +
                     frag->page_offset;
+                desc_cur->frags[i].addr = (u32)phys_addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+                desc_cur->frags[i].reserved =
+                    (phys_addr >> REG_BIT_WIDTH) << SG_DESC_HI8_OFFSET;
+#endif
             }
             desc_cur->frags[i].size = len;
         }
-		tx_bq_desc->data_buff_addr = ld->dma_sg_phy +
-			ld->sg_head * sizeof(struct sg_desc);
+        addr = ld->dma_sg_phy + ld->sg_head * sizeof(struct sg_desc);
+        tx_bq_desc->data_buff_addr = (u32)addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+        tx_bq_desc->reserve_desc2 = (addr >> REG_BIT_WIDTH) &
+                                    TX_DESC_HI8_MASK;
+#endif
         ld->tx_bq.sg_desc_offset[desc_pos] = ld->sg_head;
 
         ld->sg_head = (ld->sg_head + 1) % ld->sg_count;
@@ -1706,9 +1892,18 @@ static netdev_tx_t higmac_net_xmit(struct sk_buff *skb, struct net_device *dev)
                 spin_unlock_irqrestore(&ld->txlock, txflags);
                 return NETDEV_TX_OK;
             }
-			desc->data_buff_addr = addr;
+            desc->data_buff_addr = (u32)addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+            desc->rxhash = (addr >> REG_BIT_WIDTH) &
+                           TX_DESC_HI8_MASK;
+#endif
         } else {
-			desc->data_buff_addr = virt_to_phys(skb->data);
+            addr = virt_to_phys(skb->data);
+            desc->data_buff_addr = (u32)addr;
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+            desc->rxhash = (addr >> REG_BIT_WIDTH) &
+                           TX_DESC_HI8_MASK;
+#endif
         }
         desc->buffer_len = HIETH_MAX_FRAME_SIZE - 1;
         desc->data_len = skb->len;
@@ -2679,6 +2874,7 @@ static int higmac_dev_probe(struct platform_device *pdev)
     unsigned int hw_cap;
     int ret;
     int num_rxqs;
+    bool fixed_link = false;
 
     higmac_verify_flow_ctrl_args();
 
@@ -2790,6 +2986,20 @@ static int higmac_dev_probe(struct platform_device *pdev)
 
     priv->phy_node = of_parse_phandle(node, "phy-handle", 0);
     if (!priv->phy_node) {
+        /* check if a fixed-link is defined in device-tree */
+        if (of_phy_is_fixed_link(node)) {
+            ret = of_phy_register_fixed_link(node);
+            if (ret < 0) {
+                dev_err(dev, "cannot register fixed PHY %d\n", ret);
+                goto out_macif_clk_disable;
+            }
+
+            /* In the case of a fixed PHY, the DT node associated
+             * to the PHY is the Ethernet MAC DT node.
+             */
+            priv->phy_node = of_node_get(node);
+            fixed_link = true;
+        } else {
             netdev_err(ndev, "not find phy-handle\n");
             ret = -EINVAL;
             goto out_macif_clk_disable;
@@ -2838,9 +3048,8 @@ static int higmac_dev_probe(struct platform_device *pdev)
         goto out_phy_node;
     }
 
-	/* If the phy_id is mostly Fs, there is no device there */
-	if ((priv->phy->phy_id & 0x1fffffff) == 0x1fffffff ||
-	    priv->phy->phy_id == 0) {
+    /* If the phy_id is all zero and not fixed link, there is no device there */
+    if ((priv->phy->phy_id == 0) && !fixed_link) {
         pr_info("phy %d not found\n", priv->phy->mdio.addr);
         ret = -ENODEV;
         goto out_phy_disconnect;
@@ -2925,6 +3134,16 @@ static int higmac_dev_probe(struct platform_device *pdev)
     priv->wol_enable = false;
 
     priv->msg_enable = netif_msg_init(debug, DEFAULT_MSG_ENABLE);
+
+#if defined(CONFIG_HIGMAC_DDR_64BIT)
+    if (!HAS_CAP_CCI(priv->hw_cap)) {
+        ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+        if (ret) {
+            pr_err("dma set mask 64 failed! ret=%d", ret);
+            goto _error_hw_desc_queue;
+        }
+    }
+#endif
 
     /* init hw desc queue */
     ret = higmac_init_hw_desc_queue(priv);

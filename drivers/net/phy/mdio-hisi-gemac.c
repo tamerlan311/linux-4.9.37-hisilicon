@@ -56,7 +56,7 @@ static int hisi_gemac_mdio_wait_ready(struct hisi_gemac_mdio_data *data)
 {
 	u32 val;
 
-	return readl_poll_timeout(data->membase + MDIO_SINGLE_CMD,
+	return readl_poll_timeout_atomic(data->membase + MDIO_SINGLE_CMD,
 				  val, !(val & MDIO_START), 20, 10000);
 }
 

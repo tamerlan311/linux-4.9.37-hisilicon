@@ -36,10 +36,15 @@
 #define BIT_MASK_FEPHY_ADDR	GENMASK(4, 0)
 #define BIT_FEPHY_SEL		BIT(5)
 
+#if defined(CONFIG_ARCH_HI3536DV100)
 #define BIT_OFFSET_LD_SET	0
 #define BIT_OFFSET_LDO_SET	5
 #define BIT_OFFSET_R_TUNING	8
-
+#else
+#define BIT_OFFSET_LD_SET	25
+#define BIT_OFFSET_LDO_SET	22
+#define BIT_OFFSET_R_TUNING	16
+#endif
 #define MII_EXPMD		0x1d
 #define MII_EXPMA		0x1e
 
@@ -94,7 +99,7 @@ static int hisi_femac_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 	if (ret)
 		return ret;
 
-	writel((mii_id << BIT_PHY_ADDR_OFFSET) | ((u32)regnum),
+	writel(((u32)mii_id << BIT_PHY_ADDR_OFFSET) | ((u32)regnum),
 		  data->membase + MDIO_RWCTRL);
 
 	ret = hisi_femac_mdio_wait_ready(data);
@@ -115,7 +120,7 @@ static int hisi_femac_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
 		return ret;
 
 	writel(MDIO_WRITE | (value << BIT_WR_DATA_OFFSET) |
-	       (mii_id << BIT_PHY_ADDR_OFFSET) | ((u32)regnum),
+	       ((u32)mii_id << BIT_PHY_ADDR_OFFSET) | ((u32)regnum),
 	       data->membase + MDIO_RWCTRL);
 
 	return hisi_femac_mdio_wait_ready(data);
@@ -260,7 +265,12 @@ static void hisi_femac_fephy_trim(struct hisi_femac_mdio_data *data)
 	u8 ldo_set;
 	u8 r_tuning;
 
+/*Only 36DV100 fephy trim data need to get otp data from special space not fephy control reg1*/
+#if defined(CONFIG_ARCH_HI3536DV100) 	
 	val = readl(data->fephy_trim_iobase);
+#else
+	val = readl(data->fephy_iobase);
+#endif
 	ld_set = (val >> BIT_OFFSET_LD_SET) & BIT_MASK_LD_SET;
 	ldo_set = (val >> BIT_OFFSET_LDO_SET) & BIT_MASK_LDO_SET;
 	r_tuning = (val >> BIT_OFFSET_R_TUNING) & BIT_MASK_R_TUNING;

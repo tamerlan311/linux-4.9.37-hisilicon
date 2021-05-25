@@ -15,6 +15,16 @@ menuconfig HIETH_GMAC
 
 if HIETH_GMAC
 
+config HIGMAC_DDR_64BIT
+	bool "higmac ddr width 64 bit"
+	depends on ARM64
+	default n
+	help
+	  This define the higmac supports DDR width 64 bit.
+	  In the newest version, the DDR size may be 8G.
+	  But in old version, the higmac only supports DDR width 32 bit.
+	  The default value is false.
+
 config HIGMAC_DESC_4WORD
         bool "higmac descriptor size is 4 words"
         default y

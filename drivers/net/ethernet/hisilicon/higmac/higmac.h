@@ -46,6 +46,8 @@
 
 #define PORT_MC_ADDR_LOW  0x0068
 #define PORT_MC_ADDR_HIGH 0x006C
+#define MAC_CLEAR         0x0070
+#define BIT_TX_SOFT_RESET BIT(0)
 
 #define MODE_CHANGE_EN     0x01b4
 #define BIT_MODE_CHANGE_EN BIT(0)
@@ -69,6 +71,11 @@
 
 #define RX_FQ_START_ADDR         0x0500
 #define RX_FQ_DEPTH              0x0504
+#define REG_BIT_WIDTH            32
+#define Q_ADDR_HI8_OFFSET        24
+#define Q_ADDR_HI8_MASK          (BIT(Q_ADDR_HI8_OFFSET) - 1)
+#define TX_DESC_HI8_MASK         0xff
+#define SG_DESC_HI8_OFFSET       8
 #define RX_FQ_WR_ADDR            0x0508
 #define BITS_RX_FQ_WR_ADDR       MK_BITS(0, 21)
 #define RX_FQ_RD_ADDR            0x050c

@@ -181,6 +181,40 @@
 #define FC_DEACTIVE_DEFAULT             5
 #define FC_DEACTIVE_MAX                 31
 
+#if (defined(CONFIG_ARCH_HI3516EV200) || defined(CONFIG_ARCH_HI3516EV300) || defined(CONFIG_ARCH_HI3516DV200))
+#define CONFIG_FEPHY_OPT
+#endif
+
+#ifdef CONFIG_FEPHY_OPT
+/*FEPHY register list*/
+
+#define  SYS_REG_ADDR                   0x12028000
+#define  FEPHY_TRIM_CACHE               0x3022
+#define  FEPHY_TRIM_VALUE               0x20a1
+#define  LOW_TEM_VALUE                  117
+#define  HIGH_TEM_VALUE                 915
+#define  LINK_STATUS                    0x4
+#define  IS_LINK                        0X4
+#define  SPEED_STATUS                   0x18
+#define  SPEED_100M                     0x8
+#define  LINK_AN_SR                     0x11
+#define  MISC_CTRL45                    0x00B4
+#define  MISC_CTRL47                    0x00BC
+#define  MISC_CTRL48                    0x00C0
+#define  TSENSOR_RESULT0                0x3ff
+#define  TSENSOR_RESULT1                0x3ff0000
+#define  TSENSOR_RESULT2                0x3ff
+#define  TSENSOR_RESULT3                0x3ff0000
+#define  TSENSOR_EN                     0xc3200000
+#define  HIGH_TEMP                      100
+#define  NORMAL_TEMP1                   90
+#define  NORMAL_TEMP2                   20
+#define  LOW_TEMP                       10
+#define  TSENSOR_LIMIT                  0xfffff
+#define  regval_to_temp(val)            ((val - 117) * 165 / 798 - 40)
+#define  FEPHY_OPT_TIMER                (30 * HZ)
+#endif
+
 enum phy_reset_delays {
     PRE_DELAY,
     PULSE,
@@ -212,12 +246,19 @@ struct hisi_femac_priv {
     u32 phy_reset_delays[DELAYS_NUM];
     u32 link_status;
 
+#ifdef CONFIG_FEPHY_OPT
+    struct delayed_work watchdog_queue;
+#endif
     struct device *dev;
     struct net_device *ndev;
 
     u32 hw_cap;
     struct hisi_femac_queue txq;
     struct hisi_femac_queue rxq;
+#ifdef FEMAC_RX_REFILL_IN_IRQ
+    struct sk_buff_head rx_head;
+    spinlock_t rxlock;
+#endif
     struct hisi_femac_tx_desc_ring tx_ring;
     u32 tx_fifo_used_cnt;
     struct napi_struct napi;
@@ -267,6 +308,137 @@ static void hisi_femac_irq_disable(struct hisi_femac_priv *priv, u32 irqs)
     val = readl(priv->glb_base + GLB_IRQ_ENA);
     writel(val & (~irqs), priv->glb_base + GLB_IRQ_ENA);
 }
+
+#ifdef CONFIG_FEPHY_OPT
+static u32 highflag = 0, lowflag = 0;
+static void hisi_femac_watchdog(struct work_struct *work)
+{
+    struct delayed_work *dwork = to_delayed_work(work);
+    struct hisi_femac_priv *priv = container_of(dwork, struct hisi_femac_priv, watchdog_queue);
+    void __iomem *sys_reg_addr;
+    struct net_device *dev;
+    struct phy_device *phy_dev;
+    u32 temp0,temp1,temp2,temp3;
+    u32 val,val1;
+    int temp;
+    int Table[32] = {0x11,0x10,0x10,0xf,0xe,0xd,0xd,0xc,
+                    0xb,0xa,0xa,0x9,0x8,0x7,0x7,0x6,
+                    0x5,0x5,0x4,0x3,0x2,0x2,0x1,0x0,
+                    0x3f,0x3f,0x3e,0x3d,0x3c,0x3b,0x3a
+    };
+    dev = priv->ndev;
+    if(dev == NULL) {
+        pr_err("get net device failed \n");
+        return;
+    }
+    phy_dev = dev->phydev;
+    if(phy_dev == NULL) {
+        pr_err("get phy device failed \n");
+        return;
+    }
+    sys_reg_addr = (void __iomem *)ioremap_nocache(SYS_REG_ADDR, 0x100);
+    if(!sys_reg_addr) {
+        pr_err("iomap failed \n");
+        return;
+    }
+    val = readl(sys_reg_addr + MISC_CTRL45);
+    if((val >> 30) != 0x3) {
+        val |= TSENSOR_EN;
+        writel(val, sys_reg_addr + MISC_CTRL45);
+        mdelay(10);
+    }
+    temp0 = readl(sys_reg_addr + MISC_CTRL47) & TSENSOR_RESULT0;
+    temp1 = (readl(sys_reg_addr + MISC_CTRL47) & TSENSOR_RESULT1) >> 16;
+    temp2 = readl(sys_reg_addr + MISC_CTRL48) & TSENSOR_RESULT2;
+    temp3 = (readl(sys_reg_addr + MISC_CTRL48) & TSENSOR_RESULT3) >> 16;
+    val = (temp0 + temp1 + temp2 + temp3)/4;
+    if(val < LOW_TEM_VALUE || val > HIGH_TEM_VALUE) {
+        goto out;
+    }
+    temp = regval_to_temp(val);
+    if((temp > HIGH_TEMP) && (highflag == 0)){
+        highflag = 1;
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_CACHE);
+        val = phy_read(phy_dev, MII_EXPMD);
+        if((val & 0x1f) > 1) {
+            val = (val & 0xe0) | ((val & 0x1f) - 1);
+        } else {
+            goto out;
+        }
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_CACHE);
+        phy_write(phy_dev, MII_EXPMD, val);
+        val &= 0x1f;
+        val1 = Table[val];
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_VALUE);
+        val = phy_read(phy_dev, MII_EXPMD);
+        val = (val1 << 2) | (val & 0x3);
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_VALUE);
+        phy_write(phy_dev, MII_EXPMD, val);
+    }
+    if((temp < NORMAL_TEMP1) && (highflag == 1)){
+        highflag = 0;
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_CACHE);
+        val = phy_read(phy_dev, MII_EXPMD);
+        if((val & 0x1f) < 31) {
+            val = (val & 0xe0) | ((val & 0x1f) + 1);
+        } else {
+            goto out;
+        }
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_CACHE);
+        phy_write(phy_dev, MII_EXPMD, val);
+        val &= 0x1f;
+        val1 = Table[val];
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_VALUE);
+        val = phy_read(phy_dev, MII_EXPMD);
+        val = (val1 << 2) | (val & 0x3);
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_VALUE);
+        phy_write(phy_dev, MII_EXPMD, val);
+    }
+    if((temp > NORMAL_TEMP2) && (lowflag == 0)){
+        lowflag = 1;
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_CACHE);
+        val = phy_read(phy_dev, MII_EXPMD);
+        if((val & 0x1f) > 1) {
+            val = (val & 0xe0) | ((val & 0x1f) - 1);
+        } else {
+            goto out;
+        }
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_CACHE);
+        phy_write(phy_dev, MII_EXPMD, val);
+        val &= 0x1f;
+        val1 = Table[val];
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_VALUE);
+        val = phy_read(phy_dev, MII_EXPMD);
+        val = (val1 << 2) | (val & 0x3);
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_VALUE);
+        phy_write(phy_dev, MII_EXPMD, val);
+    }
+    if((temp < LOW_TEMP) && (lowflag == 1)){
+        lowflag = 0;
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_CACHE);
+        val = phy_read(phy_dev, MII_EXPMD);
+        if((val & 0x1f) < 31) {
+            val = (val & 0xe0) | ((val & 0x1f) + 1);
+        } else {
+            goto out;
+        }
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_CACHE);
+        phy_write(phy_dev, MII_EXPMD, val);
+        val &= 0x1f;
+        val1 = Table[val];
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_VALUE);
+        val = phy_read(phy_dev, MII_EXPMD);
+        val = (val1 << 2) | (val & 0x3);
+        phy_write(phy_dev, MII_EXPMA, FEPHY_TRIM_VALUE);
+        phy_write(phy_dev, MII_EXPMD, val);
+    }
+
+
+out:
+    iounmap(sys_reg_addr);
+    schedule_delayed_work(&priv->watchdog_queue, FEPHY_OPT_TIMER);
+}
+#endif
 
 static void hisi_femac_set_flow_ctrl(struct hisi_femac_priv *priv)
 {
@@ -716,6 +888,104 @@ static void hisi_femac_rx_refill(struct hisi_femac_priv *priv)
     rxq->head = pos;
 }
 
+#ifdef FEMAC_RX_REFILL_IN_IRQ
+static void hisi_femac_pre_receive(struct net_device *dev)
+{
+    struct hisi_femac_priv *priv = netdev_priv(dev);
+    struct hisi_femac_queue *rxq = &priv->rxq;
+    struct sk_buff *skb;
+    dma_addr_t addr;
+    u32 rx_pkt_info, pos, len;
+    int hdr_csum_done, hdr_csum_err;
+    int payload_csum_done, payload_csum_err;
+    unsigned long rxflags;
+
+    spin_lock_irqsave(&priv->rxlock, rxflags);
+    pos = rxq->tail;
+    while (readl(priv->glb_base + GLB_IRQ_RAW) & IRQ_INT_RX_RDY) {
+        rx_pkt_info = readl(priv->port_base + IQFRM_DES);
+        len = rx_pkt_info & RX_FRAME_LEN_MASK;
+        len -= ETH_FCS_LEN;
+
+        /* tell hardware we will deal with this packet */
+        writel(IRQ_INT_RX_RDY, priv->glb_base + GLB_IRQ_RAW);
+
+        skb = rxq->skb[pos];
+        if (unlikely(!skb)) {
+            netdev_err(dev, "rx skb NULL. pos=%d\n", pos);
+            break;
+        }
+        rxq->skb[pos] = NULL;
+
+        addr = rxq->dma_phys[pos];
+        dma_unmap_single(priv->dev, addr, MAX_FRAME_SIZE,
+                         DMA_FROM_DEVICE);
+        skb_put(skb, len);
+        if (unlikely(skb->len > MAX_FRAME_SIZE)) {
+            netdev_err(dev, "rcv len err, len = %d\n", skb->len);
+            dev->stats.rx_errors++;
+            dev->stats.rx_length_errors++;
+            dev_kfree_skb_any(skb);
+            goto next;
+        }
+
+        skb->ip_summed = CHECKSUM_NONE;
+        if (dev->features & NETIF_F_RXCSUM) {
+            hdr_csum_done =
+                (rx_pkt_info >> BITS_HEADER_DONE_OFFSET) &
+                BITS_HEADER_DONE_MASK;
+            payload_csum_done =
+                (rx_pkt_info >> BITS_PAYLOAD_DONE_OFFSET) &
+                BITS_PAYLOAD_DONE_MASK;
+            hdr_csum_err =
+                (rx_pkt_info >> BITS_HEADER_ERR_OFFSET) &
+                BITS_HEADER_ERR_MASK;
+            payload_csum_err =
+                (rx_pkt_info >> BITS_PAYLOAD_ERR_OFFSET) &
+                BITS_PAYLOAD_ERR_MASK;
+
+            if (hdr_csum_done && payload_csum_done) {
+                if (unlikely(hdr_csum_err)) {
+                    dev->stats.rx_errors++;
+                    dev->stats.rx_crc_errors++;
+                    dev_kfree_skb_any(skb);
+                    goto next;
+                } else if (!payload_csum_err) {
+                    skb->ip_summed = CHECKSUM_UNNECESSARY;
+                }
+            }
+        }
+        skb_queue_tail(&priv->rx_head, skb);
+next:
+        pos = (pos + 1) % rxq->num;
+    }
+    rxq->tail = pos;
+
+    hisi_femac_rx_refill(priv);
+    spin_unlock_irqrestore(&priv->rxlock, rxflags);
+}
+
+static u32 hisi_femac_rx(struct net_device *dev, int limit)
+{
+    struct hisi_femac_priv *priv = netdev_priv(dev);
+    struct sk_buff *skb;
+    u32 rx_pkts_num = 0;
+
+    while ((skb = skb_dequeue(&priv->rx_head))) {
+        skb->protocol = eth_type_trans(skb, dev);
+        napi_gro_receive(&priv->napi, skb);
+        dev->stats.rx_packets++;
+        dev->stats.rx_bytes += skb->len;
+        rx_pkts_num++;
+
+        if (rx_pkts_num >= limit) {
+            break;
+        }
+    }
+
+    return rx_pkts_num;
+}
+#else
 static u32 hisi_femac_rx(struct net_device *dev, int limit)
 {
     struct hisi_femac_priv *priv = netdev_priv(dev);
@@ -940,6 +1210,7 @@ static void hisi_femac_free_skb_rings(struct hisi_femac_priv *priv)
         if (unlikely(!skb)) {
             netdev_err(priv->ndev, "NULL rx skb. pos=%d, head=%d\n",
                        pos, rxq->head);
+            pos = (pos + 1) % rxq->num;
             continue;
         }
 
@@ -959,6 +1230,7 @@ static void hisi_femac_free_skb_rings(struct hisi_femac_priv *priv)
         if (unlikely(!skb)) {
             netdev_err(priv->ndev, "NULL tx skb. pos=%d, head=%d\n",
                        pos, txq->head);
+            pos = (pos + 1) % txq->num;
             continue;
         }
         hisi_femac_tx_dma_unmap(priv, skb, pos);
@@ -1053,6 +1325,9 @@ static int hisi_femac_net_close(struct net_device *dev)
     priv->tx_pause_en = false;
     hisi_femac_set_flow_ctrl(priv);
     hisi_femac_free_skb_rings(priv);
+#ifdef FEMAC_RX_REFILL_IN_IRQ
+    skb_queue_purge(&priv->rx_head);
+#endif
 
     return 0;
 }
@@ -1566,10 +1841,27 @@ static int hisi_femac_drv_probe(struct platform_device *pdev)
 
     phy = of_phy_get_and_connect(ndev, node, hisi_femac_adjust_link);
     if (!phy) {
+        /* check if a fixed-link is defined in device-tree */
+        if (of_phy_is_fixed_link(node)) {
+            ret = of_phy_register_fixed_link(node);
+            if (ret < 0) {
+                dev_err(dev, "cannot regitster fixed link phy %d \n", ret);
+                goto out_disable_clk;
+            }
+            /* In case of a fixed link phy, the DT node associated
+             * to the phy is the Ethernet MAC DT node.
+             */
+            phy = of_phy_connect(ndev, of_node_get(node), &hisi_femac_adjust_link, 0, of_get_phy_mode(node));
+            if (!phy) {
+                dev_err(dev, "fixed_link didnot connect successfully.\n");
+                goto out_disable_clk;
+            }
+        } else {
             dev_err(dev, "connect to PHY failed!\n");
             ret = -ENODEV;
             goto out_disable_clk;
         }
+    }
 
     phy->advertising |= ADVERTISED_Pause;
     phy->supported |= ADVERTISED_Pause;
@@ -1597,6 +1889,11 @@ static int hisi_femac_drv_probe(struct platform_device *pdev)
     ndev->ethtool_ops = &hisi_femac_ethtools_ops;
     netif_napi_add(ndev, &priv->napi, hisi_femac_poll, FEMAC_POLL_WEIGHT);
 
+#ifdef CONFIG_FEPHY_OPT
+    INIT_DELAYED_WORK(&priv->watchdog_queue, hisi_femac_watchdog);
+    schedule_delayed_work(&priv->watchdog_queue, FEPHY_OPT_TIMER);
+#endif
+
     if (HAS_TSO_CAP(priv->hw_cap)) {
         ndev->hw_features |= NETIF_F_SG |
                         NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
@@ -1623,6 +1920,10 @@ static int hisi_femac_drv_probe(struct platform_device *pdev)
         hisi_femac_enable_rxcsum_drop(priv, true);
     }
 
+#ifdef FEMAC_RX_REFILL_IN_IRQ
+    skb_queue_head_init(&priv->rx_head);
+    spin_lock_init(&priv->rxlock);
+#endif
     ret = hisi_femac_init_tx_and_rx_queues(priv);
     if (ret) {
         goto out_disconnect_phy;
@@ -1684,6 +1985,9 @@ static int hisi_femac_drv_remove(struct platform_device *pdev)
     }
 
     phy_disconnect(ndev->phydev);
+#ifdef CONFIG_FEPHY_OPT
+    cancel_delayed_work_sync(&priv->watchdog_queue);
+#endif
     clk_disable_unprepare(priv->clk);
     free_netdev(ndev);
 
@@ -1739,10 +2043,19 @@ static const struct of_device_id hisi_femac_match[] = {
         .compatible = "hisilicon,hisi-femac-v2",
     },
     {
+        .compatible = "hisilicon,hi3516cv500-femac",
+    },
+    {
         .compatible = "hisilicon,hi3516cv300-femac",
     },
     {
         .compatible = "hisilicon,hi3536dv100-femac",
+    },
+    {
+        .compatible = "hisilicon,hi3556v200-femac",
+    },
+    {
+        .compatible = "hisilicon,hi3559v200-femac",
     },
     {},
 };
