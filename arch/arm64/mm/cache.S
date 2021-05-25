@@ -23,6 +23,8 @@
 #include <asm/assembler.h>
 #include <asm/cpufeature.h>
 #include <asm/alternative.h>
+#include <asm/uaccess.h>
+
 /*
  *	__flush_dcache_all()
  *
@@ -43,11 +45,11 @@ loop1:
 	and	x1, x1, #7			// mask of the bits for current cache only
 	cmp	x1, #2				// see what cache we have at this level
 	b.lt	skip				// skip if no cache, or just i-cache
-	save_and_disable_irqs x9		// make CSSELR and CCSIDR access atomic
+	save_and_disable_irq x9		// make CSSELR and CCSIDR access atomic
 	msr	csselr_el1, x10			// select current cache level in csselr
 	isb					// isb to sych the new cssr&csidr
 	mrs	x1, ccsidr_el1			// read the new ccsidr
-	restore_irqs x9
+	restore_irq x9
 	and	x2, x1, #7			// extract the length of the cache lines
 	add	x2, x2, #4			// add 4 (line length offset)
 	mov	x4, #0x3ff
@@ -120,6 +122,7 @@ ENTRY(flush_icache_range)
  *	- end     - virtual end address of region
  */
 ENTRY(__flush_cache_user_range)
+	uaccess_ttbr0_enable x2, x3, x4
 	dcache_line_size x2, x3
 	sub	x3, x2, #1
 	bic	x4, x0, x3
@@ -141,10 +144,12 @@ USER(9f, ic	ivau, x4	)		// invalidate I line PoU
 	dsb	ish
 	isb
 	mov	x0, #0
+1:
+	uaccess_ttbr0_disable x1, x2
 	ret
 9:
 	mov	x0, #-EFAULT
-	ret
+	b	1b
 ENDPROC(flush_icache_range)
 ENDPROC(__flush_cache_user_range)
 
