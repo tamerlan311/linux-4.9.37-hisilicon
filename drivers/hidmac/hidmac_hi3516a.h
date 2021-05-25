@@ -111,13 +111,13 @@ extern int g_channel_status[CHANNEL_NUM];
 dmac_peripheral  g_peripheral[DMAC_MAX_PERIPHERALS] = {
 	/* DREQ,  FIFO,   CONTROL,   CONFIG, WIDTH */
 	/*periphal 0: I2C0/I2C1 RX*/
-	{ 0, I2C0_DATA_REG, 0x99000000, 0xd000, PERI_8BIT_MODE},
+	{ 0, I2C0_DATA_REG, 0x99000000, 0x1000, PERI_8BIT_MODE},
 	/*periphal 1: I2C0/I2C1 TX*/
-	{ 1, I2C0_DATA_REG, 0x96000000, 0xc840, PERI_8BIT_MODE},
+	{ 1, I2C0_DATA_REG, 0x96000000, 0x0840, PERI_8BIT_MODE},
 	/*periphal 2: I2C1/I2C2 RX*/
-	{ 2, I2C1_DATA_REG, 0x99000000, 0xd004, PERI_8BIT_MODE},    /*  8bit width */
+	{ 2, I2C1_DATA_REG, 0x99000000, 0x1004, PERI_8BIT_MODE},    /*  8bit width */
 	/*periphal 3: I2C1/I2C2 TX*/
-	{ 3, I2C1_DATA_REG, 0x96000000, 0xc8c0, PERI_8BIT_MODE},    /*  8bit width */
+	{ 3, I2C1_DATA_REG, 0x96000000, 0x08c0, PERI_8BIT_MODE},    /*  8bit width */
 
 	/*periphal 4: UART0 RX*/
 	{ 4, UART0_DATA_REG, DMAC_CxCONTROL_LLIP2M, DMAC_CxCONFIG_P2M | (4 << 1), PERI_8BIT_MODE},

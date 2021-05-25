@@ -43,8 +43,20 @@
 #include "hidmac_hi3536dv100.h"
 #endif
 
+#ifdef CONFIG_ARCH_HI3518EV20X
+#include "hidmac_hi3518ev20x.h"
+#endif
+
 #ifdef CONFIG_ARCH_HI3516A
 #include "hidmac_hi3516a.h"
+#endif
+
+#ifdef CONFIG_ARCH_HI3521A
+#include "hidmac_hi3521a.h"
+#endif
+
+#ifdef CONFIG_ARCH_HI3531A
+#include "hidmac_hi3531a.h"
 #endif
 
 #define RX	0
@@ -174,9 +186,9 @@ static int dma_update_status(unsigned int channel)
 
 	while (1) {
 		for (j = 0; j < 3; j++) {
-			dmac_readw(dma_regbase + DMAC_INTTCSTATUS, channel_status);
+			dmac_readw(dma_regbase + DMAC_RAWINTTCSTATUS, channel_status);
 			channel_tc_status[j] = (channel_status >> i) & 0x01;
-			dmac_readw(dma_regbase + DMAC_INTERRORSTATUS, channel_status);
+			dmac_readw(dma_regbase + DMAC_RAWINTERRORSTATUS, channel_status);
 			channel_err_status[j] = (channel_status >> i) & 0x01;
 		}
 
