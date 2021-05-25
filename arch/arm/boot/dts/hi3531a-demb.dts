@@ -117,7 +117,7 @@
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
+		pl022,com-mode = <0>;
 		spi-max-frequency = <31250000>;
 	};
 
@@ -125,7 +125,7 @@
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
+		pl022,com-mode = <0>;
 		spi-max-frequency = <31250000>;
 	};
 
@@ -133,14 +133,14 @@
 		compatible = "rohm,dh2228fv";
 		reg = <2>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
+		pl022,com-mode = <0>;
 		spi-max-frequency = <31250000>;
 	};
 	spidev@3 {
 		compatible = "rohm,dh2228fv";
 		reg = <3>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
+		pl022,com-mode = <0>;
 		spi-max-frequency = <31250000>;
 	};
 };

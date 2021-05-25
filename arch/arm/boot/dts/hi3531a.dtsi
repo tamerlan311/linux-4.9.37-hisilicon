@@ -57,7 +57,7 @@
 		};
 
 		sysctrl: system-controller@12050000 {
-			compatible = "hisilicon,hi3531a-sysctrl", "syscon";
+			compatible = "hisilicon,sysctrl", "syscon";
 			reg = <0x12050000 0x1000>;
 			#clock-cells = <1>;
 		};
@@ -139,7 +139,7 @@
 
 		usb3_phy: phy3 {
 			compatible = "hisilicon,hisi-usb3-phy";
-			reg = <0x12040000 0x10000>, <0x12120000 0x10000>;
+			reg = <0x12040000 0x10000>, <0x12120000 0x10000>, <0x11000000 0x100000>;
 			#phy-cells = <0>;
 		};
 
@@ -147,6 +147,7 @@
 			compatible = "generic-xhci";
 			reg = <0x11000000 0x10000>;
 			interrupts = <0 22 4>;
+			usb2-lpm-disable;
 		};
 
 		ehci@0x100c0000 {
@@ -194,7 +195,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			hisi,spi_cs_sb = <0>;
-			hisi,spi_cs_mask_bit = <0x00000004>;
+			hisi,spi_cs_mask_bit = <0x00000007>;
 		};
 
 		timer@hisp804 {
@@ -240,6 +241,7 @@
 			reg = <0x10000000 0x1000>, <0x14000000 0x10000>;
 			reg-names = "control", "memory";
 			clocks = <&clock HI3531A_FMC_CLK>;
+			max-dma-size = <0x2000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 

@@ -57,7 +57,7 @@
 		};
 
 		sysctrl: system-controller@12050000 {
-			compatible = "hisilicon,hi3521a-sysctrl", "syscon";
+			compatible = "hisilicon,sysctrl", "syscon";
 			reg = <0x12050000 0x1000>;
 			#clock-cells = <1>;
 		};
@@ -179,7 +179,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			hisi,spi_cs_sb = <0>;
-			hisi,spi_cs_mask_bit = <0x00000004>;
+			hisi,spi_cs_mask_bit = <0x00000003>;
 		};
 
 		usb_phy: phy {
@@ -205,6 +205,7 @@
 			reg = <0x10000000 0x1000>, <0x14000000 0x10000>;
 			reg-names = "control", "memory";
 			clocks = <&clock HI3521A_FMC_CLK>;
+			max-dma-size = <0x2000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
