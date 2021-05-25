@@ -310,7 +310,7 @@ static void himci_init_host(struct himci_host *host)
 #endif
 
 	/* set drv/smpl phase shift */
-	tmp_reg |= SMPL_PHASE_DFLT | DRV_PHASE_DFLT;
+    	tmp_reg |= SMPL_PHASE_DFLT | DRV_PHASE_DFLT;
 	himci_writel(tmp_reg, host->base + MCI_UHS_REG_EXT);
 
 	/* set card read threshold */
@@ -638,7 +638,7 @@ static void himci_cmd_done(struct himci_host *host, unsigned int stat)
 		cmd->error = -EILSEQ;
 		himci_trace(3, "irq cmd status stat = 0x%x is response error!",
 				stat);
-	}
+       }
 
 	host->cmd = NULL;
 }
@@ -940,7 +940,7 @@ static void himci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 			/* wait data transfer complete */
 			himci_wait_data_complete(host);
-		} else {
+		} else{
 			/* CMD error in data command */
 			himci_idma_stop(host);
 		}
@@ -1599,7 +1599,7 @@ static int __exit himci_remove(struct platform_device *pdev)
 		himci_control_cclk(host, DISABLE);
 		devm_iounmap(&pdev->dev, host->base);
 		dma_free_coherent(&pdev->dev, CMD_DES_PAGE_SIZE, host->dma_vaddr,
-				  host->dma_paddr);
+				host->dma_paddr);
 		mmc_free_host(mmc);
 	}
 	return 0;

@@ -23,76 +23,80 @@
 #define SPI_CMD_SECOND_RESET_4ADDR (0x99)
 
 #define SPI_CMD_FLAG_SR_MICRON  0x70  /* READ FLAG STATUS REGISTER */
-#define SPI_CMD_RD_RDCR_MICRON	0xB5  /* READ NONVOLATILE CONFIGURATION
-					 REGISTER*/
-#define SPI_CMD_WR_RDCR_MICRON	0xB1 /* WRITE NONVOLATILE CONFIGURATION
-					 REGISTER*/
-#define SPI_NOR_ADS_MASK	0x1
+#define SPI_CMD_RD_RDCR_MICRON  0xB5  /* READ NONVOLATILE CONFIGURATION
+                     REGISTER*/
+#define SPI_CMD_WR_RDCR_MICRON  0xB1 /* WRITE NONVOLATILE CONFIGURATION
+                     REGISTER*/
+#define SPI_NOR_ADS_MASK    0x1
 #define SPI_NOR_GET_4BYTE_BY_FLAG_SR(sr)     ((sr) & SPI_NOR_ADS_MASK)
 
-#define SPI_NOR_ADS_SET_4BYTE(cr)	     ((cr) & (~SPI_NOR_ADS_MASK))
-#define SPI_NOR_ADS_GET_4BYTE(cr)	     ((cr) & SPI_NOR_ADS_MASK)
+#define SPI_NOR_ADS_SET_4BYTE(cr)        ((cr) & (~SPI_NOR_ADS_MASK))
+#define SPI_NOR_ADS_GET_4BYTE(cr)        ((cr) & SPI_NOR_ADS_MASK)
 /****************************************************************************/
 static int spi_micron_entry_4addr(struct hisfc_spi *spi, int enable)
 {
-	unsigned char status;
-	unsigned int reg;
-	const char *str[] = {"Disable", "Enable"};
-	struct hisfc_host *host = (struct hisfc_host *)spi->host;
+    unsigned char status;
+    unsigned int reg;
+    const char *str[] = {"Disable", "Enable"};
+    struct hisfc_host *host = (struct hisfc_host *)spi->host;
 
-	if (spi->addrcycle != SPI_4BYTE_ADDR_LEN)
-		return 0;
+    if (spi->addrcycle != SPI_4BYTE_ADDR_LEN) {
+        return 0;
+    }
 
-	status = spi_general_get_flash_register(spi, SPI_CMD_FLAG_SR_MICRON);
-	if (DEBUG_SPI)
-		printk(KERN_INFO"\t Read flag status register[%#x]:%#x\n",
-				SPI_CMD_FLAG_SR_MICRON, status);
+    status = spi_general_get_flash_register(spi, SPI_CMD_FLAG_SR_MICRON);
+    if (DEBUG_SPI)
+        printk(KERN_INFO"\t Read flag status register[%#x]:%#x\n",
+               SPI_CMD_FLAG_SR_MICRON, status);
 
-	if (SPI_NOR_GET_4BYTE_BY_FLAG_SR(status) == enable) {
-		if (DEBUG_SPI)
-			printk(KERN_INFO"\t* 4-byte was %sd, reg:%#x\n", str[enable],
-					status);
-		return 0;
-	}
+    if (SPI_NOR_GET_4BYTE_BY_FLAG_SR(status) == enable) {
+        if (DEBUG_SPI)
+            printk(KERN_INFO"\t* 4-byte was %sd, reg:%#x\n", str[enable],
+                   status);
+        return 0;
+    }
 
-	spi->driver->write_enable(spi);
+    spi->driver->write_enable(spi);
 
-	if (enable)
-		reg = SPI_CMD_EN4B;
-	else
-		reg = SPI_CMD_EX4B;
+    if (enable) {
+        reg = SPI_CMD_EN4B;
+    } else {
+        reg = SPI_CMD_EX4B;
+    }
 
-	hisfc_write(host, HISFC350_CMD_INS, reg);
-	if (DEBUG_SPI)
-		printk(KERN_INFO"\t  Set CMD[%#x]%#x\n", HISFC350_CMD_INS, reg);
+    hisfc_write(host, HISFC350_CMD_INS, reg);
+    if (DEBUG_SPI) {
+        printk(KERN_INFO"\t  Set CMD[%#x]%#x\n", HISFC350_CMD_INS, reg);
+    }
 
-	reg =  HISFC350_CMD_CONFIG_SEL_CS(spi->chipselect)
-	   	| HISFC350_CMD_CONFIG_START;
-	hisfc_write(host, HISFC350_CMD_CONFIG, reg);
+    reg =  HISFC350_CMD_CONFIG_SEL_CS(spi->chipselect)
+           | HISFC350_CMD_CONFIG_START;
+    hisfc_write(host, HISFC350_CMD_CONFIG, reg);
 
-	if (DEBUG_SPI)
-		printk(KERN_INFO"\t  Set OP_CFG[%#x]%#x\n", HISFC350_CMD_CONFIG, reg);
+    if (DEBUG_SPI) {
+        printk(KERN_INFO"\t  Set OP_CFG[%#x]%#x\n", HISFC350_CMD_CONFIG, reg);
+    }
 
-	HISFC350_CMD_WAIT_CPU_FINISH(host);
+    HISFC350_CMD_WAIT_CPU_FINISH(host);
 
-	host->set_host_addr_mode(host, enable);
+    host->set_host_addr_mode(host, enable);
 
-	spi->driver->wait_ready(spi);
+    spi->driver->wait_ready(spi);
 
-	status = spi_general_get_flash_register(spi,
-			SPI_CMD_FLAG_SR_MICRON);
-	if (DEBUG_SPI)
-		printk(KERN_INFO"\t Read flag status register[%#x]:%#x\n",
-				SPI_CMD_FLAG_SR_MICRON, status);
-	if (SPI_NOR_GET_4BYTE_BY_FLAG_SR(status) != enable) {
-		printk(KERN_INFO"Error: %s 4-byte failed! SR3:%#x\n",
-				str[enable], status);
-		return status;
-	}
+    status = spi_general_get_flash_register(spi,
+                                            SPI_CMD_FLAG_SR_MICRON);
+    if (DEBUG_SPI)
+        printk(KERN_INFO"\t Read flag status register[%#x]:%#x\n",
+               SPI_CMD_FLAG_SR_MICRON, status);
+    if (SPI_NOR_GET_4BYTE_BY_FLAG_SR(status) != enable) {
+        printk(KERN_INFO"Error: %s 4-byte failed! SR3:%#x\n",
+               str[enable], status);
+        return status;
+    }
 
-	if (DEBUG_SPI) {
-		printk(KERN_INFO"\t  %s 4-byte success, SR3:%#x\n", str[enable], status);
-		printk(KERN_INFO"\t* End SPI Nor flash %s 4-byte mode.\n", str[enable]);
-	}
-	return 0;
+    if (DEBUG_SPI) {
+        printk(KERN_INFO"\t  %s 4-byte success, SR3:%#x\n", str[enable], status);
+        printk(KERN_INFO"\t* End SPI Nor flash %s 4-byte mode.\n", str[enable]);
+    }
+    return 0;
 }

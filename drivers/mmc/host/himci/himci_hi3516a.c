@@ -85,10 +85,10 @@ static void himci_set_drv_cap(struct himci_host *host, unsigned int vdd_180)
 	offset = host->devid * 6;
 	for (i = 0; i < 6; i++) {
 		if (vdd_180)
-			himci_writel(sdio_ds[i + offset].ds_1v8, 
+			himci_writel(sdio_ds[i + offset].ds_1v8,
 				IO_ADDRESS(REG_PAD_CTRL + sdio_ds[i + offset].reg_addr));
 		else
-			himci_writel(sdio_ds[i + offset].ds_3v3, 
+			himci_writel(sdio_ds[i + offset].ds_3v3,
 				IO_ADDRESS(REG_PAD_CTRL + sdio_ds[i + offset].reg_addr));
 	}
 }

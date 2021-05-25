@@ -19,7 +19,7 @@
 #define HI3516A_IOCH1_SIZE 0xD0000
 
 #define IO_ADDRESS(x) ((x) >= HI3516A_IOCH2_PHYS ? (x) + IO_OFFSET_HIGH \
-		                        : (x) + IO_OFFSET_LOW)
+                                : (x) + IO_OFFSET_LOW)
 #endif
 
 

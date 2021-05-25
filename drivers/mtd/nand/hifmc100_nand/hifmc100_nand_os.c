@@ -25,144 +25,153 @@
 #include <linux/mfd/hisi_fmc.h>
 
 /*****************************************************************************/
-static inline int mtd_has_partitions(void) { return 1; }
+static inline int mtd_has_partitions(void)
+{
+    return 1;
+}
 
 /*****************************************************************************/
 static int hisi_nand_os_probe(struct platform_device *pltdev)
 {
-	int len, result = 0;
-	struct hifmc_host *host;
-	struct nand_chip *chip;
-	struct mtd_info *mtd;
-	int nr_parts = 0;
-	struct mtd_partition *parts = NULL;
-	struct device *dev = &pltdev->dev;
-	struct device_node *np = NULL;
-	struct hisi_fmc *fmc = dev_get_drvdata(dev->parent);
+    int len, result = 0;
+    struct hifmc_host *host;
+    struct nand_chip *chip;
+    struct mtd_info *mtd;
+    int nr_parts = 0;
+    struct mtd_partition *parts = NULL;
+    struct device *dev = &pltdev->dev;
+    struct device_node *np = NULL;
+    struct hisi_fmc *fmc = dev_get_drvdata(dev->parent);
 
-	if (!fmc) {
-		dev_err(dev, "get mfd fmc devices failed\n");
-		return -ENXIO;
-	}
+    if (!fmc) {
+        dev_err(dev, "get mfd fmc devices failed\n");
+        return -ENXIO;
+    }
 
-	len = sizeof(struct hifmc_host) + sizeof(struct nand_chip)
-		+ sizeof(struct mtd_info);
-	host = devm_kzalloc(dev, len, GFP_KERNEL);
-	if (!host)
-		return -ENOMEM;
-	memset((char *)host, 0, len);
-	platform_set_drvdata(pltdev, host);
+    len = sizeof(struct hifmc_host) + sizeof(struct nand_chip)
+          + sizeof(struct mtd_info);
+    host = devm_kzalloc(dev, len, GFP_KERNEL);
+    if (!host) {
+        return -ENOMEM;
+    }
+    memset((char *)host, 0, len);
+    platform_set_drvdata(pltdev, host);
 
-	host->dev = &pltdev->dev;
-	host->chip = chip = (struct nand_chip *)&host[1];
-	host->mtd = mtd = nand_to_mtd(chip);
-	host->regbase = fmc->regbase;
-	host->iobase = fmc->iobase;
-	host->clk = fmc->clk;
-	chip->IO_ADDR_R = chip->IO_ADDR_W = host->iobase;
-	host->buffer = fmc->buffer;
-	host->dma_buffer = fmc->dma_buffer;
+    host->dev = &pltdev->dev;
+    host->chip = chip = (struct nand_chip *)&host[1];
+    host->mtd = mtd = nand_to_mtd(chip);
+    host->regbase = fmc->regbase;
+    host->iobase = fmc->iobase;
+    host->clk = fmc->clk;
+    chip->IO_ADDR_R = chip->IO_ADDR_W = host->iobase;
+    host->buffer = fmc->buffer;
+    host->dma_buffer = fmc->dma_buffer;
 
-	/* hifmc Nand host init */
-	chip->priv = host;
-	result = hifmc100_nand_init(chip);
-	if (result) {
-		DB_MSG("Error: host init failed! result: %d\n", result);
-		goto fail;
-	}
+    /* hifmc Nand host init */
+    chip->priv = host;
+    result = hifmc100_nand_init(chip);
+    if (result) {
+        DB_MSG("Error: host init failed! result: %d\n", result);
+        goto fail;
+    }
 
-	np = of_get_next_available_child(dev->of_node, NULL);
-	mtd->name = np->name;
-	mtd->type = MTD_NANDFLASH;
-	mtd->priv = chip;
-	mtd->flags = MTD_CAP_NANDFLASH;
-	mtd->owner = THIS_MODULE;
+    np = of_get_next_available_child(dev->of_node, NULL);
+    mtd->name = np->name;
+    mtd->type = MTD_NANDFLASH;
+    mtd->priv = chip;
+    mtd->flags = MTD_CAP_NANDFLASH;
+    mtd->owner = THIS_MODULE;
 
-	if (nand_scan(mtd, CONFIG_HIFMC100_MAX_NAND_CHIP)) {
-		result = -ENXIO;
-		goto fail;
-	}
+    if (nand_scan(mtd, CONFIG_HIFMC100_MAX_NAND_CHIP)) {
+        result = -ENXIO;
+        goto fail;
+    }
 
-	result = mtd_device_register(host->mtd, parts, nr_parts);
-	if (result) {
-		kfree(parts);
-		parts = NULL;
-	}
+    result = mtd_device_register(host->mtd, parts, nr_parts);
+    if (result) {
+        kfree(parts);
+        parts = NULL;
+    }
 
-	return (1 == result) ? -ENODEV : 0;
+    return (result == 1) ? -ENODEV : 0;
 
 fail:
-	clk_disable_unprepare(host->clk);
-	nand_release(mtd);
-	return result;
+    clk_disable_unprepare(host->clk);
+    nand_release(mtd);
+    return result;
 }
 
 /*****************************************************************************/
 static int hisi_nand_os_remove(struct platform_device *pltdev)
 {
-	struct hifmc_host *host = platform_get_drvdata(pltdev);
+    struct hifmc_host *host = platform_get_drvdata(pltdev);
 
-	clk_disable_unprepare(host->clk);
-	nand_release(host->mtd);
+    clk_disable_unprepare(host->clk);
+    nand_release(host->mtd);
 
-	return 0;
+    return 0;
 }
 
 #ifdef CONFIG_PM
 /*****************************************************************************/
 static int hifmc100_nand_os_suspend(struct platform_device *pltdev,
-		pm_message_t state)
+                                    pm_message_t state)
 {
-	struct hifmc_host *host = platform_get_drvdata(pltdev);
-	if (!host)
-		return 0;
+    struct hifmc_host *host = platform_get_drvdata(pltdev);
+    if (!host) {
+        return 0;
+    }
 
-	while ((hifmc_readl(host, FMC_OP) & FMC_OP_REG_OP_START))
-		_cond_resched();
+    while ((hifmc_readl(host, FMC_OP) & FMC_OP_REG_OP_START)) {
+        _cond_resched();
+    }
 
-	while ((hifmc_readl(host, FMC_OP_CTRL) & OP_CTRL_DMA_OP_READY))
-		_cond_resched();
+    while ((hifmc_readl(host, FMC_OP_CTRL) & OP_CTRL_DMA_OP_READY)) {
+        _cond_resched();
+    }
 
-	clk_disable_unprepare(host->clk);
-	FMC_PR(PM_DBG, "\t|-disable system clock\n");
-	return 0;
+    clk_disable_unprepare(host->clk);
+    FMC_PR(PM_DBG, "\t|-disable system clock\n");
+    return 0;
 }
 
 /*****************************************************************************/
 static int hifmc100_nand_os_resume(struct platform_device *pltdev)
 {
-	int cs;
-	struct hifmc_host *host = platform_get_drvdata(pltdev);
+    int cs;
+    struct hifmc_host *host = platform_get_drvdata(pltdev);
 	struct nand_chip *chip = host->chip;
 
-	if (!host)
-		return 0;
+    if (!host) {
+        return 0;
+    }
 
-	for (cs = 0; cs < chip->numchips; cs++)
-		host->send_cmd_reset(host);
+    for (cs = 0; cs < chip->numchips; cs++) {
+        host->send_cmd_reset(host);
+    }
 
-	hifmc100_nand_config(host);
-	return 0;
+    hifmc100_nand_config(host);
+    return 0;
 }
 #endif /* CONFIG_PM */
 
 /*****************************************************************************/
 static const struct of_device_id hisi_nand_dt_ids[] = {
-	{ .compatible = "hisilicon,hisi_nand" },
-	{ /* sentinel */ }
+    { .compatible = "hisilicon,hisi_nand" },
+    { /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, hisi_nand_dt_ids);
 
 static struct platform_driver hisi_nand_driver = {
-	.driver = {
-		.name	= "hisi_nand",
-		.of_match_table = hisi_nand_dt_ids,
-	},
-	.probe	= hisi_nand_os_probe,
-	.remove = hisi_nand_os_remove,
+    .driver = {
+        .name   = "hisi_nand",
+        .of_match_table = hisi_nand_dt_ids,
+    },
+    .probe  = hisi_nand_os_probe,
+    .remove = hisi_nand_os_remove,
 #ifdef CONFIG_PM
-	.suspend	= hifmc100_nand_os_suspend,
-	.resume		= hifmc100_nand_os_resume,
+    .suspend    = hifmc100_nand_os_suspend,
+    .resume     = hifmc100_nand_os_resume,
 #endif
 };
 module_platform_driver(hisi_nand_driver);

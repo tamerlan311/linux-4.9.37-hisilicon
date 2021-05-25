@@ -50,13 +50,13 @@
 #define IO_ADDR_LOW_L(x)    ((x) + IO_OFFSET_IOCH1)
 
 #define __IO_ADDR_HIGH(x) ((x >= HI3531A_IOCH4_PHYS) ? IO_ADDR_HIGH_H(x) \
-		: IO_ADDR_HIGH_L(x))
+        : IO_ADDR_HIGH_L(x))
 
 #define __IO_ADDR_LOW(x) ((x >= HI3531A_IOCH2_PHYS) ? IO_ADDR_LOW_H(x) \
-		: IO_ADDR_LOW_L(x))
+        : IO_ADDR_LOW_L(x))
 
 #define IO_ADDRESS(x)   ((x) >= HI3531A_IOCH3_PHYS ? __IO_ADDR_HIGH(x) \
-		: __IO_ADDR_LOW(x))
+        : __IO_ADDR_LOW(x))
 
 #define __io_address(n) (IOMEM(IO_ADDRESS(n)))
 

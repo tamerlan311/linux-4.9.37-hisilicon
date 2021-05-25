@@ -1,7 +1,7 @@
 #ifndef __DMAC_H__
 #define __DMAC_H__
 
-#define DMAC_ERROR_BASE		0x64
+#define DMAC_ERROR_BASE     0x64
 
 #define DMAC_CHN_SUCCESS            (DMAC_ERROR_BASE+0x10)
 #define DMAC_CHN_ERROR              (DMAC_ERROR_BASE+0x11)

@@ -163,7 +163,7 @@ static void hisi_mmc_crg_init(struct sdhci_host *host)
 	clk_prepare_enable(pltfm_host->clk);
 	reset_control_assert(hisi_priv->crg_rst);
 	reset_control_assert(hisi_priv->dll_rst);
-	reset_control_assert(hisi_priv->sampl_rst);
+		reset_control_assert(hisi_priv->sampl_rst);
 	udelay(25);
 	reset_control_deassert(hisi_priv->crg_rst);
 	udelay(10);
@@ -284,9 +284,9 @@ static void hisi_set_drv_phase(struct sdhci_host *host, unsigned int phase)
 	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
 	unsigned int devid = hisi_priv->devid;
 	unsigned int offset[4] = {REG_EMMC_DRV_DLL_CTRL,
-							REG_SDIO0_DRV_DLL_CTRL,
-							REG_SDIO1_DRV_DLL_CTRL,
-							REG_SDIO2_DRV_DLL_CTRL};
+					REG_SDIO0_DRV_DLL_CTRL,
+					REG_SDIO1_DRV_DLL_CTRL,
+					REG_SDIO2_DRV_DLL_CTRL};
 
 	regmap_write_bits(hisi_priv->crg_regmap, offset[devid],
 			SDIO_DRV_PHASE_SEL_MASK, SDIO_DRV_SEL(phase));
@@ -335,9 +335,9 @@ static void hisi_enable_sampl_dll_slave(struct sdhci_host *host)
 	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
 	unsigned int devid = hisi_priv->devid;
 	unsigned int offset[4] = {REG_EMMC_SAMPL_DLL_CTRL,
-							REG_SDIO0_SAMPL_DLL_CTRL,
-							REG_SDIO1_SAMPL_DLL_CTRL,
-							REG_SDIO2_SAMPL_DLL_CTRL};
+					REG_SDIO0_SAMPL_DLL_CTRL,
+					REG_SDIO1_SAMPL_DLL_CTRL,
+					REG_SDIO2_SAMPL_DLL_CTRL};
 
 	regmap_write_bits(hisi_priv->crg_regmap, offset[devid],
 			SDIO_SAMPL_DLL_SLAVE_EN, SDIO_SAMPL_DLL_SLAVE_EN);
@@ -349,9 +349,9 @@ static void hisi_wait_drv_dll_lock(struct sdhci_host *host)
 	unsigned int devid = hisi_priv->devid;
 	unsigned int reg, timeout = 20;
 	unsigned int offset[4] = {REG_EMMC_DRV_DLL_STATUS,
-							REG_SDIO0_DRV_DLL_STATUS,
-							REG_SDIO1_DRV_DLL_STATUS,
-							REG_SDIO2_DRV_DLL_STATUS};
+					REG_SDIO0_DRV_DLL_STATUS,
+					REG_SDIO1_DRV_DLL_STATUS,
+					REG_SDIO2_DRV_DLL_STATUS};
 
 	do {
 		reg = 0;
@@ -372,9 +372,9 @@ static void hisi_wait_sampl_dll_slave_ready(struct sdhci_host *host)
 	unsigned int devid = hisi_priv->devid;
 	unsigned int reg, timeout = 20;
 	unsigned int offset[4] = {REG_EMMC_SAMPL_DLL_STATUS,
-							REG_SDIO0_SAMPL_DLL_STATUS,
-							REG_SDIO1_SAMPL_DLL_STATUS,
-							REG_SDIO2_SAMPL_DLL_STATUS};
+					REG_SDIO0_SAMPL_DLL_STATUS,
+					REG_SDIO1_SAMPL_DLL_STATUS,
+					REG_SDIO2_SAMPL_DLL_STATUS};
 
 	do {
 		reg = 0;
@@ -469,7 +469,7 @@ static void sdhci_hisi_set_clock(struct sdhci_host *host, unsigned int clock)
 		return;
 
 	reset_control_assert(hisi_priv->dll_rst);
-	reset_control_assert(hisi_priv->sampl_rst);
+		reset_control_assert(hisi_priv->sampl_rst);
 	udelay(25);
 
 	clk_set_rate(pltfm_host->clk, clock);
@@ -484,7 +484,7 @@ static void sdhci_hisi_set_clock(struct sdhci_host *host, unsigned int clock)
 	if (host->mmc->actual_clock > MMC_HIGH_52_MAX_DTR) {
 		hisi_enable_sampl_dll_slave(host);
 		reset_control_deassert(hisi_priv->dll_rst);
-		reset_control_deassert(hisi_priv->sampl_rst);
+			reset_control_deassert(hisi_priv->sampl_rst);
 	}
 
 	clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
@@ -744,7 +744,7 @@ static int sdhci_hisi_exec_edge_tuning(struct sdhci_host *host, u32 opcode)
 					opcode, index, err);
 
 		if (!prev_err && err)
-			fall = index;
+					fall = index;
 
 		if (prev_err && !err)
 			rise = index;

@@ -22,31 +22,31 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 /* interrupt specifier cell 0 */
-#define GIC_SPI	0
+#define GIC_SPI 0
 #define GIC_PPI 1
 
 /* clk in CRG */
 /* fixed rate clocks */
 #define HI3521A_INNER_CLK_OFFSET 64
-#define HI3521A_FIXED_2M		65
+#define HI3521A_FIXED_2M        65
 #define HI3521A_FIXED_2P2M      66
 #define HI3521A_FIXED_2P5M      67
-#define HI3521A_FIXED_3M		68
+#define HI3521A_FIXED_3M        68
 #define HI3521A_FIXED_24M       69
 #define HI3521A_FIXED_25M       70
 #define HI3521A_FIXED_27M       71
 #define HI3521A_FIXED_50M       72
 #define HI3521A_FIXED_54M       73
-#define HI3521A_FIXED_60M		74
-#define HI3521A_FIXED_62P5M		75
-#define HI3521A_FIXED_75M		76
+#define HI3521A_FIXED_60M       74
+#define HI3521A_FIXED_62P5M     75
+#define HI3521A_FIXED_75M       76
 #define HI3521A_FIXED_83M       77
 #define HI3521A_FIXED_100M      78
 #define HI3521A_FIXED_125M      79
-#define HI3521A_FIXED_150M		80
-#define HI3521A_FIXED_162M		81
-#define HI3521A_FIXED_187M		82
-#define HI3521A_FIXED_187P5M	83
+#define HI3521A_FIXED_150M      80
+#define HI3521A_FIXED_162M      81
+#define HI3521A_FIXED_187M      82
+#define HI3521A_FIXED_187P5M    83
 #define HI3521A_FIXED_202P5M    84
 #define HI3521A_FIXED_250M      85
 #define HI3521A_FIXED_270M      86
@@ -63,18 +63,18 @@
 #define HI3521A_FIXED_1620M     97
 
 /* mux clocks */
-#define HI3521A_SYSAPB_CLK		0
-#define HI3521A_FMC_MUX			1
+#define HI3521A_SYSAPB_CLK      0
+#define HI3521A_FMC_MUX         1
 #define HI3521A_UART_MUX        2
-#define HI3521A_ETH_PHY_MUX		3
+#define HI3521A_ETH_PHY_MUX     3
 
 /* gate clocks */
-#define HI3521A_FMC_CLK			20
-#define HI3521A_UART0_CLK		21
-#define HI3521A_UART1_CLK		22
-#define HI3521A_UART2_CLK		23
-#define HI3521A_ETH_CLK			24
-#define HI3521A_ETH_MACIF_CLK	25
+#define HI3521A_FMC_CLK         20
+#define HI3521A_UART0_CLK       21
+#define HI3521A_UART1_CLK       22
+#define HI3521A_UART2_CLK       23
+#define HI3521A_ETH_CLK         24
+#define HI3521A_ETH_MACIF_CLK   25
 #define HI3521A_SPI0_CLK        26
 #define HI3521A_DMAC_CLK        27
 
@@ -92,6 +92,6 @@
 #define HI3521A_TIME3_6_CLK     7
 #define HI3521A_TIME3_7_CLK     8
 
-#define HI3521A_SC_NR_CLKS		10
+#define HI3521A_SC_NR_CLKS      10
 
 #endif  /* __DTS_HI3521A_CLOCK_H */

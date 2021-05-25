@@ -4,7 +4,7 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ *  (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,9 +16,9 @@
  */
 
 #include <linux/module.h>
+#include <linux/of_address.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
-#include <linux/of_address.h>
 
 #include "phy-hisi-usb.h"
 
@@ -66,7 +66,7 @@ static int hisi_usb3_phy_remove(struct platform_device *pdev)
 
 static const struct of_device_id hisi_usb3_phy_of_match[] = {
 	{.compatible = "hisilicon,hisi-usb3-phy",},
-	{ },
+	{},
 };
 MODULE_DEVICE_TABLE(of, hisi_usb3_phy_of_match);
 
@@ -89,15 +89,15 @@ static int hisi_usb3_phy_resume(struct device *dev)
 #endif /* CONFIG_PM_SLEEP */
 
 static SIMPLE_DEV_PM_OPS(hisi_usb3_pm_ops, hisi_usb3_phy_suspend,
-		       hisi_usb3_phy_resume);
+                         hisi_usb3_phy_resume);
 
 static struct platform_driver hisi_usb3_phy_driver = {
-	.probe	= hisi_usb3_phy_probe,
+	.probe = hisi_usb3_phy_probe,
 	.remove = hisi_usb3_phy_remove,
 	.driver = {
-		.name	= "hisi-usb3-phy",
-		.pm	= &hisi_usb3_pm_ops,
-		.of_match_table	= hisi_usb3_phy_of_match,
+		.name = "hisi-usb3-phy",
+		.pm = &hisi_usb3_pm_ops,
+		.of_match_table = hisi_usb3_phy_of_match,
 	}
 };
 

@@ -84,7 +84,7 @@ static void mci_stats_seq_printout(struct seq_file *s)
 		} else {
 			seq_printf(s, "MCI%d", index_mci);
 		}
-
+		
 		mmc = host->mmc;
 		card = mmc->card;
 		if (NULL == card) {
@@ -211,7 +211,7 @@ int mci_proc_shutdown(void)
 {
 	if (proc_mci_dir) {
 		if (mci_max_connections > 0)
-			remove_proc_entry(MCI_STATS_PROC, proc_mci_dir);
+		remove_proc_entry(MCI_STATS_PROC, proc_mci_dir);
 
 		remove_proc_entry(MCI_PARENT, NULL);
 		proc_mci_dir = NULL;

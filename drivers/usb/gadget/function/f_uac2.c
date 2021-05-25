@@ -1044,35 +1044,35 @@ afunc_bind(struct usb_configuration *cfg, struct usb_function *fn)
 	agdev->ac_intf = ret;
 	agdev->ac_alt = 0;
 
-	ret = usb_interface_id(cfg, fn);
-	if (ret < 0) {
-		dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
-		return ret;
-	}
-	std_as_out_if0_desc.bInterfaceNumber = ret;
-	std_as_out_if1_desc.bInterfaceNumber = ret;
+		ret = usb_interface_id(cfg, fn);
+		if (ret < 0) {
+			dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
+			return ret;
+		}
+		std_as_out_if0_desc.bInterfaceNumber = ret;
+		std_as_out_if1_desc.bInterfaceNumber = ret;
 	agdev->as_out_intf = ret;
 	agdev->as_out_alt = 0;
 
-	ret = usb_interface_id(cfg, fn);
-	if (ret < 0) {
-		dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
-		return ret;
-	}
-	std_as_in_if0_desc.bInterfaceNumber = ret;
-	std_as_in_if1_desc.bInterfaceNumber = ret;
+		ret = usb_interface_id(cfg, fn);
+		if (ret < 0) {
+			dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
+			return ret;
+		}
+		std_as_in_if0_desc.bInterfaceNumber = ret;
+		std_as_in_if1_desc.bInterfaceNumber = ret;
 	agdev->as_in_intf = ret;
 	agdev->as_in_alt = 0;
 
-	agdev->out_ep = usb_ep_autoconfig(gadget, &fs_epout_desc);
-	if (!agdev->out_ep) {
-		dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
+		agdev->out_ep = usb_ep_autoconfig(gadget, &fs_epout_desc);
+		if (!agdev->out_ep) {
+			dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
 		return ret;
 	}
 
-	agdev->in_ep = usb_ep_autoconfig(gadget, &fs_epin_desc);
-	if (!agdev->in_ep) {
-		dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
+		agdev->in_ep = usb_ep_autoconfig(gadget, &fs_epin_desc);
+		if (!agdev->in_ep) {
+			dev_err(dev, "%s:%d Error!\n", __func__, __LINE__);
 		return ret;
 	}
 

@@ -25,5 +25,5 @@
 
 static int spi_en25q64_qe_enable(struct hisfc_spi *spi)
 {
-	return 0;
+    return 0;
 }

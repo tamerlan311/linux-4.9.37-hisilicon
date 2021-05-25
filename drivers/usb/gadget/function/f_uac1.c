@@ -1,6 +1,6 @@
 /*
  * f_audio.c -- USB Audio class function driver
-  *
+ *
  * Copyright (C) 2008 Bryan Wu <cooloney@kernel.org>
  * Copyright (C) 2008 Analog Devices, Inc
  *
@@ -29,7 +29,7 @@ static int generic_get_cmd(struct usb_audio_control *con, u8 cmd);
  * We have two interfaces- AudioControl and AudioStreaming
  * TODO: only supcard playback currently
  */
-#define F_AUDIO_AC_INTERFACE	0
+#define F_AUDIO_AC_INTERFACE		0
 #define F_AUDIO_AS_INTERFACE	1
 #define F_AUDIO_NUM_INTERFACES	1
 
@@ -118,9 +118,9 @@ static struct usb_audio_control_selector feature_unit = {
 
 #define OUTPUT_TERMINAL_ID	3
 static struct uac1_output_terminal_descriptor output_terminal_desc = {
-	.bLength		= UAC_DT_OUTPUT_TERMINAL_SIZE,
-	.bDescriptorType	= USB_DT_CS_INTERFACE,
-	.bDescriptorSubtype	= UAC_OUTPUT_TERMINAL,
+	.bLength =		UAC_DT_OUTPUT_TERMINAL_SIZE,
+	.bDescriptorType =	USB_DT_CS_INTERFACE,
+	.bDescriptorSubtype =	UAC_OUTPUT_TERMINAL,
 	.bTerminalID		= OUTPUT_TERMINAL_ID,
 	.wTerminalType		= UAC_OUTPUT_TERMINAL_SPEAKER,
 	.bAssocTerminal		= FEATURE_UNIT_ID,
@@ -184,7 +184,7 @@ static struct uac_iso_endpoint_descriptor as_iso_out_desc = {
 	.bLength =		UAC_ISO_ENDPOINT_DESC_SIZE,
 	.bDescriptorType =	USB_DT_CS_ENDPOINT,
 	.bDescriptorSubtype =	UAC_EP_GENERAL,
-	.bmAttributes = 	1,
+	.bmAttributes =		1,
 	.bLockDelayUnits =	1,
 	.wLockDelay =		__constant_cpu_to_le16(1),
 };
@@ -623,7 +623,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 					err = -ENOMEM;
 			}
 
-		} else {
+	} else {
 			struct f_audio_buf *copy_buf = audio->copy_buf;
 			if (copy_buf) {
 				list_add_tail(&copy_buf->list,
@@ -667,10 +667,10 @@ static void f_audio_build_desc(struct f_audio *audio)
 static int
 f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 {
-	struct usb_composite_dev *cdev = c->cdev;
+	struct usb_composite_dev	*cdev = c->cdev;
 	struct f_audio		*audio = func_to_audio(f);
-	struct usb_string	*us;
-	int			status;
+	struct usb_string		*us;
+	int				status;
 	struct usb_ep		*ep = NULL;
 	struct f_uac1_opts	*audio_opts;
 
@@ -783,7 +783,7 @@ static struct configfs_item_operations f_uac1_item_ops = {
 
 #define UAC1_INT_ATTRIBUTE(name)					\
 static ssize_t f_uac1_opts_##name##_show(struct config_item *item,	\
-					 char *page)			\
+					  char *page)			\
 {									\
 	struct f_uac1_opts *opts = to_f_uac1_opts(item);		\
 	int result;							\

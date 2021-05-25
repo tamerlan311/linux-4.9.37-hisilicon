@@ -3,22 +3,22 @@
 #include <linux/phy/phy.h>
 #include "phy-hisi-usb.h"
 
-#define USB2_SWITCH_OFFSET	0x130
-#define PERI_CRG46		0xb8
-#define USB_CKEN		(1 << 7)
-#define USB_CTRL_UTMI0_REG	(1 << 5)
-#define USB_CTRL_HUB_REG	(1 << 4)
-#define USBPHY_PORT0_TREQ	(1 << 2)
-#define USBPHY_REQ		(1 << 1)
-#define USB_AHB_SRST_REQ	(1 << 0)
+#define USB2_SWITCH_OFFSET 0x130
+#define PERI_CRG46         0xb8
+#define USB_CKEN           (1 << 7)
+#define USB_CTRL_UTMI0_REG (1 << 5)
+#define USB_CTRL_HUB_REG   (1 << 4)
+#define USBPHY_PORT0_TREQ  (1 << 2)
+#define USBPHY_REQ         (1 << 1)
+#define USB_AHB_SRST_REQ   (1 << 0)
 
-#define PERI_USB                0x78
-#define WORDINTERFACE           (1 << 0)
-#define SS_BURST4_EN            (1 << 7)
-#define SS_BURST8_EN            (1 << 8)
-#define SS_BURST16_EN           (1 << 9)
-#define USBOVR_P_CTRL           (1 << 17)
-#define MISC_USB                0x80
+#define PERI_USB      0x78
+#define WORDINTERFACE (1 << 0)
+#define SS_BURST4_EN  (1 << 7)
+#define SS_BURST8_EN  (1 << 8)
+#define SS_BURST16_EN (1 << 9)
+#define USBOVR_P_CTRL (1 << 17)
+#define MISC_USB      0x80
 
 static int *usb2_switch_base;
 
@@ -110,7 +110,7 @@ void hisi_usb_phy_on(struct phy *phy)
 	writel(reg, priv->peri_ctrl + PERI_CRG46);
 	udelay(200);
 
-	/* decrease the threshold value from 650 to 550*/
+	/* decrease the threshold value from 650 to 550 */
 	writel(0xa, priv->misc_ctrl + MISC_USB);
 	udelay(10);
 	writel(0x092a, priv->misc_ctrl + MISC_USB);

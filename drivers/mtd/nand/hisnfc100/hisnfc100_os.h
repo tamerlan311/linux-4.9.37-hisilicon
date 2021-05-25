@@ -44,8 +44,8 @@
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 5))
-	#include "../../mtdcore.h"
+#if (KERNEL_VERSION(3, 4, 5) <= LINUX_VERSION_CODE)
+#include "../../mtdcore.h"
 #endif
 
 #define HISNFC100_BUFFER_BASE_ADDRESS_LEN       (2048 + 256)
@@ -54,20 +54,20 @@
 #ifndef CONFIG_HISNFC100_MAX_CHIP
 #  define CONFIG_HISNFC100_MAX_CHIP                    (1)
 #  warning NOT config CONFIG_HISNFC100_MAX_CHIP, \
-	used default value, maybe invalid.
+used default value, maybe invalid.
 #endif /* CONFIG_HISNFC100_MAX_CHIP */
 
 /*****************************************************************************/
 #define PR_BUG(fmt, args...) do { \
-	pr_info("%s(%d): bug " fmt, __FILE__, __LINE__, ##args); \
-	asm("b ."); \
+    pr_info("%s(%d): bug " fmt, __FILE__, __LINE__, ##args); \
+    asm("b ."); \
 } while (0)
 
 #if 1
 #  define DBG_MSG(_fmt, arg...)
 #else
 #  define DBG_MSG(_fmt, arg...) \
-	printk(KERN_INFO "%s(%d): " _fmt, __FILE__, __LINE__, ##arg);
+    printk(KERN_INFO "%s(%d): " _fmt, __FILE__, __LINE__, ##arg);
 #endif
 
 #endif /* HISNFC100_OSH */

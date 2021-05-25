@@ -21,29 +21,29 @@
 /******************************************************************************/
 
 #ifndef CONFIG_HINFC610_W_LATCH
-	#define CONFIG_HINFC610_W_LATCH			(5)
+#define CONFIG_HINFC610_W_LATCH         (5)
 #endif /* CONFIG_HINFC610_W_LATCH */
 
 #ifndef CONFIG_HINFC610_R_LATCH
-	#define CONFIG_HINFC610_R_LATCH			(7)
+#define CONFIG_HINFC610_R_LATCH         (7)
 #endif /* CONFIG_HINFC610_R_LATCH */
 
 #ifndef CONFIG_HINFC610_RW_LATCH
-	#define CONFIG_HINFC610_RW_LATCH		(3)
+#define CONFIG_HINFC610_RW_LATCH        (3)
 #endif /* CONFIG_HINFC610_RW_LATCH */
 
 #ifndef CONFIG_HINFC610_MAX_CHIP
-	#define CONFIG_HINFC610_MAX_CHIP		(1)
-	#warning NOT config CONFIG_HINFC610_MAX_CHIP, \
-	used default value, maybe invalid.
+#define CONFIG_HINFC610_MAX_CHIP        (1)
+#warning NOT config CONFIG_HINFC610_MAX_CHIP, \
+used default value, maybe invalid.
 #endif /* CONFIG_HINFC610_MAX_CHIP */
 /*****************************************************************************/
-#define HINFC_ECC_ERR_NUM0_BUF0			0xa0
-#define HINFC_ECC_ERR_NUM1_BUF0			0xa4
-#define HINFC_ECC_ERR_NUM0_BUF1			0xa8
-#define HINFC_ECC_ERR_NUM1_BUF1			0xcc
+#define HINFC_ECC_ERR_NUM0_BUF0         0xa0
+#define HINFC_ECC_ERR_NUM1_BUF0         0xa4
+#define HINFC_ECC_ERR_NUM0_BUF1         0xa8
+#define HINFC_ECC_ERR_NUM1_BUF1         0xcc
 
-#define GET_ECC_ERR_NUM(_i, _reg)		(((_reg) >> ((_i) * 8)) & 0xff)
+#define GET_ECC_ERR_NUM(_i, _reg)       (((_reg) >> ((_i) * 8)) & 0xff)
 
 /*****************************************************************************/
 #define HINFC610_REG_BASE_ADDRESS_LEN                 (0x100)
@@ -71,7 +71,7 @@
 
 #define HINFC610_PWIDTH                              0x04
 #define SET_HINFC610_PWIDTH(_w_lcnt, _r_lcnt, _rw_hcnt) \
-	((_w_lcnt) | (((_r_lcnt) & 0x0F) << 4) | (((_rw_hcnt) & 0x0F) << 8))
+    ((_w_lcnt) | (((_r_lcnt) & 0x0F) << 4) | (((_rw_hcnt) & 0x0F) << 8))
 
 #define HINFC610_CMD                                 0x0C
 #define HINFC610_ADDRL                               0x10
@@ -153,10 +153,10 @@
 #define HINFC610_BOOT_CFG_RANDOMIZER_PAD  0x01
 #define HINFC610_BOOT_CFG_SAVE_PIN_MODE_SHIFT    13
 #define HINFC610_BOOT_CFG_SAVE_PIN_MODE   \
-	(1U << HINFC610_BOOT_CFG_SAVE_PIN_MODE_SHIFT)
+    (1U << HINFC610_BOOT_CFG_SAVE_PIN_MODE_SHIFT)
 #define HINFC610_BOOT_CFG_SYC_NAND_PAD_SHIFT     12
 #define HINFC610_BOOT_CFG_SYC_NAND_PAD    \
-	(1U << HINFC610_BOOT_CFG_SYC_NAND_PAD_SHIFT)
+    (1U << HINFC610_BOOT_CFG_SYC_NAND_PAD_SHIFT)
 
 #define HINFC610_SYNC_TIMING                          0xD0
 
@@ -177,8 +177,8 @@
  * is supported now. If you add a chip with bigger oobsize/page
  * adjust this accordingly.
  */
-#define NAND_MAX_OOBSIZE	4800
-#define NAND_MAX_PAGESIZE	32768
+#define NAND_MAX_OOBSIZE    4800
+#define NAND_MAX_PAGESIZE   32768
 
 /* DMA address align with 32 bytes. */
 #define HINFC610_DMA_ALIGN                            64
@@ -205,72 +205,72 @@
 /*****************************************************************************/
 
 struct hinfc_host {
-	struct nand_chip *chip;
-	struct mtd_info  *mtd;
-	void __iomem *iobase;
-	struct device *dev;
+    struct nand_chip *chip;
+    struct mtd_info  *mtd;
+    void __iomem *iobase;
+    struct device *dev;
 
-	unsigned int offset;
-	unsigned int command;
+    unsigned int offset;
+    unsigned int command;
 
-	int chipselect;
+    int chipselect;
 
-	unsigned int n24bit_ext_len;
-	int ecctype;
+    unsigned int n24bit_ext_len;
+    int ecctype;
 
-/* Current system has already gone to sync mode */
+    /* Current system has already gone to sync mode */
 #define HINFC610_IS_SYNC(_host) ((_host)->NFC_CON & HINFC610_CON_NF_MODE_MASK)
-	unsigned long NFC_CON;
-	unsigned long NFC_CON_ECC_NONE;
+    unsigned long NFC_CON;
+    unsigned long NFC_CON_ECC_NONE;
 
-	unsigned int addr_cycle;
-	unsigned int addr_value[2];
-	unsigned int cache_addr_value[2];
-	unsigned int column;
-	unsigned int block_page_mask;
+    unsigned int addr_cycle;
+    unsigned int addr_value[2];
+    unsigned int cache_addr_value[2];
+    unsigned int column;
+    unsigned int block_page_mask;
 
-	unsigned int dma_oob;
-	unsigned int dma_buffer;
-	unsigned int pagesize;
-	unsigned int oobsize;
-	/* This is maybe an un-aligment address, only for malloc or free */
-	char *buforg;
-	char *buffer;
+    unsigned int dma_oob;
+    unsigned int dma_buffer;
+    unsigned int pagesize;
+    unsigned int oobsize;
+    /* This is maybe an un-aligment address, only for malloc or free */
+    char *buforg;
+    char *buffer;
 
-	int  need_rr_data;
+    int  need_rr_data;
 #define HINFC_READ_RETRY_DATA_LEN         128
-	char rr_data[HINFC_READ_RETRY_DATA_LEN];
-	int  version;
-	int   add_partition;
+    char rr_data[HINFC_READ_RETRY_DATA_LEN];
+    int  version;
+    int   add_partition;
 
-	/* BOOTROM read two bytes to detect the bad block flag */
+    /* BOOTROM read two bytes to detect the bad block flag */
 #define HINFC_BAD_BLOCK_POS              0
-	unsigned char *bbm;       /* nand bad block mark */
-	unsigned short *epm;      /* nand empty page mark */
-	unsigned int flags;
+    unsigned char *bbm;       /* nand bad block mark */
+    unsigned short *epm;      /* nand empty page mark */
+    unsigned int flags;
 
 #define HINFC610_PS_UC_ECC        0x01 /* page has ecc error */
 #define HINFC610_PS_BAD_BLOCK     0x02 /* bad block */
 #define HINFC610_PS_EMPTY_PAGE    0x04 /* page is empty */
 #define HINFC610_PS_EPM_ERROR     0x0100 /* empty page mark word has ecc error*/
 #define HINFC610_PS_BBM_ERROR     0x0200 /* bad block mark word has ecc error*/
-	unsigned int page_status;
+    unsigned int page_status;
 
-	struct clk *clk;
+    struct clk *clk;
 
-	int (*send_cmd_pageprog)(struct hinfc_host *host);
-	int (*send_cmd_status)(struct hinfc_host *host);
-	int (*send_cmd_readstart)(struct hinfc_host *host);
-	int (*send_cmd_erase)(struct hinfc_host *host);
-	int (*send_cmd_readid)(struct hinfc_host *host);
-	int (*send_cmd_reset)(struct hinfc_host *host, int chipselect);
-	int (*enable)(struct hinfc_host *host, int enable);
+    int (*send_cmd_pageprog)(struct hinfc_host *host);
+    int (*send_cmd_status)(struct hinfc_host *host);
+    int (*send_cmd_readstart)(struct hinfc_host *host);
+    int (*send_cmd_erase)(struct hinfc_host *host);
+    int (*send_cmd_readid)(struct hinfc_host *host);
+    int (*send_cmd_reset)(struct hinfc_host *host, int chipselect);
+    int (*enable)(struct hinfc_host *host, int enable);
 
-	int (*enable_ecc_randomizer)(struct hinfc_host *host,
-				     int ecc_en, int randomizer_en);
+    int (*enable_ecc_randomizer)(struct hinfc_host *host,
+                                 int ecc_en, int randomizer_en);
 
-	struct read_retry_t *read_retry;
-	struct nand_sync *sync;
+    struct read_retry_t *read_retry;
+    struct nand_sync *sync;
 };
 
 #define HINFC610_UC_ECC               0x01
@@ -286,181 +286,181 @@ struct hinfc_host {
 /*****************************************************************************/
 
 #define HINFC610_READ_1CMD_0ADD_NODATA \
-	(HINFC610_OP_CMD1_EN \
-	| ((host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | ((host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT))
 
 #define HINFC610_READ_1CMD_1ADD_DATA    \
-	(HINFC610_OP_CMD1_EN \
-	| HINFC610_OP_ADDR_EN \
-	| HINFC610_OP_READ_DATA_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT) \
-	| (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | HINFC610_OP_ADDR_EN \
+    | HINFC610_OP_READ_DATA_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT) \
+    | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_READ_1CMD_1ADD_DATA_WAIT_READY    \
-	(HINFC610_OP_CMD1_EN \
-	| HINFC610_OP_ADDR_EN \
-	| HINFC610_OP_READ_DATA_EN \
-	| HINFC610_OP_WAIT_READY_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT) \
-	| (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | HINFC610_OP_ADDR_EN \
+    | HINFC610_OP_READ_DATA_EN \
+    | HINFC610_OP_WAIT_READY_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT) \
+    | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_READ_1CMD_1ADD_DATA_SYNC \
-	(HINFC610_OP_CMD1_EN \
-	| HINFC610_OP_ADDR_EN \
-	| HINFC610_OP_READ_DATA_EN \
-	| HINFC610_OP_WAIT_READY_EN \
-	| HINFC610_OP_RW_REG_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT) \
-	| (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | HINFC610_OP_ADDR_EN \
+    | HINFC610_OP_READ_DATA_EN \
+    | HINFC610_OP_WAIT_READY_EN \
+    | HINFC610_OP_RW_REG_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT) \
+    | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_READ_2CMD_5ADD    \
-	(HINFC610_OP_CMD1_EN \
-	| HINFC610_OP_CMD2_EN \
-	| HINFC610_OP_ADDR_EN \
-	| HINFC610_OP_READ_DATA_EN \
-	| HINFC610_OP_WAIT_READY_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT) \
-	| (5 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | HINFC610_OP_CMD2_EN \
+    | HINFC610_OP_ADDR_EN \
+    | HINFC610_OP_READ_DATA_EN \
+    | HINFC610_OP_WAIT_READY_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT) \
+    | (5 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_0CMD_1ADD_DATA \
-	(HINFC610_OP_ADDR_EN \
-	| HINFC610_OP_WRITE_DATA_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT) \
-	| (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_ADDR_EN \
+    | HINFC610_OP_WRITE_DATA_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT) \
+    | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_0CMD_1ADD_DATA_WAIT_READY \
-	(HINFC610_OP_ADDR_EN \
-	| HINFC610_OP_WRITE_DATA_EN \
-	| HINFC610_OP_WAIT_READY_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT) \
-	| (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_ADDR_EN \
+    | HINFC610_OP_WRITE_DATA_EN \
+    | HINFC610_OP_WAIT_READY_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT) \
+    | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_0CMD_1ADD_DATA_SYNC \
-	(HINFC610_OP_ADDR_EN \
-	 | HINFC610_OP_WRITE_DATA_EN \
-	 | HINFC610_OP_RW_REG_EN \
-	 | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		 << HINFC610_OP_NF_CS_SHIFT) \
-	 | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_ADDR_EN \
+     | HINFC610_OP_WRITE_DATA_EN \
+     | HINFC610_OP_RW_REG_EN \
+     | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+         << HINFC610_OP_NF_CS_SHIFT) \
+     | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_0CMD_1ADD_DATA_SYNC_WAIT_READY \
-	(HINFC610_OP_ADDR_EN \
-	 | HINFC610_OP_WRITE_DATA_EN \
-	 | HINFC610_OP_RW_REG_EN \
-	 | HINFC610_OP_WAIT_READY_EN \
-	 | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		 << HINFC610_OP_NF_CS_SHIFT) \
-	 | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_ADDR_EN \
+     | HINFC610_OP_WRITE_DATA_EN \
+     | HINFC610_OP_RW_REG_EN \
+     | HINFC610_OP_WAIT_READY_EN \
+     | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+         << HINFC610_OP_NF_CS_SHIFT) \
+     | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_1CMD_1ADD_DATA  \
-	(HINFC610_OP_CMD1_EN \
-	| HINFC610_OP_ADDR_EN \
-	| HINFC610_OP_WRITE_DATA_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT) \
-	| (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | HINFC610_OP_ADDR_EN \
+    | HINFC610_OP_WRITE_DATA_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT) \
+    | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_1CMD_1ADD_DATA_WAIT_READY  \
-	(HINFC610_OP_CMD1_EN \
-	| HINFC610_OP_ADDR_EN \
-	| HINFC610_OP_WRITE_DATA_EN \
-	| HINFC610_OP_WAIT_READY_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT) \
-	| (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | HINFC610_OP_ADDR_EN \
+    | HINFC610_OP_WRITE_DATA_EN \
+    | HINFC610_OP_WAIT_READY_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT) \
+    | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_1CMD_1ADD_DATA_SYNC  \
-	(HINFC610_OP_CMD1_EN \
-	 | HINFC610_OP_ADDR_EN \
-	 | HINFC610_OP_WRITE_DATA_EN \
-	 | HINFC610_OP_RW_REG_EN \
-	 | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		 << HINFC610_OP_NF_CS_SHIFT) \
-	 | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+     | HINFC610_OP_ADDR_EN \
+     | HINFC610_OP_WRITE_DATA_EN \
+     | HINFC610_OP_RW_REG_EN \
+     | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+         << HINFC610_OP_NF_CS_SHIFT) \
+     | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_1CMD_1ADD_DATA_SYNC_WAIT_READY  \
-	(HINFC610_OP_CMD1_EN \
-	 | HINFC610_OP_ADDR_EN \
-	 | HINFC610_OP_WRITE_DATA_EN \
-	 | HINFC610_OP_WAIT_READY_EN \
-	 | HINFC610_OP_RW_REG_EN \
-	 | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		 << HINFC610_OP_NF_CS_SHIFT) \
-	 | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+     | HINFC610_OP_ADDR_EN \
+     | HINFC610_OP_WRITE_DATA_EN \
+     | HINFC610_OP_WAIT_READY_EN \
+     | HINFC610_OP_RW_REG_EN \
+     | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+         << HINFC610_OP_NF_CS_SHIFT) \
+     | (1 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_1CMD_2ADD_DATA  \
-	(HINFC610_OP_CMD1_EN \
-	| HINFC610_OP_ADDR_EN \
-	| HINFC610_OP_WRITE_DATA_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT) \
-	| (2 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | HINFC610_OP_ADDR_EN \
+    | HINFC610_OP_WRITE_DATA_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT) \
+    | (2 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_1CMD_2ADD_DATA_SYNC  \
-	(HINFC610_OP_CMD1_EN \
-	 | HINFC610_OP_ADDR_EN \
-	 | HINFC610_OP_WRITE_DATA_EN \
-	 | HINFC610_OP_RW_REG_EN \
-	 | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		 << HINFC610_OP_NF_CS_SHIFT) \
-	 | (2 << HINFC610_OP_ADDR_CYCLE_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+     | HINFC610_OP_ADDR_EN \
+     | HINFC610_OP_WRITE_DATA_EN \
+     | HINFC610_OP_RW_REG_EN \
+     | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+         << HINFC610_OP_NF_CS_SHIFT) \
+     | (2 << HINFC610_OP_ADDR_CYCLE_SHIFT))
 
 #define HINFC610_WRITE_2CMD_0ADD_NODATA \
-	(HINFC610_OP_CMD1_EN \
-	| HINFC610_OP_CMD2_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | HINFC610_OP_CMD2_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT))
 
 #define HINFC610_WRITE_2CMD_0ADD_NODATA_SYNC \
-	(HINFC610_OP_CMD1_EN \
-	| HINFC610_OP_CMD2_EN \
-	| HINFC610_OP_RW_REG_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | HINFC610_OP_CMD2_EN \
+    | HINFC610_OP_RW_REG_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT))
 
 #define HINFC610_WRITE_1CMD_0ADD_NODATA \
-	(HINFC610_OP_CMD1_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT))
 
 #define HINFC610_WRITE_1CMD_0ADD_NODATA_WAIT_READY \
-	(HINFC610_OP_CMD1_EN \
-	| HINFC610_OP_WAIT_READY_EN \
-	| (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
-		<< HINFC610_OP_NF_CS_SHIFT))
+    (HINFC610_OP_CMD1_EN \
+    | HINFC610_OP_WAIT_READY_EN \
+    | (((unsigned int)host->chipselect & HINFC610_OP_NF_CS_MASK) \
+        << HINFC610_OP_NF_CS_SHIFT))
 
 /*****************************************************************************/
 
 #define WAIT_CONTROLLER_FINISH() \
 do { \
-	unsigned int timeout = 0x800000; \
-	while ((hinfc_read(host, HINFC610_STATUS) & 0x1) == 0x0 && timeout) \
-		timeout--; \
-	if (!timeout) \
-		PR_ERR("Wait NAND controller finish timeout.\n"); \
+    unsigned int timeout = 0x800000; \
+    while ((hinfc_read(host, HINFC610_STATUS) & 0x1) == 0x0 && timeout) \
+        timeout--; \
+    if (!timeout) \
+        PR_ERR("Wait NAND controller finish timeout.\n"); \
 } while (0)
 
 /*****************************************************************************/
 
 #define hinfc_read(_host, _reg) \
-	readl((char *)_host->iobase + (_reg))
+    readl((char *)_host->iobase + (_reg))
 
 #define hinfc_write(_host, _value, _reg) \
-	writel((_value), (char *)_host->iobase + (_reg))
+    writel((_value), (char *)_host->iobase + (_reg))
 
 #define HINFC_CMD_SEQ(_cmd0, _cmd1)        \
-	(((_cmd0) & 0xFF) | ((_cmd1) & 0xFF) << 8)
+    (((_cmd0) & 0xFF) | ((_cmd1) & 0xFF) << 8)
 /*****************************************************************************/
 
 #define GET_PAGE_INDEX(host) \
-	((host->addr_value[0] >> 16) | (host->addr_value[1] << 16))
+    ((host->addr_value[0] >> 16) | (host->addr_value[1] << 16))
 
 /*****************************************************************************/
 
@@ -491,12 +491,12 @@ extern int unregister_mtd_partdev(struct mtd_info *mtd);
 #else
 int register_mtd_partdev(struct mtd_info *mtd)
 {
-	return 0;
+    return 0;
 };
 
 int unregister_mtd_partdev(struct mtd_info *mtd)
 {
-	return 0;
+    return 0;
 };
 #endif
 

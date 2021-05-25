@@ -36,7 +36,7 @@
 #define HI3516A_FIXED_100M      76
 #define HI3516A_FIXED_125M      77
 #define HI3516A_FIXED_145M      78
-#define HI3516A_FIXED_148P5M	79
+#define HI3516A_FIXED_148P5M    79
 #define HI3516A_FIXED_150M      80
 #define HI3516A_FIXED_194M      81
 #define HI3516A_FIXED_198M      82
@@ -59,12 +59,12 @@
 #define HI3516A_FIXED_1188M     99
 
 /* mux clocks */
-#define HI3516A_SYSAXI_CLK		0
+#define HI3516A_SYSAXI_CLK      0
 #define HI3516A_SNOR_MUX        1
 #define HI3516A_SNAND_MUX       2
 #define HI3516A_NAND_MUX        3
 #define HI3516A_UART_MUX        4
-#define HI3516A_ETH_PHY_MUX		5
+#define HI3516A_ETH_PHY_MUX     5
 #define HI3516A_A7_MUX          6
 #define HI3516A_MMC0_MUX        7
 #define HI3516A_MMC1_MUX        8
@@ -72,23 +72,23 @@
 #define HI3516A_USB2_HRST_REQ           10
 
 /* gate clocks */
-#define HI3516A_SNOR_CLK		15
-#define HI3516A_SNAND_CLK		16
-#define HI3516A_NAND_CLK		17
-#define HI3516A_UART0_CLK		18
-#define HI3516A_UART1_CLK		19
-#define HI3516A_UART2_CLK		20
-#define HI3516A_UART3_CLK		21
-#define HI3516A_ETH_CLK			22
-#define HI3516A_ETH_MACIF_CLK	23
-#define HI3516A_MMC0_CLK		24
+#define HI3516A_SNOR_CLK        15
+#define HI3516A_SNAND_CLK       16
+#define HI3516A_NAND_CLK        17
+#define HI3516A_UART0_CLK       18
+#define HI3516A_UART1_CLK       19
+#define HI3516A_UART2_CLK       20
+#define HI3516A_UART3_CLK       21
+#define HI3516A_ETH_CLK         22
+#define HI3516A_ETH_MACIF_CLK   23
+#define HI3516A_MMC0_CLK        24
 #define HI3516A_MMC1_CLK        25
-#define HI3516A_SPI0_CLK		26
+#define HI3516A_SPI0_CLK        26
 #define HI3516A_SPI1_CLK        27
-#define HI3516A_DMAC_CLK		28
+#define HI3516A_DMAC_CLK        28
 
 /* pll clock */
-#define HI3516A_APLL_CLK		30
+#define HI3516A_APLL_CLK        30
 
 #define HI3516A_CRG_NR_CLKS     128
 #define HI3516A_CRG_NR_RSTS     0x12c

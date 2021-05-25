@@ -10,19 +10,19 @@
 
 /*****************************************************************************/
 struct match_reg_type {
-	int reg;
-	int type;
+    int reg;
+    int type;
 };
 
 struct match_type_str {
-	int type;
-	const char *str;
+    int type;
+    const char *str;
 };
 
 struct match_t {
-	int type;
-	int reg;
-	void *data;
+    int type;
+    int reg;
+    void *data;
 };
 
 /*****************************************************************************/
@@ -36,17 +36,17 @@ int reg2type(struct match_reg_type *table, int length, int reg, int def);
 int type2reg(struct match_reg_type *table, int length, int type, int def);
 
 int str2type(struct match_type_str *table, int length, const char *str,
-	     int size, int def);
+             int size, int def);
 
 const char *type2str(struct match_type_str *table, int length, int type,
-		     const char *def);
+                     const char *def);
 
 int match_reg_to_type(struct match_t *table, int nr_table, int reg, int def);
 
 int match_type_to_reg(struct match_t *table, int nr_table, int type, int def);
 
 int match_data_to_type(struct match_t *table, int nr_table, char *data,
-		int size, int def);
+                       int size, int def);
 
 void *match_type_to_data(struct match_t *table, int nr_table, int type,
 			 void *def);

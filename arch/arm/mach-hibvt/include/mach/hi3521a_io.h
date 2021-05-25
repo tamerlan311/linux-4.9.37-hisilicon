@@ -31,9 +31,9 @@
 #define IO_ADDRESS_HIGH(x)  ((x) + IO_OFFSET_HIGH)
 
 #define __IO_ADDRESS_HIGH(x) ((x >= HI3521A_IOCH2_PHYS) ? IO_ADDRESS_MID(x) \
-		: IO_ADDRESS_HIGH(x))
+        : IO_ADDRESS_HIGH(x))
 #define IO_ADDRESS(x)   ((x) >= HI3521A_IOCH3_PHYS ? IO_ADDRESS_LOW(x) \
-		: __IO_ADDRESS_HIGH(x))
+        : __IO_ADDRESS_HIGH(x))
 
 #define __io_address(x) (IOMEM(IO_ADDRESS(x)))
 

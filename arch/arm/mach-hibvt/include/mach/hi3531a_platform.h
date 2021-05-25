@@ -4,7 +4,7 @@
 /* -------------------------------------------------------------------- */
 /* Clock and Reset Generator REG */
 /* -------------------------------------------------------------------- */
-#define CRG_REG_BASE		0x12040000
+#define CRG_REG_BASE        0x12040000
 
 #define REG_CRG20           0x0050
 #define REG_CRG32           0x0080
@@ -23,43 +23,43 @@
 /* -------------------------------------------------------------------- */
 /* System controller register                                           */
 /* -------------------------------------------------------------------- */
-#define SYS_CTRL_REG_BASE	0x12050000
+#define SYS_CTRL_REG_BASE   0x12050000
 
 /* -------------------------------------------------------------------- */
 /* MISC controller register                                           */
 /* -------------------------------------------------------------------- */
-#define MISC_CTRL_REG_BASE	0x12120000
+#define MISC_CTRL_REG_BASE  0x12120000
 
 /* -------------------------------------------------------------------- */
 /* A9 soft reset request register offset                                */
 /* -------------------------------------------------------------------- */
-#define REG_A9_SRST_CRG		REG_CRG32
-#define WDG1_SRST_REQ		BIT(6)
-#define DBG1_SRST_REQ		BIT(5)
-#define CPU1_SRST_REQ		BIT(4)
+#define REG_A9_SRST_CRG     REG_CRG32
+#define WDG1_SRST_REQ       BIT(6)
+#define DBG1_SRST_REQ       BIT(5)
+#define CPU1_SRST_REQ       BIT(4)
 
 /* -------------------------------------------------------------------- */
 /* CORTTX-A9 internal Register */
 /* -------------------------------------------------------------------- */
-#define A9_PERI_BASE		0x10300000
-#define REG_A9_PERI_SCU		0x0000
+#define A9_PERI_BASE        0x10300000
+#define REG_A9_PERI_SCU     0x0000
 
 /* -------------------------------------------------------------------- */
-#define REG_BASE_L2CACHE	0x10700000
+#define REG_BASE_L2CACHE    0x10700000
 
 /* -------------------------------------------------------------------- */
 /* SATA register                                                        */
 /* -------------------------------------------------------------------- */
-#define HISI_SATA_PORT_FIFOTH	0x44
-#define HISI_SATA_PORT_PHYCTL1	0x48
-#define HISI_SATA_PORT_PHYCTL	0x74
+#define HISI_SATA_PORT_FIFOTH   0x44
+#define HISI_SATA_PORT_PHYCTL1  0x48
+#define HISI_SATA_PORT_PHYCTL   0x74
 
-#define HISI_SATA_PHY_CTL0		0xA0
-#define HISI_SATA_PHY_CTL1		0xA4
-#define HISI_SATA_PHY_CTL2		0xB0
-#define HISI_SATA_RST_PHY_MASK	0xAC
+#define HISI_SATA_PHY_CTL0      0xA0
+#define HISI_SATA_PHY_CTL1      0xA4
+#define HISI_SATA_PHY_CTL2      0xB0
+#define HISI_SATA_RST_PHY_MASK  0xAC
 
-#define HISI_SATA_FIFOTH_VALUE	0x6ED9F24
-#define HISI_SATA_BIGENDINE		BIT(3)
+#define HISI_SATA_FIFOTH_VALUE  0x6ED9F24
+#define HISI_SATA_BIGENDINE     BIT(3)
 
 #endif /* End of __HI3531A_CHIP_REGS_H__ */

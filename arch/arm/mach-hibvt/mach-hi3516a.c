@@ -32,34 +32,34 @@
  * IO space.
  */
 static struct map_desc hi3516a_io_desc[] __initdata = {
-	{
-		/* hi3516a_IOCH1 */
-		.pfn		= __phys_to_pfn(HI3516A_IOCH1_PHYS),
-		.virtual	= HI3516A_IOCH1_VIRT,
-		.length		= HI3516A_IOCH1_SIZE,
-		.type		= MT_DEVICE,
-	},
-	{
-		/* hi3516a_IOCH2 */
-		.pfn		= __phys_to_pfn(HI3516A_IOCH2_PHYS),
-		.virtual	= HI3516A_IOCH2_VIRT,
-		.length		= HI3516A_IOCH2_SIZE,
-		.type		= MT_DEVICE,
-	},
+    {
+        /* hi3516a_IOCH1 */
+        .pfn        = __phys_to_pfn(HI3516A_IOCH1_PHYS),
+        .virtual    = HI3516A_IOCH1_VIRT,
+        .length     = HI3516A_IOCH1_SIZE,
+        .type       = MT_DEVICE,
+    },
+    {
+        /* hi3516a_IOCH2 */
+        .pfn        = __phys_to_pfn(HI3516A_IOCH2_PHYS),
+        .virtual    = HI3516A_IOCH2_VIRT,
+        .length     = HI3516A_IOCH2_SIZE,
+        .type       = MT_DEVICE,
+    },
 };
 
 static void __init hi3516a_map_io(void)
 {
-	/* debug_ll_io_init(); */
-	iotable_init(hi3516a_io_desc, ARRAY_SIZE(hi3516a_io_desc));
+    /* debug_ll_io_init(); */
+    iotable_init(hi3516a_io_desc, ARRAY_SIZE(hi3516a_io_desc));
 }
 
 static const char *const hi3516a_compat[] __initconst = {
-	"hisilicon,hi3516a",
-	NULL,
+    "hisilicon,hi3516a",
+    NULL,
 };
 
 DT_MACHINE_START(HI3516A_DT, "Hisilicon Hi3516A (Flattened Device Tree)")
-	.map_io		= hi3516a_map_io,
-	.dt_compat	= hi3516a_compat,
+.map_io     = hi3516a_map_io,
+.dt_compat   = hi3516a_compat,
 MACHINE_END

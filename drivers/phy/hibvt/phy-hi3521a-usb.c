@@ -3,24 +3,24 @@
 #include <linux/phy/phy.h>
 #include "phy-hisi-usb.h"
 
-#define PERI_CRG28			0x70
-#define USB_CKEN			(1 << 7)
-#define USB_CTRL_UTMI1_REG	(1 << 6)
-#define USB_CTRL_UTMI0_REG	(1 << 5)
-#define USB_CTRL_HUB_REG	(1 << 4)
-#define USBPHY_PORT1_TREQ	(1 << 3)
-#define USBPHY_PORT0_TREQ	(1 << 2)
-#define USBPHY_REQ			(1 << 1)
-#define USB_AHB_SRST_REQ	(1 << 0)
+#define PERI_CRG28         0x70
+#define USB_CKEN           (1 << 7)
+#define USB_CTRL_UTMI1_REG (1 << 6)
+#define USB_CTRL_UTMI0_REG (1 << 5)
+#define USB_CTRL_HUB_REG   (1 << 4)
+#define USBPHY_PORT1_TREQ  (1 << 3)
+#define USBPHY_PORT0_TREQ  (1 << 2)
+#define USBPHY_REQ         (1 << 1)
+#define USB_AHB_SRST_REQ   (1 << 0)
 
 
-#define PERI_USB			0x50
-#define WORDINTERFACE		(1 << 0)
-#define SS_BURST4_EN		(1 << 7)
-#define SS_BURST8_EN		(1 << 8)
-#define SS_BURST16_EN		(1 << 9)
-#define USBOVR_P_CTRL		(1 << 17)
-#define MISC_USB			0x54
+#define PERI_USB      0x50
+#define WORDINTERFACE (1 << 0)
+#define SS_BURST4_EN  (1 << 7)
+#define SS_BURST8_EN  (1 << 8)
+#define SS_BURST16_EN (1 << 9)
+#define USBOVR_P_CTRL (1 << 17)
+#define MISC_USB      0x54
 
 
 void hisi_usb_phy_on(struct phy *phy)

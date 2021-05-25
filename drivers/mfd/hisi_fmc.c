@@ -33,94 +33,99 @@ EXPORT_SYMBOL_GPL(fmc_switch_mutex);
 
 /* ------------------------------------------------------------------------ */
 static const struct mfd_cell hisi_fmc_devs[] = {
-	{
-		.name = "hisi_spi_nor",
-		.of_compatible = "hisilicon,fmc-spi-nor",
-	},
-	{
-		.name = "hisi_spi_nand",
-		.of_compatible = "hisilicon,fmc-spi-nand",
-	},
-	{
-		.name = "hisi_nand",
-		.of_compatible = "hisilicon,fmc-nand",
-	},
+    {
+        .name = "hisi_spi_nor",
+        .of_compatible = "hisilicon,fmc-spi-nor",
+    },
+    {
+        .name = "hisi_spi_nand",
+        .of_compatible = "hisilicon,fmc-spi-nand",
+    },
+    {
+        .name = "hisi_nand",
+        .of_compatible = "hisilicon,fmc-nand",
+    },
 };
 
 static int hisi_fmc_probe(struct platform_device *pdev)
 {
-	struct hisi_fmc *fmc;
-	struct resource *res;
-	int ret;
+    struct hisi_fmc *fmc;
+    struct resource *res;
+    int ret;
 
 	fmc = devm_kzalloc(&pdev->dev, sizeof(*fmc), GFP_KERNEL);
-	if (!fmc)
-		return -ENOMEM;
+    if (!fmc) {
+        return -ENOMEM;
+    }
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "control");
+    res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "control");
 	fmc->regbase = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(fmc->regbase))
-		return PTR_ERR(fmc->regbase);
+    if (IS_ERR(fmc->regbase)) {
+        return PTR_ERR(fmc->regbase);
+    }
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "memory");
+    res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "memory");
 	fmc->iobase = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(fmc->iobase))
-		return PTR_ERR(fmc->iobase);
+    if (IS_ERR(fmc->iobase)) {
+        return PTR_ERR(fmc->iobase);
+    }
 
 	fmc->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(fmc->clk))
-		return PTR_ERR(fmc->clk);
+    if (IS_ERR(fmc->clk)) {
+        return PTR_ERR(fmc->clk);
+    }
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-	if (ret) {
+    if (ret) {
 		dev_warn(&pdev->dev, "Unable to set dma mask\n");
-		return ret;
-	}
+        return ret;
+    }
 
 	fmc->buffer = dmam_alloc_coherent(&pdev->dev, HIFMC_DMA_MAX_LEN,
-			&fmc->dma_buffer, GFP_KERNEL);
-	if (IS_ERR(fmc->buffer))
-		return PTR_ERR(fmc->buffer);
+                                      &fmc->dma_buffer, GFP_KERNEL);
+    if (IS_ERR(fmc->buffer)) {
+        return PTR_ERR(fmc->buffer);
+    }
 
-	mutex_init(&fmc->lock);
+    mutex_init(&fmc->lock);
 
-	platform_set_drvdata(pdev, fmc);
+    platform_set_drvdata(pdev, fmc);
 
 	ret = mfd_add_devices(&pdev->dev, 0, hisi_fmc_devs,
-			ARRAY_SIZE(hisi_fmc_devs), NULL, 0, NULL);
-	if (ret) {
+                          ARRAY_SIZE(hisi_fmc_devs), NULL, 0, NULL);
+    if (ret) {
 		dev_err(&pdev->dev, "add mfd devices failed: %d\n", ret);
-		return ret;
-	}
+        return ret;
+    }
 
-	return 0;
+    return 0;
 }
 
 static int hisi_fmc_remove(struct platform_device *pdev)
 {
-	struct hisi_fmc *fmc = platform_get_drvdata(pdev);
+    struct hisi_fmc *fmc = platform_get_drvdata(pdev);
 
 	dmam_free_coherent(&pdev->dev, HIFMC_DMA_MAX_LEN,
-			fmc->buffer, fmc->dma_buffer);
-	mfd_remove_devices(&pdev->dev);
-	mutex_destroy(&fmc->lock);
+                       fmc->buffer, fmc->dma_buffer);
+    mfd_remove_devices(&pdev->dev);
+    mutex_destroy(&fmc->lock);
 
-	return 0;
+    return 0;
 }
 
 static const struct of_device_id hisi_fmc_of_match_tbl[] = {
-	{ .compatible = "hisilicon,hisi-fmc"},
-	{ }
+    { .compatible = "hisilicon,hisi-fmc"},
+    { }
 };
 MODULE_DEVICE_TABLE(of, hisi_fmc_of_match_tbl);
 
 static struct platform_driver hisi_fmc_driver = {
-	.driver = {
-		.name = "hifmc",
-		.of_match_table = hisi_fmc_of_match_tbl,
-	},
-	.probe = hisi_fmc_probe,
-	.remove = hisi_fmc_remove,
+    .driver = {
+        .name = "hifmc",
+        .of_match_table = hisi_fmc_of_match_tbl,
+    },
+    .probe = hisi_fmc_probe,
+    .remove = hisi_fmc_remove,
 };
 module_platform_driver(hisi_fmc_driver);
 

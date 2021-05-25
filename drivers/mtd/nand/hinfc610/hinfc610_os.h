@@ -44,35 +44,36 @@
 /*****************************************************************************/
 
 #define DUMP_DATA(_p, _n) do { \
-	int ix; \
-	unsigned char *rr = (unsigned char *)(_p); \
-	for (ix = 0; ix < _n; ix++) { \
-		pr_info("%02X ", rr[ix]); \
-		if (!((ix + 1) % 16)) \
-			pr_info("\n"); \
-	} \
+    int ix; \
+    unsigned char *rr = (unsigned char *)(_p); \
+    for (ix = 0; ix < _n; ix++) { \
+        pr_info("%02X ", rr[ix]); \
+        if (!((ix + 1) % 16)) { \
+            pr_info("\n"); \
+		} \
+    } \
 } while (0)
 
 #define DBG_OUT(fmt, args...)\
-	pr_warn("%s(%d): " fmt, __FILE__, __LINE__, ##args) \
+    pr_warn("%s(%d): " fmt, __FILE__, __LINE__, ##args) \
 
 #if 1
 #  define DBG_MSG(_fmt, arg...)
 #else
 #  define DBG_MSG(_fmt, arg...) \
-	pr_info("%s(%d): " _fmt, __FILE__, __LINE__, ##arg)
+    pr_info("%s(%d): " _fmt, __FILE__, __LINE__, ##arg)
 #endif
 
 #define PR_BUG(fmt, args...) do {\
-	pr_debug("%s(%d): bug " fmt, __FILE__, __LINE__, ##args); \
-	asm("b ."); \
+    pr_debug("%s(%d): bug " fmt, __FILE__, __LINE__, ##args); \
+    asm("b ."); \
 } while (0)
 
 #define PR_ERR(fmt, args...)\
-	pr_err("%s(%d): " fmt, __FILE__, __LINE__, ##args) \
+    pr_err("%s(%d): " fmt, __FILE__, __LINE__, ##args) \
 
 #define PR_MSG(_fmt, arg...) \
-	printk(_fmt, ##arg)
+    printk(_fmt, ##arg)
 
 /******************************************************************************/
 #endif /* HINFC610_OSH */

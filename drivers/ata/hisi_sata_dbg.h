@@ -16,24 +16,24 @@ void hisi_ahci_reg_dump(void);
 
 #define HISI_AHCI_REG_DUMP(X) \
 do {\
-	pr_debug("------------------[ Start ]--------------------\n"); \
-	pr_debug("Dump AHCI registers at %s %d\n", __func__, __LINE__); \
-	hisi_ahci_reg_dump(); \
-	pr_debug("------------------[  End  ]--------------------\n");\
+    pr_debug("------------------[ Start ]--------------------\n"); \
+    pr_debug("Dump AHCI registers at %s %d\n", __func__, __LINE__); \
+    hisi_ahci_reg_dump(); \
+    pr_debug("------------------[  End  ]--------------------\n");\
 } while (0)
 
 #define hisi_sata_readl(addr) do {\
-		unsigned int reg = readl((unsigned int)addr); \
-		pr_debug("HI_AHCI(REG) %s:%d: readl(0x%08X) = 0x%08X\n",\
-		__func__, __LINE__, (unsigned int)addr, reg); \
-		reg;\
-	} while (0)
+        unsigned int reg = readl((unsigned int)addr); \
+        pr_debug("HI_AHCI(REG) %s:%d: readl(0x%08X) = 0x%08X\n",\
+        __func__, __LINE__, (unsigned int)addr, reg); \
+        reg;\
+    } while (0)
 
 #define hisi_sata_writel(v, addr) do { writel(v, (unsigned int)addr); \
-	pr_debug("HI_AHCI(REG) %s:%d: writel(0x%08X) = 0x%08X\n",\
-		__func__, __LINE__, (unsigned int)addr, \
-		(unsigned int)(v)); \
-	} while (0)
+    pr_debug("HI_AHCI(REG) %s:%d: writel(0x%08X) = 0x%08X\n",\
+        __func__, __LINE__, (unsigned int)addr, \
+        (unsigned int)(v)); \
+    } while (0)
 
 #undef HISI_DUMP_AHCI_REG_OPS
 #ifdef HISI_DUMP_AHCI_REG_OPS

@@ -8,42 +8,42 @@ extern int hiedmacv310_trace_level;
 #define HIEDMACV310_TRACE_FMT KERN_INFO
 
 //#define DEBUG_HIEDMAC
-#ifdef	DEBUG_HIEDMAC
+#ifdef  DEBUG_HIEDMAC
 
 #define hiedmacv310_trace(level, msg...) do { \
-	if ((level) >= hiedmacv310_trace_level) { \
-		printk(HIEDMACV310_TRACE_FMT"%s:%d: ", __func__, __LINE__); \
-		printk(msg); \
-		printk("\n"); \
-	} \
+    if ((level) >= hiedmacv310_trace_level) { \
+        printk(HIEDMACV310_TRACE_FMT"%s:%d: ", __func__, __LINE__); \
+        printk(msg); \
+        printk("\n"); \
+    } \
 } while (0)
 
 
 #define hiedmacv310_assert(cond) do { \
-	if (!(cond)) {\
-		printk(KERN_ERR "Assert:hiedmacv310:%s:%d\n", \
-				__func__, \
-				__LINE__); \
-		BUG(); \
-	} \
+    if (!(cond)) { \
+        printk(KERN_ERR "Assert:hiedmacv310:%s:%d\n", \
+                __func__, \
+                __LINE__); \
+        BUG(); \
+    } \
 } while (0)
 
 #define hiedmacv310_error(s...) do { \
-	printk(KERN_ERR "hiedmacv310:%s:%d: ", __func__, __LINE__); \
-	printk(s); \
-	printk("\n"); \
+    printk(KERN_ERR "hiedmacv310:%s:%d: ", __func__, __LINE__); \
+    printk(s); \
+    printk("\n"); \
 } while (0)
 
 #else
 
-#define hiedmacv310_trace(level, msg...) do {}while(0)
-#define hiedmacv310_assert(level, msg...) do {}while(0)
-#define hiedmacv310_error(level, msg...) do {}while(0)
+#define hiedmacv310_trace(level, msg...) do { } while (0)
+#define hiedmacv310_assert(level, msg...) do { } while (0)
+#define hiedmacv310_error(level, msg...) do { } while (0)
 
 #endif
 
-#define hiedmacv310_readl(addr) ({unsigned int reg = readl((void *)(addr)); \
-		reg; })
+#define hiedmacv310_readl(addr) ({ unsigned int reg = readl((void *)(addr)); \
+        reg; })
 
 #define hiedmacv310_writel(v, addr) do { writel(v, (void *)(addr)); \
 } while (0)
@@ -91,8 +91,8 @@ extern int hiedmacv310_trace_level;
 #define HIEDMAC_Cx_DEST_ADDR_H(cn)         (0x82c+cn*0x40)
 #define HIEDMAC_Cx_CONFIG(cn)             (0x830+cn*0x40)
 
-#define HIEDMAC_ALL_CHAN_CLR		(0xff)
-#define HIEDMAC_INT_ENABLE_ALL_CHAN	(0xff)
+#define HIEDMAC_ALL_CHAN_CLR        (0xff)
+#define HIEDMAC_INT_ENABLE_ALL_CHAN (0xff)
 
 
 #define HIEDMAC_CONFIG_SRC_INC          (1<<31)
@@ -120,8 +120,8 @@ extern int hiedmacv310_trace_level;
 #define HIEDMAC_CXCONFIG_TSF_TYPE_SHIFT (0x2)
 #define HIEDMAC_CxCONFIG_LLI_START      (0x1)
 
-#define HIEDMAC_CXCONFIG_ITC_EN		(0x1)
-#define HIEDMAC_CXCONFIG_ITC_EN_SHIFT	(0x1)
+#define HIEDMAC_CXCONFIG_ITC_EN     (0x1)
+#define HIEDMAC_CXCONFIG_ITC_EN_SHIFT   (0x1)
 
 #define CCFG_EN 0x1
 

@@ -19,7 +19,7 @@
 #define HI3518EV20X_IOCH1_SIZE 0xE0000
 
 #define IO_ADDRESS(x) ((x) >= HI3518EV20X_IOCH2_PHYS ? (x) + IO_OFFSET_HIGH \
-		                        : (x) + IO_OFFSET_LOW)
+                                : (x) + IO_OFFSET_LOW)
 
 #define __io_address(n)     ((void __iomem __force *)IO_ADDRESS(n))
 

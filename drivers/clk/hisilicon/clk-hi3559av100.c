@@ -192,7 +192,7 @@ static struct hisi_gate_clock hi3559av100_gate_clks[] __initdata = {
 	{ HI3559AV100_UART3_CLK, "clk_uart3", "uart_mux",
 		CLK_SET_RATE_PARENT, 0x198, 26, 0, },
 	{ HI3559AV100_UART4_CLK, "clk_uart4", "uart_mux",
-		CLK_SET_RATE_PARENT, 0x198, 27, 0, },		
+		CLK_SET_RATE_PARENT, 0x198, 27, 0, },
 	/* ethernet mac */
 	{ HI3559AV100_ETH_CLK, "clk_eth", NULL,
 		CLK_SET_RATE_PARENT, 0x0174, 1, 0, },

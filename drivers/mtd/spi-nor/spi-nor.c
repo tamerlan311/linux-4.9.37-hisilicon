@@ -1074,43 +1074,43 @@ static const struct spi_nor_basic_flash_parameter micron_4k_params = {
 #define SPI_NOR_IDS_VER     "1.0"
 
 /******* SPI Nor ID Table **************************************************
- * Version   Manufacturer    Chip Name    Chipsize	Block	Vol  Operation
- * 1.0		Macronix/MXIC	MX25L1606E		2M		64K		3V3
- *			Macronix/MXIC	MX25L6436F		8M		64K		3V3
- *			Macronix/MXIC	MX25R6435F		8M		64K		1V8/3V3 Add 14chips
- *			Macronix/MXIC	MX25U6435F		8M		64K		1V8
- *			Macronix/MXIC	MX25U12835F		16M		64K     1V8
- *			Macronix/MXIC	MX25F128XXX		16M		64K     3V3
- *			Macronix/MXIC	MX25U25635F/45G	32M		64K		1V8 25645G-DTR
- *			Macronix/MXIC	MX25L(256/257)	32M     64K     3V3	25645G-DTR
- *			Macronix/MXIC	MX25U51245G		64M		64K		1V8 51245G-DTR
- *			Spansion		S25FL129P1		16M     64K		3V3
- *			Spansion		S25FL256S		32M     64K		3V3
- *			Micron			N25Q064A		8M      64K     3V3
- *			Micron			N25QL064A		8M      64K     3V3
- *			Micron	N25Q128A11/MT25QU128AB  16M     64K     1V8
- *			Micron			N25QL128A		16M     64K     3V3
- *			Micron			MT25QU256A		32M     64K     1V8
+ * Version   Manufacturer    	Chip Name    		Chipsize	Block	Vol  	Operation
+ * 1.0		Macronix/MXIC	MX25L1606E		2M		64K	3V3
+ *		Macronix/MXIC	MX25L6436F		8M		64K	3V3
+ *		Macronix/MXIC	MX25R6435F		8M		64K	1V8/3V3 Add 14chips
+ *		Macronix/MXIC	MX25U6435F		8M		64K	1V8
+ *		Macronix/MXIC	MX25U12835F		16M		64K     1V8
+ *		Macronix/MXIC	MX25F128XXX		16M		64K     3V3
+ *		Macronix/MXIC	MX25U25635F/45G		32M		64K	1V8 	25645G-DTR
+ *		Macronix/MXIC	MX25L(256/257)		32M     	64K     3V3	25645G-DTR
+ *		Macronix/MXIC	MX25U51245G		64M		64K	1V8 	51245G-DTR
+ *		Spansion	S25FL129P1		16M     	64K	3V3
+ *		Spansion	S25FL256S		32M     	64K	3V3
+ *		Micron		N25Q064A		8M      	64K     3V3
+ *		Micron		N25QL064A		8M      	64K     3V3
+ *		Micron		N25Q128A11/MT25QU128AB  16M     	64K     1V8
+ *		Micron		N25QL128A		16M     	64K     3V3
+ *		Micron		MT25QU256A		32M     	64K     1V8
  *			Micron			MT25Q256A		32M     64K     3V3
- *			Winbond	W25Q16(B/C)V/S25FL016K	2M		64K     3V3
- *			Winbond			W25Q32(B/F)V	4M		64K     3V3
- *			Winbond			W25Q32FW		4M		64K     1V8
- *			Winbond			W25Q64FW		8M		64K     1V8
+ *		Winbond		W25Q16(B/C)V/S25FL016K	2M		64K     3V3
+ *		Winbond		W25Q32(B/F)V		4M		64K     3V3
+ *		Winbond		W25Q32FW		4M		64K     1V8
+ *		Winbond		W25Q64FW		8M		64K     1V8
  *			Winbond			W25Q64FV		8M		64K     3V3
- *			Winbond			W25Q128FW		16M     64K     1V8
- *			Winbond			W25Q128(B/F)V	16M     64K     3V3
+ *		Winbond		W25Q128FW		16M     	64K     1V8
+ *		Winbond		W25Q128(B/F)V		16M     	64K     3V3
  *			Winbond			W25Q128JV		16M     64K     3V3  DTR
- *			ESMT/CFEON		EN25Q32B		4M      64K     3V3
- *			ESMT/CFEON		EN25Q64			8M      64K     3V3
- *			ESMT/CFEON		EN25Q128		16M     64K     3V3
- *			ESMT/CFEON		F25L64QA		8M      64K     3V3
- *			GD				GD25Q64			8M      64K     3V3
- *			GD				GD25LQ128		16M     64K     1V8
- *			GD				GD25Q128		16M     64K     3V3
- *			GD				GD25LQ64C		8M      64K     1V8
- *			GD				GD25Q32			4M      64K     3V3
- *			Paragon			PN25F16S		2M		64K     3V3
- *			Paragon			PN25F32S		4M      64K     3V3
+ *		ESMT/CFEON	EN25Q32B		4M      	64K     3V3
+ *		ESMT/CFEON	EN25Q64			8M      	64K     3V3
+ *		ESMT/CFEON	EN25Q128		16M     	64K     3V3
+ *		ESMT/CFEON	F25L64QA		8M      	64K     3V3
+ *		GD		GD25Q64			8M      	64K     3V3
+ *		GD		GD25LQ128		16M     	64K     1V8
+ *		GD		GD25Q128		16M     	64K     3V3
+ *		GD		GD25LQ64C		8M      	64K     1V8
+ *		GD		GD25Q32			4M      	64K     3V3
+ *		Paragon		PN25F16S		2M		64K     3V3
+ *		Paragon		PN25F32S		4M      	64K     3V3
  *****************************************************************************/
 static const struct flash_info spi_nor_ids[] = {
 	/* Atmel -- some are (confusingly) marketed as "DataFlash" */
@@ -1249,7 +1249,7 @@ static const struct flash_info spi_nor_ids[] = {
 	{ "s25sl12800", INFO(0x012018, 0x0300, 256 * 1024,  64, 0) },
 	{ "s25sl12801", INFO(0x012018, 0x0301,  64 * 1024, 256, 0) },
 	{ "s25fl128s",	INFO6(0x012018, 0x4d0180, 64 * 1024, 256, SECT_4K
-			|SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
+			| SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
 	{ "s25fl129p0", INFO(0x012018, 0x4d00, 256 * 1024,  64,
 			SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
 	{ "s25fl129p1", INFO(0x012018, 0x4d01,  64 * 1024, 256,
@@ -2098,7 +2098,7 @@ static int spi_nor_config(struct spi_nor *nor, const struct flash_info *info,
 		if (ret)
 			return ret;
 	} else if (modes->rd_modes & SNOR_MODE_1_1_4 &&
-				info->flags & SPI_NOR_QUAD_READ) {
+			info->flags & SPI_NOR_QUAD_READ) {
 		/*
 		 * This branch is spcially for some devices which can
 		 * not be stated by params, but only SPI_NOR_QUAD_READ,

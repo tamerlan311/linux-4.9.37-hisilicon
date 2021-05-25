@@ -4,7 +4,7 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ *  (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,21 +16,22 @@
  */
 
 #include <linux/delay.h>
-#include <linux/phy/phy.h>
 #include <linux/of_address.h>
+#include <linux/phy/phy.h>
+
 #include "phy-hisi-usb.h"
 
-#define PERI_CRG91					0x16C
+#define PERI_CRG91          0x16C
 #define usb2_phy1_ref_cken			(1 << 0)
 #define usb2_phy1_srst_req			(1 << 8)
 #define usb2_phy1_srst_treq			(1 << 9)
 
-#define PERI_CRG72					0x120
+#define PERI_CRG72              0x120
 #define combphy1_refclk1_sel		(3 <<14)
 #define combphy1_lane1_srst_req		(1 <<11)
 #define combphy1_ref1_cken			(1 << 9)
 
-#define PERI_CRG75					0x12c
+#define PERI_CRG75        0x12c
 #define usb3_vcc_srst_req			(1 <<13)
 
 
@@ -57,7 +58,7 @@ void hisi_usb3_phy_on(struct phy *phy)
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
 	udelay(200);
 
-	/*open usb2.0 bus clock*/
+	/* open usb2.0 bus clock */
 	reg = readl(priv->peri_ctrl + PERI_CRG91);
 	reg |= usb2_phy1_ref_cken;
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
@@ -77,7 +78,7 @@ void hisi_usb3_phy_on(struct phy *phy)
 	reg &= ~(combphy1_refclk1_sel);
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG72);
 	udelay(200);
-	
+
 	reg = readl(priv->peri_ctrl + PERI_CRG72);
 	reg |= combphy1_ref1_cken;
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG72);

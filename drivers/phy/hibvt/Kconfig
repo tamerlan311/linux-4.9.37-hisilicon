@@ -22,10 +22,10 @@ config PHY_HISI_USB2
 	default y
 	select GENERIC_PHY
 	help
-	Support for PHY on Hisilicon Socs. This Phy supports
-	USB 1.5Mb/s, USB 12Mb/s, USB 480Mb/s speeds. It suppots one
-	USB host port to accept one USB device. Support init the phy
-	and adjust phy Eye Diagram.
+	  Support for PHY on Hisilicon Socs. This Phy supports
+	  USB 1.5Mb/s, USB 12Mb/s, USB 480Mb/s speeds. It suppots one
+	  USB host port to accept one USB device. Support init the phy
+	  and adjust phy Eye Diagram.
 
 config PHY_HISI_USB3
 	tristate "HISI USB3 PHY Driver"
@@ -33,7 +33,7 @@ config PHY_HISI_USB3
 	default y
 	select GENERIC_PHY
 	help
-	Support for PHY on Hisilicon Socs. This Phy supports
-	USB3.0 and Compatible with USB2.0. It suppots one
-	USB host port to accept one USB device. Support init the phy
-	and adjust phy Eye Diagram.
+	  Support for PHY on Hisilicon Socs. This Phy supports
+	  USB3.0 and Compatible with USB2.0. It suppots one
+	  USB host port to accept one USB device. Support init the phy
+	  and adjust phy Eye Diagram.

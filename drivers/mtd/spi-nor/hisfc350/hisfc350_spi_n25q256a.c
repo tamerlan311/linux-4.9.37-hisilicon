@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
- 
+
 #include <linux/io.h>
 #include <linux/mtd/mtd.h>
 #include <linux/errno.h>
@@ -25,29 +25,30 @@
 
 static int spi_n25q256a_entry_4addr(struct hisfc_spi *spi, int enable)
 {
-	struct hisfc_host *host = (struct hisfc_host *)spi->host;
+    struct hisfc_host *host = (struct hisfc_host *)spi->host;
 
-	if (spi->addrcycle != 4)
-		return 0;
+    if (spi->addrcycle != 4) {
+        return 0;
+    }
 
-	spi->driver->wait_ready(spi);
+    spi->driver->wait_ready(spi);
 
-	if (enable) {
-		spi->driver->write_enable(spi);
-		hisfc_write(host, HISFC350_CMD_INS, SPI_CMD_EN4B);
-	} else {
-		spi->driver->write_enable(spi);
-		hisfc_write(host, HISFC350_CMD_INS, SPI_CMD_EX4B);
-	}
+    if (enable) {
+        spi->driver->write_enable(spi);
+        hisfc_write(host, HISFC350_CMD_INS, SPI_CMD_EN4B);
+    } else {
+        spi->driver->write_enable(spi);
+        hisfc_write(host, HISFC350_CMD_INS, SPI_CMD_EX4B);
+    }
 
-	hisfc_write(host, HISFC350_CMD_CONFIG,
-		HISFC350_CMD_CONFIG_SEL_CS(spi->chipselect)
-		| HISFC350_CMD_CONFIG_START);
+    hisfc_write(host, HISFC350_CMD_CONFIG,
+                HISFC350_CMD_CONFIG_SEL_CS(spi->chipselect)
+                | HISFC350_CMD_CONFIG_START);
 
-	HISFC350_CMD_WAIT_CPU_FINISH(host);
+    HISFC350_CMD_WAIT_CPU_FINISH(host);
 
-	host->set_host_addr_mode(host, enable);
+    host->set_host_addr_mode(host, enable);
 
-	return 0;
+    return 0;
 }
 
