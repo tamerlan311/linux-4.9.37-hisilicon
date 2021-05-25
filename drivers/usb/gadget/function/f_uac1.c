@@ -1,12 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * f_audio.c -- USB Audio class function driver
+ * f_uac1.c -- USB Audio Class 1.0 Function (using u_audio API)
  *
- * Copyright (C) 2008 Bryan Wu <cooloney@kernel.org>
- * Copyright (C) 2008 Analog Devices, Inc
+ * Copyright (C) 2016 Ruslan Bilovol <ruslan.bilovol@gmail.com>
  *
- * Enter bugs at http://blackfin.uclinux.org/
+ * This driver doesn't expect any real Audio codec to be present
+ * on the device - the audio streams are simply sinked to and
+ * sourced from a virtual ALSA sound card created.
  *
- * Licensed under the GPL-2 or later.
+ * This file is based on f_uac1.c which is
+ *   Copyright (C) 2008 Bryan Wu <cooloney@kernel.org>
+ *   Copyright (C) 2008 Analog Devices, Inc
  */
 
 #include <linux/slab.h>

@@ -1,12 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * u_uac1.h -- interface to USB gadget "ALSA AUDIO" utilities
+ * u_uac1.h - Utility definitions for UAC1 function
  *
- * Copyright (C) 2008 Bryan Wu <cooloney@kernel.org>
- * Copyright (C) 2008 Analog Devices, Inc
- *
- * Enter bugs at http://blackfin.uclinux.org/
- *
- * Licensed under the GPL-2 or later.
+ * Copyright (C) 2016 Ruslan Bilovol <ruslan.bilovol@gmail.com>
  */
 
 #ifndef __U_AUDIO_H
