@@ -60,6 +60,32 @@
 #define MCI_CARDTHRCTL		0x100
 #define MCI_UHS_REG_EXT     0x108
 
+#define MCI_TUNING_CTRL		0x118
+
+/* MCI_IDSTS(0x8c) detals */
+#define CMD_LOCK_ERR	(0x1<<29)
+#define OWNBIT_ERR		(0x1<<28)
+#define QUEUE_OVERFLOW	(0x1<<27)
+#define RESP_CHECK_ERR	(0x1<<26)
+#define PACKET_INT		(0x1<<25)
+#define PACKET_TO_INT	(0x1<<24)
+#define AUTO_STOP_ERR	(0x1<<23)
+#define QUEUE_FULL		(0x1<<22)
+#define QUEUE_EMPTY		(0x1<<21)
+#define ADMA3_FSM_SHIFT	(17)
+#define FSM_SHIFT		(13)
+#define CES			(0x1<<5)
+#define DU			(0x1<<4)
+#define FBE			(0x1<<2)
+
+
+
+/* MCI_BMOD(0x80) details */
+#define BMOD_SWR		(0x1<<0)
+#define BURST_INCR		(0x1<<1)
+#define BMOD_DMA_EN		(0x1<<7)
+#define BURST_8			(0x2<<8)
+#define BURST_16		(0x3<<8)
 /* IDMAC DEST1 details */
 #define DMA_BUFFER		(0x2000)
 #define MAX_DMA_DES		(20480)
@@ -97,6 +123,16 @@
 #define ALL_INT_MASK		0x1ffff
 #define DTO_INT_MASK		(0x1<<3)
 #define SDIO_INT_MASK		(0x1<<16)
+
+/* MCI_UHS_REG_EXT(0x108) details */
+/* bit[19:16] sampling phase */
+#define CLK_SMPL_PHS_SHIFT	(16)
+#define CLK_SMPL_PHS_MASK	(0x7<<16)
+
+/* bit[26:23] drv phase */
+#define CLK_DRV_PHS_SHIFT	(23)
+#define CLK_DRV_PHS_MASK	(0x7<<23)
+#define DEFAULT_PHASE		0x1050000
 
 /* MCI_CMD(0x2c) details:
    bit 31: cmd execute or load start param of interface clk bit
@@ -179,6 +215,10 @@
 /* MCI_CDETECT(0x50) details */
 #define HIMCI_CARD0		(0x1<<0)
 
+/* MCI_GPIO(0x58) details */
+#define DTO_FIX_BYPASS      (0x1<<23)
+#define CMD_OUT_EN_FIX_BYPASS   (0x1<<8)
+
 /* MCI_UHS_REG(0x74) details */
 #define HI_SDXC_CTRL_VDD_180	(0x1<<0)
 #define HI_SDXC_CTRL_DDR_REG	(0x1<<16)
@@ -186,24 +226,18 @@
 /* MCI_RESET_N(0x78) details */
 #define MMC_RST_N   (0x1<<0)
 
-/* MCI_BMOD(0x80) details */
-#define BMOD_SWR		(0x1<<0)
-#define BURST_INCR		(0x1<<1)
-#define BMOD_DMA_EN		(0x1<<7)
-#define BURST_8			(0x2<<8)
-#define BURST_16		(0x3<<8)
 
 /* MCI_CARDTHRCTL(0x100) details */
+#if defined(CONFIG_ARCH_HI3516CV500) || defined(CONFIG_ARCH_HI3516DV300) || defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)
+#define RW_THRESHOLD_SIZE	(0x2000005)
+#else
 #define RW_THRESHOLD_SIZE	(0x2000001)
+#endif
 
-/* MCI_UHS_REG_EXT(0x108) details */
-/* bit[19:16] sampling phase */
-#define CLK_SMPL_PHS_SHIFT	(16)
-#define CLK_SMPL_PHS_MASK	(0x7<<16)
 
-/* bit[26:23] drv phase */
-#define CLK_DRV_PHS_SHIFT	(23)
-#define CLK_DRV_PHS_MASK	(0x7<<23)
-#define DEFAULT_PHASE		0x1050000
+/* MCI_TUNING_CTRL(0x118) details */
+#define HW_TUNING_EN	(0x1 << 0)
+#define EDGE_CTRL		(0x1 << 1)
+#define FOUND_EDGE		(0x1 << 5)
 
 #endif

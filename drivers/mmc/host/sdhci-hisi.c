@@ -23,118 +23,54 @@
 #include <linux/mfd/syscon.h>
 #include <linux/reset.h>
 #include <linux/mmc/host.h>
+#include <linux/pm_runtime.h>
 #include "sdhci-pltfm.h"
 #include "mci_proc.h"
-
-#define SDHCI_HISI_EDGE_TUNING
 
 #define PHASE_SCALE	32
 #define NOT_FOUND	-1
 #define MAX_TUNING_NUM	1
 #define MAX_FREQ	200000000
 
-#define REG_EMMC_DRV_DLL_CTRL		0x1b0
-#define REG_SDIO0_DRV_DLL_CTRL		0x1d4
-#define REG_SDIO1_DRV_DLL_CTRL		0x1fc
-#define REG_SDIO2_DRV_DLL_CTRL		0x224
-#define SDIO_DRV_PHASE_SEL_MASK		(0x1f << 24)
-#define SDIO_DRV_SEL(phase)			((phase) << 24)
+#define HISI_MMC_AUTOSUSPEND_DELAY_MS 50
 
-#define REG_EMMC_DRV_DLL_STATUS		0x1c4
-#define REG_SDIO0_DRV_DLL_STATUS	0x1e8
-#define REG_SDIO1_DRV_DLL_STATUS	0x210
-#define REG_SDIO2_DRV_DLL_STATUS	0x238
-#define SDIO_DRV_DLL_LOCK			BIT(15)
-
-#define REG_EMMC_SAMPL_DLL_STATUS	0x1bc
-#define REG_SDIO0_SAMPL_DLL_STATUS	0x1e0
-#define REG_SDIO1_SAMPL_DLL_STATUS	0x208
-#define REG_SDIO2_SAMPL_DLL_STATUS	0x230
-#define SDIO_SAMPL_DLL_SLAVE_READY	BIT(14)
-
-#define REG_EMMC_SAMPL_DLL_CTRL		0x1a8
-#define REG_SDIO0_SAMPL_DLL_CTRL	0x1ec
-#define REG_SDIO1_SAMPL_DLL_CTRL	0x214
-#define REG_SDIO2_SAMPL_DLL_CTRL	0x23c
-#define SDIO_SAMPL_DLL_SLAVE_EN		BIT(16)
-
-#define REG_EMMC_SAMPLB_DLL_CTRL	0x1ac
-#define REG_SDIO0_SAMPLB_DLL_CTRL	0x1d0
-#define REG_SDIO1_SAMPLB_DLL_CTRL	0x1f8
-#define REG_SDIO2_SAMPLB_DLL_CTRL	0x220
-#define SDIO_SAMPLB_DLL_CLK_MASK	(0x1f << 24)
-#define SDIO_SAMPLB_SEL(phase)		((phase) << 24)
-
-#define REG_EMMC_DS_DLL_CTRL		0x1b4
-#define EMMC_DS_DLL_MODE_SSEL		BIT(13)
-#define EMMC_DS_DLL_SSEL_MASK		(0x1fff)
-#define REG_EMMC_DS180_DLL_CTRL		0x1b8
-#define EMMC_DS180_DLL_BYPASS		BIT(15)
-#define REG_EMMC_DS_DLL_STATUS		0x1c8
-#define EMMC_DS_DLL_LOCK			BIT(15)
-#define EMMC_DS_DLL_MDLY_TAP_MASK	(0x1fff)
-
-#define REG_MISC_CTRL18			0x48
-#define SDIO0_PWRSW_SEL_1V8		BIT(5)
-#define SDIO0_PWR_EN			BIT(4)
-#define SDIO1_IO_MODE_SEL_1V8	BIT(3)
-#define SDIO0_IO_MODE_SEL_1V8	BIT(1)
-#define SDIO0_PWR_CTRL_BY_MISC	BIT(0)
-
-#define REG_IOCTL_RONSEL_1_0	0x264
-#define REG_IOCTL_OD_RONSEL_2	0x268
-
-#define REG_CTRL_SDIO0_CLK		0x104c
-#define REG_CTRL_SDIO0_CMD		0x1050
-#define REG_CTRL_SDIO0_DATA0	0x1054
-#define REG_CTRL_SDIO0_DATA1	0x1058
-#define REG_CTRL_SDIO0_DATA2	0x105c
-#define REG_CTRL_SDIO0_DATA3	0x1060
-#define REG_CTRL_SDIO1_CLK		0x106c
-#define REG_CTRL_SDIO1_CMD		0x1070
-#define REG_CTRL_SDIO1_DATA0	0x1074
-#define REG_CTRL_SDIO1_DATA1	0x1078
-#define REG_CTRL_SDIO1_DATA2	0x107c
-#define REG_CTRL_SDIO1_DATA3	0x1080
-#define REG_CTRL_SDIO2_CLK		0x10b0
-#define REG_CTRL_SDIO2_CMD		0x10b8
-#define REG_CTRL_SDIO2_DATA0	0x10ac
-#define REG_CTRL_SDIO2_DATA1	0x1084
-#define REG_CTRL_SDIO2_DATA2	0x10a0
-#define REG_CTRL_SDIO2_DATA3	0x10bc
-
-static unsigned int sdio2_iocfg_reg[] = {
-	REG_CTRL_SDIO2_CLK,
-	REG_CTRL_SDIO2_CMD,
-	REG_CTRL_SDIO2_DATA0,
-	REG_CTRL_SDIO2_DATA1,
-	REG_CTRL_SDIO2_DATA2,
-	REG_CTRL_SDIO2_DATA3
-};
-
-static unsigned int sdr104_drv[] = {0x60, 0x60, 0x60, 0x60, 0x60, 0x60};
-static unsigned int sdrxx_drv[] = {0x40, 0x40, 0x40, 0x40, 0x40, 0x40};
-static unsigned int hs_ds_drv[] = {0x70, 0x40, 0x40, 0x40, 0x40, 0x40};
-
-struct sdhci_hisi_priv {
-	struct reset_control *crg_rst;
-	struct reset_control *dll_rst;
-	struct reset_control *sampl_rst;
-	struct regmap *crg_regmap;
-	struct regmap *misc_regmap;
-	struct regmap *iocfg_regmap;
-	void __iomem *phy_addr;
-	unsigned int f_max;
-	unsigned int devid;
-	unsigned int drv_phase;
-	unsigned int sampl_phase;
-	unsigned int tuning_phase;
-};
+static void hisi_mmc_crg_init(struct sdhci_host *host);
+static void sdhci_hisi_hs400_enhanced_strobe(struct mmc_host *mmc,
+		struct mmc_ios *ios);
+static int sdhci_hisi_parse_dt(struct sdhci_host *host);
 
 static inline void *sdhci_get_pltfm_priv(struct sdhci_host *host)
 {
 	return sdhci_pltfm_priv(sdhci_priv(host));
 }
+
+#ifdef CONFIG_ARCH_HI3559AV100
+#include "sdhci-hi3559av100.c"
+#endif
+
+#ifdef CONFIG_ARCH_HI3519AV100
+#include "sdhci-hi3519av100.c"
+#endif
+
+#ifdef CONFIG_ARCH_HI3556AV100
+#include "sdhci-hi3556av100.c"
+#endif
+
+#ifdef CONFIG_ARCH_HI3516EV200
+#include "sdhci-hi3516ev200.c"
+#endif
+
+#ifdef CONFIG_ARCH_HI3516EV300
+#include "sdhci-hi3516ev300.c"
+#endif
+
+#ifdef CONFIG_ARCH_HI3518EV300
+#include "sdhci-hi3518ev300.c"
+#endif
+
+#ifdef CONFIG_ARCH_HI3516DV200
+#include "sdhci-hi3516dv200.c"
+#endif
 
 static unsigned int sdhci_hisi_get_max_clk(struct sdhci_host *host)
 {
@@ -156,7 +92,11 @@ static int sdhci_hisi_parse_dt(struct sdhci_host *host)
 	if (of_property_read_u32(np, "max-frequency", &hisi_priv->f_max))
 		hisi_priv->f_max = MAX_FREQ;
 
-	if (of_find_property(np, "mmc-broken-cmd23", &len))
+	if (of_find_property(np, "mmc-cmd-queue", &len))
+		host->mmc->caps2 |= MMC_CAP2_CMD_QUEUE;
+
+	if (of_find_property(np, "mmc-broken-cmd23", &len) ||
+		(host->mmc->caps2 & MMC_CAP2_CMD_QUEUE))
 		host->quirks2 |= SDHCI_QUIRK2_HOST_NO_CMD23;
 
 	return 0;
@@ -170,120 +110,12 @@ static void hisi_mmc_crg_init(struct sdhci_host *host)
 	clk_prepare_enable(pltfm_host->clk);
 	reset_control_assert(hisi_priv->crg_rst);
 	reset_control_assert(hisi_priv->dll_rst);
+	if(hisi_priv->sampl_rst)
 		reset_control_assert(hisi_priv->sampl_rst);
+
 	udelay(25);
 	reset_control_deassert(hisi_priv->crg_rst);
 	udelay(10);
-}
-
-static void sdhci_hisi_hs400_enhanced_strobe(struct mmc_host *mmc,
-		struct mmc_ios *ios)
-{
-	u16 ctrl;
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	ctrl = sdhci_readw(host, SDHCI_EMMC_CTRL);
-	if (ios->enhanced_strobe)
-		ctrl |= SDHCI_ENH_STROBE_EN;
-	else
-		ctrl &= ~SDHCI_ENH_STROBE_EN;
-
-	sdhci_writew(host, ctrl, SDHCI_EMMC_CTRL);
-}
-
-static int sdhci_hisi_pltfm_init(struct platform_device *pdev,
-		struct sdhci_host *host)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_hisi_priv *hisi_priv = sdhci_pltfm_priv(pltfm_host);
-	struct device_node *np = pdev->dev.of_node;
-	struct clk *clk;
-	int ret;
-
-	hisi_priv->crg_rst = devm_reset_control_get(&pdev->dev, "crg_reset");
-	if (IS_ERR_OR_NULL(hisi_priv->crg_rst)) {
-		dev_err(&pdev->dev, "get crg_rst failed.\n");
-		return PTR_ERR(hisi_priv->crg_rst);;
-	}
-
-	hisi_priv->dll_rst = devm_reset_control_get(&pdev->dev, "dll_reset");
-	if (IS_ERR_OR_NULL(hisi_priv->dll_rst)) {
-		dev_err(&pdev->dev, "get dll_rst failed.\n");
-		return PTR_ERR(hisi_priv->dll_rst);;
-	}
-
-	hisi_priv->sampl_rst = devm_reset_control_get(&pdev->dev, "sampl_reset");
-	if (IS_ERR_OR_NULL(hisi_priv->sampl_rst)) {
-		dev_err(&pdev->dev, "get sampl_rst failed.\n");
-		return PTR_ERR(hisi_priv->sampl_rst);;
-	}
-
-	hisi_priv->crg_regmap = syscon_regmap_lookup_by_phandle(np, "crg_regmap");
-	if (IS_ERR(hisi_priv->crg_regmap))
-		return PTR_ERR(hisi_priv->crg_regmap);
-
-	if (of_property_read_u32(np, "devid", &hisi_priv->devid))
-		return -EINVAL;
-
-	if (hisi_priv->devid == 0) {
-		struct resource *res;
-
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-		if (!res)
-			return -ENOMEM;
-
-		hisi_priv->phy_addr = devm_ioremap_resource(&pdev->dev, res);
-		if (IS_ERR(hisi_priv->phy_addr))
-			return PTR_ERR(hisi_priv->phy_addr);
-	} else {
-		hisi_priv->misc_regmap = syscon_regmap_lookup_by_phandle(np,
-				"misc_regmap");
-		if (IS_ERR(hisi_priv->misc_regmap))
-			return PTR_ERR(hisi_priv->misc_regmap);
-
-		hisi_priv->iocfg_regmap = syscon_regmap_lookup_by_phandle(np,
-				"iocfg_regmap");
-		if (IS_ERR(hisi_priv->iocfg_regmap))
-			return PTR_ERR(hisi_priv->iocfg_regmap);
-	}
-
-	clk = devm_clk_get(mmc_dev(host->mmc), "mmc_clk");
-	if (IS_ERR_OR_NULL(clk)) {
-		dev_err(mmc_dev(host->mmc), "get clk err\n");
-		return -EINVAL;
-	}
-
-	pltfm_host->clk = clk;
-
-	hisi_mmc_crg_init(host);
-	ret = sdhci_hisi_parse_dt(host);
-	if (ret)
-		return ret;
-
-	/* only eMMC has a hw reset, and now eMMC signaling
-	 * is fixed to 180*/
-	if (host->mmc->caps & MMC_CAP_HW_RESET) {
-		host->flags &= ~SDHCI_SIGNALING_330;
-		host->flags |= SDHCI_SIGNALING_180;
-	}
-
-	/* we parse the support timings from dts, so we read the
-	 * host capabilities early and clear the timing capabilities,
-	 * SDHCI_QUIRK_MISSING_CAPS is set so that sdhci driver would
-	 * not read it again */
-	host->caps = sdhci_readl(host, SDHCI_CAPABILITIES);
-	host->caps &= ~SDHCI_CAN_DO_HISPD;
-	host->caps1 = sdhci_readl(host, SDHCI_CAPABILITIES_1);
-	host->caps1 &= ~(SDHCI_SUPPORT_SDR50 | SDHCI_SUPPORT_SDR104 |
-				SDHCI_SUPPORT_DDR50 | SDHCI_CAN_DO_ADMA3);
-	host->caps1 |= SDHCI_USE_SDR50_TUNING;
-	host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
-
-	host->mmc_host_ops.hs400_enhanced_strobe = sdhci_hisi_hs400_enhanced_strobe;
-
-	mci_host[slot_index++] = host->mmc;
-
-	return 0;
 }
 
 static void hisi_set_drv_phase(struct sdhci_host *host, unsigned int phase)
@@ -396,62 +228,6 @@ static void hisi_wait_sampl_dll_slave_ready(struct sdhci_host *host)
 	pr_err("%s: SAMPL DLL slave not ready.\n", mmc_hostname(host->mmc));
 }
 
-static void hisi_wait_ds_dll_lock(struct sdhci_host *host)
-{
-	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	unsigned int reg, timeout = 20;
-
-	do {
-		reg = 0;
-		regmap_read(hisi_priv->crg_regmap, REG_EMMC_DS_DLL_STATUS, &reg);
-		if (reg & EMMC_DS_DLL_LOCK)
-			return;
-
-		mdelay(1);
-		timeout--;
-	} while (timeout > 0);
-
-	pr_err("%s: DS DLL master not locked.\n", mmc_hostname(host->mmc));
-}
-
-static void hisi_set_ds_dll_delay(struct sdhci_host *host)
-{
-	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	unsigned int reg, mdly_tap;
-
-	regmap_read(hisi_priv->crg_regmap, REG_EMMC_DS_DLL_STATUS, &reg);
-	mdly_tap = reg & EMMC_DS_DLL_MDLY_TAP_MASK;
-
-	regmap_write_bits(hisi_priv->crg_regmap, REG_EMMC_DS_DLL_CTRL,
-			(EMMC_DS_DLL_SSEL_MASK | EMMC_DS_DLL_MODE_SSEL),
-			((mdly_tap / 4 + 12) | EMMC_DS_DLL_MODE_SSEL));
-
-	regmap_write_bits(hisi_priv->crg_regmap, REG_EMMC_DS180_DLL_CTRL,
-			EMMC_DS180_DLL_BYPASS, EMMC_DS180_DLL_BYPASS);
-}
-
-static void hisi_get_phase(struct sdhci_host *host)
-{
-	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-
-	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS400
-		|| host->mmc->ios.timing == MMC_TIMING_MMC_DDR52
-		|| host->mmc->ios.timing == MMC_TIMING_UHS_DDR50)
-		hisi_priv->drv_phase = 8;	/*90 degree*/
-	else if (host->mmc->ios.timing == MMC_TIMING_MMC_HS200)
-		hisi_priv->drv_phase = 20;	/*225 degree*/
-	else
-		hisi_priv->drv_phase = 16;	/*180 degree */
-
-	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS400)
-		hisi_priv->sampl_phase = hisi_priv->tuning_phase;
-	else if (host->mmc->ios.timing == MMC_TIMING_MMC_DDR52
-			|| host->mmc->ios.timing == MMC_TIMING_UHS_DDR50)
-		hisi_priv->sampl_phase = 4;
-	else
-		hisi_priv->sampl_phase = 0;
-}
-
 static void hisi_enable_sample(struct sdhci_host *host)
 {
 	unsigned int reg;
@@ -476,6 +252,7 @@ static void sdhci_hisi_set_clock(struct sdhci_host *host, unsigned int clock)
 		return;
 
 	reset_control_assert(hisi_priv->dll_rst);
+	if(hisi_priv->sampl_rst)
 		reset_control_assert(hisi_priv->sampl_rst);
 	udelay(25);
 
@@ -491,6 +268,7 @@ static void sdhci_hisi_set_clock(struct sdhci_host *host, unsigned int clock)
 	if (host->mmc->actual_clock > MMC_HIGH_52_MAX_DTR) {
 		hisi_enable_sampl_dll_slave(host);
 		reset_control_deassert(hisi_priv->dll_rst);
+		if(hisi_priv->sampl_rst)
 			reset_control_deassert(hisi_priv->sampl_rst);
 	}
 
@@ -512,6 +290,10 @@ static void sdhci_hisi_set_clock(struct sdhci_host *host, unsigned int clock)
 	if (host->mmc->actual_clock > MMC_HIGH_52_MAX_DTR) {
 		hisi_wait_drv_dll_lock(host);
 		hisi_wait_sampl_dll_slave_ready(host);
+	}
+
+	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS400) {
+		hisi_wait_ds_180_dll_ready(host);
 	}
 
 	clk |= SDHCI_CLOCK_CARD_EN;
@@ -695,6 +477,7 @@ static int sdhci_hisi_exec_edge_tuning(struct sdhci_host *host, u32 opcode)
 	unsigned int found = 0, prev_found = 0;
 	unsigned int edge_p2f, edge_f2p, start, end;
 	unsigned int phase, fall = NOT_FOUND, rise = NOT_FOUND;
+	unsigned int fall_updat_flag = 0;
 	int err, prev_err = 0;
 
 	hisi_pre_tuning(host);
@@ -705,7 +488,7 @@ static int sdhci_hisi_exec_edge_tuning(struct sdhci_host *host, u32 opcode)
 
 	edge_p2f = start;
 	edge_f2p = end;
-	for (index = 0; index < end; index++) {
+	for (index = 0; index <= end; index++) {
 		hisi_select_sampl_phase(host, index * 4);
 
 		err = mmc_send_tuning(host->mmc, opcode, NULL);
@@ -742,7 +525,8 @@ static int sdhci_hisi_exec_edge_tuning(struct sdhci_host *host, u32 opcode)
 
 	fall = start;
 	rise = end;
-	for (index = start; index < end; index++) {
+	fall_updat_flag = 0;
+	for (index = start; index <= end; index++) {
 		hisi_select_sampl_phase(host, index % PHASE_SCALE);
 
 		err = hisi_send_tuning(host, opcode);
@@ -750,11 +534,28 @@ static int sdhci_hisi_exec_edge_tuning(struct sdhci_host *host, u32 opcode)
 			pr_debug("send tuning CMD%u fail! phase:%d err:%d\n",
 					opcode, index, err);
 
-		if (!prev_err && err)
+		if (err && index == start) {
+			if (!fall_updat_flag) {
+				fall_updat_flag = 1;
+				fall = start;
+			}
+		} else {
+			if (!prev_err && err) {
+				if (!fall_updat_flag) {
+					fall_updat_flag = 1;
 					fall = index;
+				}
+			}
+		}
 
-		if (prev_err && !err)
+
+		if (prev_err && !err) {
 			rise = index;
+		}
+
+		if (err && index == end)
+			rise = end;
+
 
 		prev_err = err;
 	}
@@ -773,161 +574,12 @@ static int sdhci_hisi_exec_edge_tuning(struct sdhci_host *host, u32 opcode)
 }
 #endif
 
-static int hisi_set_signal_voltage_3v3(struct sdhci_host *host)
-{
-	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	struct regmap *misc = hisi_priv->misc_regmap;
-	unsigned int ctrl;
-
-	/* sdio2: it is fixed to 1v8, so we fake that 3v3 is ok */
-	if (hisi_priv->devid == 3)
-		return 0;
-
-	pr_debug("%s: set voltage to 330\n", mmc_hostname(host->mmc));
-
-	if (hisi_priv->devid == 1) {
-		regmap_read(misc, REG_MISC_CTRL18, &ctrl);
-		ctrl |= SDIO0_PWR_CTRL_BY_MISC | SDIO0_PWR_EN;
-		ctrl &= ~(SDIO0_IO_MODE_SEL_1V8 | SDIO0_PWRSW_SEL_1V8);
-		regmap_write(misc, REG_MISC_CTRL18, ctrl);
-
-		/* Wait for 5ms */
-		usleep_range(5000, 5500);
-
-		regmap_read(misc, REG_MISC_CTRL18, &ctrl);
-		if ((ctrl & SDIO0_PWR_CTRL_BY_MISC)
-				&& (ctrl & SDIO0_PWR_EN)
-				&& !(ctrl & SDIO0_IO_MODE_SEL_1V8) &&
-				!(ctrl & SDIO0_PWRSW_SEL_1V8))
-			return 0;
-	}
-
-	if (hisi_priv->devid == 2) {
-		regmap_read(misc, REG_MISC_CTRL18, &ctrl);
-		ctrl &= ~SDIO1_IO_MODE_SEL_1V8;
-		regmap_write(misc, REG_MISC_CTRL18, ctrl);
-
-		/* Wait for 5ms */
-		usleep_range(5000, 5500);
-
-		regmap_read(misc, REG_MISC_CTRL18, &ctrl);
-		if (!(ctrl & SDIO1_IO_MODE_SEL_1V8))
-			return 0;
-	}
-
-	pr_warn("%s: 3.3V output did not became stable\n",
-			mmc_hostname(host->mmc));
-
-	return -EAGAIN;
-}
-
-static int hisi_set_signal_voltage_1v8(struct sdhci_host *host)
-{
-	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	struct regmap *misc = hisi_priv->misc_regmap;
-	unsigned int ctrl;
-
-	pr_debug("%s: set voltage to 180\n", mmc_hostname(host->mmc));
-
-	if (hisi_priv->devid == 0 || hisi_priv->devid == 3)
-		return 0;
-
-	if (hisi_priv->devid == 1) {
-		regmap_read(misc, REG_MISC_CTRL18, &ctrl);
-		ctrl |= SDIO0_IO_MODE_SEL_1V8;
-		regmap_write(misc, REG_MISC_CTRL18, ctrl);
-
-		usleep_range(1000, 2000);
-
-		ctrl |= SDIO0_PWRSW_SEL_1V8;
-		regmap_write(misc, REG_MISC_CTRL18, ctrl);
-
-		regmap_read(misc, REG_MISC_CTRL18, &ctrl);
-		if ((ctrl & SDIO0_PWRSW_SEL_1V8) && (ctrl & SDIO0_IO_MODE_SEL_1V8))
-			return 0;
-	}
-
-	pr_warn("%s: 1.8V output did not became stable\n",
-			mmc_hostname(host->mmc));
-
-	return -EAGAIN;
-}
-
-static int sdhci_hisi_start_signal_voltage_switch(struct sdhci_host *host,
-		struct mmc_ios *ios)
-{
-	switch (ios->signal_voltage) {
-		case MMC_SIGNAL_VOLTAGE_330:
-			if (!(host->flags & SDHCI_SIGNALING_330))
-				return -EINVAL;
-			return hisi_set_signal_voltage_3v3(host);
-		case MMC_SIGNAL_VOLTAGE_180:
-			if (!(host->flags & SDHCI_SIGNALING_180))
-				return -EINVAL;
-			return hisi_set_signal_voltage_1v8(host);
-		default:
-			/* No signal voltage switch required */
-			return 0;
-	}
-}
-
-static void hisi_set_io_config(struct sdhci_host *host)
-{
-	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	unsigned int devid = hisi_priv->devid;
-	void* phy_addr = hisi_priv->phy_addr;
-	void* iocfg_regmap = hisi_priv->iocfg_regmap;
-	unsigned int reg_addr, start, end;
-	unsigned int *pin_drv_cap;
-	unsigned short reg;
-
-	if (devid == 0) {
-		if (host->timing == MMC_TIMING_MMC_HS200
-			|| host->timing == MMC_TIMING_MMC_HS400) {
-			reg = sdhci_readw(host, SDHCI_EMMC_CTRL);
-			reg |= SDHCI_CARD_IS_EMMC;
-			sdhci_writew(host, reg, SDHCI_EMMC_CTRL);
-
-			/* set drv strength to 50ohm */
-			writel(0x0, phy_addr + REG_IOCTL_RONSEL_1_0);
-			writel(0x6ff, phy_addr + REG_IOCTL_OD_RONSEL_2);
-		}
-	} else {
-		if (host->timing == MMC_TIMING_UHS_SDR104)
-			pin_drv_cap = sdr104_drv;
-		else if (host->timing == MMC_TIMING_UHS_SDR50 ||
-				host->timing == MMC_TIMING_UHS_SDR25 ||
-				host->timing == MMC_TIMING_UHS_SDR12)
-			pin_drv_cap = sdrxx_drv;
-		else
-			pin_drv_cap = hs_ds_drv;
-
-		if (devid == 3) {
-			unsigned int i;
-
-			for (i = 0; i < 6; i++) {
-				regmap_write_bits(iocfg_regmap, sdio2_iocfg_reg[i],
-						0xf0, *pin_drv_cap);
-				pin_drv_cap++;
-			}
-
-			return;
-		}
-
-		start = devid == 1 ? REG_CTRL_SDIO0_CLK : REG_CTRL_SDIO1_CLK;
-		end = devid == 1 ? REG_CTRL_SDIO0_DATA3 : REG_CTRL_SDIO1_DATA3;
-		for (reg_addr = start; reg_addr <= end; reg_addr += 4) {
-			regmap_write_bits(iocfg_regmap, reg_addr, 0xf0, *pin_drv_cap);
-			pin_drv_cap++;
-		}
-	}
-}
-
 static void sdhci_hisi_set_uhs_signaling(struct sdhci_host *host, unsigned timing)
 {
 	sdhci_set_uhs_signaling(host, timing);
 	host->timing = timing;
 
+	/* Hisi add set io config here to set pin drv strength */
 	hisi_set_io_config(host);
 }
 
@@ -945,7 +597,7 @@ int hisi_sdio_rescan(int slot)
 {
 	struct mmc_host *mmc = mci_host[slot];
 
-	if (!mmc) {
+	if (mmc == NULL) {
 		pr_err("invalid mmc, please check the argument\n");
 		return -EINVAL;
 	}
@@ -962,14 +614,17 @@ static const struct sdhci_ops sdhci_hisi_ops = {
 	.reset = sdhci_reset,
 	.set_uhs_signaling = sdhci_hisi_set_uhs_signaling,
 	.hw_reset = sdhci_hisi_hw_reset,
+#if defined(CONFIG_ARCH_HI3556AV100) || defined(CONFIG_ARCH_HI3559AV100) || defined(CONFIG_ARCH_HI3519AV100)
 	.start_signal_voltage_switch =
 		sdhci_hisi_start_signal_voltage_switch,
+#endif
 #ifdef SDHCI_HISI_EDGE_TUNING
 	.platform_execute_tuning = sdhci_hisi_exec_edge_tuning,
 #else
 	.platform_execute_tuning = sdhci_hisi_exec_tuning,
 #endif
 	.pre_init = hisi_mmc_crg_init,
+	.extra_init = hisi_host_extra_init,
 };
 
 static const struct sdhci_pltfm_data sdhci_hisi_pdata = {
@@ -995,12 +650,31 @@ static int sdhci_hisi_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_sdhci_add;
 
+	if (hisi_support_runtime_pm(host)) {
+		pm_runtime_get_noresume(&pdev->dev);
+		pm_runtime_set_autosuspend_delay(&pdev->dev, HISI_MMC_AUTOSUSPEND_DELAY_MS);
+		pm_runtime_use_autosuspend(&pdev->dev);
+		pm_runtime_set_active(&pdev->dev);
+		pm_runtime_enable(&pdev->dev);
+	}
+
 	ret = sdhci_add_host(host);
-	if (ret) {
-		goto err_sdhci_add;
+	if (ret)
+		goto pm_runtime_disable;
+
+	if (hisi_support_runtime_pm(host)) {
+		pm_runtime_mark_last_busy(&pdev->dev);
+		pm_runtime_put_autosuspend(&pdev->dev);
 	}
 
 	return 0;
+
+pm_runtime_disable:
+	if (hisi_support_runtime_pm(host)) {
+		pm_runtime_disable(&pdev->dev);
+		pm_runtime_set_suspended(&pdev->dev);
+		pm_runtime_put_noidle(&pdev->dev);
+	}
 
 err_sdhci_add:
 	pltfm_host = sdhci_priv(host);
@@ -1011,8 +685,33 @@ err_sdhci_add:
 
 static int sdhci_hisi_remove(struct platform_device *pdev)
 {
+	struct sdhci_host *host = platform_get_drvdata(pdev);
+
+	if (hisi_support_runtime_pm(host)) {
+		pm_runtime_get_sync(&pdev->dev);
+		pm_runtime_disable(&pdev->dev);
+		pm_runtime_put_noidle(&pdev->dev);
+	}
 	return sdhci_pltfm_unregister(pdev);
 }
+
+#ifdef CONFIG_PM
+static int sdhci_hisi_runtime_suspend(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	hisi_disable_card_clk(host);
+	return 0;
+}
+
+static int sdhci_hisi_runtime_resume(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	hisi_enable_card_clk(host);
+	return 0;
+}
+#endif
 
 static const struct of_device_id sdhci_hisi_match[] = {
 	    { .compatible = "hisi-sdhci" },
@@ -1020,11 +719,20 @@ static const struct of_device_id sdhci_hisi_match[] = {
 };
 MODULE_DEVICE_TABLE(of, sdhci_hisi_match);
 
+static const struct dev_pm_ops sdhci_hisi_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sdhci_pltfm_suspend,
+				sdhci_pltfm_resume)
+
+	SET_RUNTIME_PM_OPS(sdhci_hisi_runtime_suspend,
+			   sdhci_hisi_runtime_resume,
+			   NULL)
+};
+
 static struct platform_driver sdhci_hisi_driver = {
 	.driver		= {
 		.name	= "sdhci-hisi",
 		.of_match_table = sdhci_hisi_match,
-		.pm	= &sdhci_pltfm_pmops,
+		.pm	= &sdhci_hisi_pm_ops,
 	},
 	.probe		= sdhci_hisi_probe,
 	.remove		= sdhci_hisi_remove,

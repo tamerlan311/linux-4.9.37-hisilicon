@@ -162,15 +162,19 @@ static int sdio_read_cccr(struct mmc_card *card, u32 ocr)
 			if (mmc_host_uhs(card->host)) {
 				if (data & SDIO_UHS_DDR50)
 					card->sw_caps.sd3_bus_mode
-						|= SD_MODE_UHS_DDR50;
+						|= SD_MODE_UHS_DDR50 | SD_MODE_UHS_SDR50 |
+						SD_MODE_UHS_SDR25 | SD_MODE_UHS_SDR12;
 
 				if (data & SDIO_UHS_SDR50)
 					card->sw_caps.sd3_bus_mode
-						|= SD_MODE_UHS_SDR50;
+						|= SD_MODE_UHS_SDR50 | SD_MODE_UHS_SDR25 |
+						SD_MODE_UHS_SDR12;
 
 				if (data & SDIO_UHS_SDR104)
 					card->sw_caps.sd3_bus_mode
-						|= SD_MODE_UHS_SDR104;
+						|= SD_MODE_UHS_SDR104 | SD_MODE_UHS_DDR50 |
+						SD_MODE_UHS_SDR50 | SD_MODE_UHS_SDR25 |
+						SD_MODE_UHS_SDR12;
 			}
 
 			ret = mmc_io_rw_direct(card, 0, 0,
@@ -1074,6 +1078,7 @@ int mmc_attach_sdio(struct mmc_host *host)
 	if (err)
 		return err;
 
+	host->type = MMC_HOST_TYPE_SDIO;
 	mmc_attach_bus(host, &mmc_sdio_ops);
 	if (host->ocr_avail_sdio)
 		host->ocr_avail = host->ocr_avail_sdio;

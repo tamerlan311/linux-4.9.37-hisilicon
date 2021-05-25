@@ -20,6 +20,9 @@
 
 #include <linux/mmc/host.h>
 
+#ifndef CONFIG_ARCH_HI3559AV100
+#define SDHCI_HISI_EDGE_TUNING /* enable edge tuning */
+#endif
 /*
  * Controller registers
  */
@@ -291,6 +294,7 @@
 #define SDHCI_GM_WR_OSRC_LMT_SEL(x)	((x) << 24)
 #define SDHCI_GM_RD_OSRC_LMT_MASK	(0x7 << 16)
 #define SDHCI_GM_RD_OSRC_LMT_SEL(x)	((x) << 16)
+#define SDHCI_UNDEFL_INCR_EN		0x1
 
 #define SDHCI_EMMC_CTRL			0x52c
 #define SDHCI_CARD_IS_EMMC		0x00000001
@@ -307,6 +311,7 @@
 #define SDHCI_MULTI_CYCLE		0x54c
 #define SDHCI_FOUND_EDGE		(0x1 << 11)
 #define SDHCI_EDGE_DETECT_EN	(0x1 << 8)
+#define SDHCI_DOUT_EN_F_EDGE	(0x1 << 6)
 #define SDHCI_DATA_DLY_EN		(0x1 << 3)
 #define SDHCI_CMD_DLY_EN		(0x1 << 2)
 /*
@@ -384,6 +389,18 @@ enum sdhci_cookie {
 	COOKIE_UNMAPPED,
 	COOKIE_PRE_MAPPED,	/* mapped by sdhci_pre_req() */
 	COOKIE_MAPPED,		/* mapped by sdhci_prepare_data() */
+};
+
+struct card_info {
+	unsigned int     card_type;
+	unsigned char    timing;
+	unsigned char    card_connect;
+#define CARD_CONNECT    1
+#define CARD_DISCONNECT 0
+	unsigned int     card_support_clock; /* clock rate */
+	unsigned int     card_state;      /* (our) card state */
+	unsigned int     sd_bus_speed;
+	unsigned int     ssr[16];
 };
 
 struct sdhci_host {
@@ -593,8 +610,10 @@ struct sdhci_host {
 #define SDHCI_TUNING_MODE_2	1
 #define SDHCI_TUNING_MODE_3	2
 
+	struct cmdq_host *cq_host;
 	unsigned int is_tuning;
 	unsigned int error_count;
+	struct card_info c_info;
 	unsigned long private[0] ____cacheline_aligned;
 };
 
@@ -637,6 +656,7 @@ struct sdhci_ops {
 	int	(*start_signal_voltage_switch)(struct sdhci_host *host,
 			struct mmc_ios *ios);
 	void	(*pre_init)(struct sdhci_host *host);
+	void	(*extra_init)(struct sdhci_host *host);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS

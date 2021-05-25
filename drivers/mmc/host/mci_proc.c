@@ -42,13 +42,6 @@
 	 __res & __mask;                     \
 	 })
 
-struct card_info {
-	unsigned int type;
-	unsigned int state;
-	unsigned int sd_bus_speed;
-	unsigned int raw_ssr[16];
-};
-
 unsigned int slot_index = 0;
 struct mmc_host *mci_host[MCI_SLOT_NUM] = {NULL};
 static struct proc_dir_entry *proc_mci_dir;
@@ -60,7 +53,7 @@ static char *card_type[MAX_CARD_TYPE + 1] = {
 	"SD combo (IO+mem) card",
 	"unknown"
 };
-static char *clock_unit[4] = {
+static char *clock_unit[MAX_CLOCK_SCALE] = {
 	"Hz",
 	"KHz",
 	"MHz",
@@ -93,31 +86,15 @@ static unsigned int analyze_clock_scale(unsigned int clock,
 	return scale;
 }
 
-static inline int mmc_in_uhs(struct mmc_host *host)
+static inline int is_card_uhs(unsigned char timing)
 {
-	return host->ios.timing >= MMC_TIMING_UHS_SDR12 &&
-		host->ios.timing <= MMC_TIMING_UHS_DDR50;
+	return timing >= MMC_TIMING_UHS_SDR12 &&
+		timing <= MMC_TIMING_UHS_DDR50;
 };
 
-static inline int mmc_in_hs(struct mmc_host *host)
+static inline int is_card_hs(unsigned char timing)
 {
-	return host->ios.timing == MMC_TIMING_SD_HS ||
-		host->ios.timing == MMC_TIMING_MMC_HS;
-};
-
-static inline int mmc_in_hs400(struct mmc_host *host)
-{
-	return host->ios.timing == MMC_TIMING_MMC_HS400;
-};
-
-static inline int mmc_in_hs200(struct mmc_host *host)
-{
-	return host->ios.timing == MMC_TIMING_MMC_HS200;
-};
-
-static inline int mmc_in_ddr52(struct mmc_host *host)
-{
-	return host->ios.timing == MMC_TIMING_MMC_DDR52;
+	return timing == MMC_TIMING_SD_HS || timing == MMC_TIMING_MMC_HS;
 };
 
 static void mci_stats_seq_printout(struct seq_file *s)
@@ -128,7 +105,6 @@ static void mci_stats_seq_printout(struct seq_file *s)
 	unsigned int clock_value = 0;
 	const char *type;
 	static struct mmc_host *mmc;
-	static struct mmc_card	*card;
 	const char *uhs_bus_speed_mode = "";
 	static const char *const uhs_speeds[] = {
 		[UHS_SDR12_BUS_SPEED] = "SDR12 ",
@@ -138,73 +114,63 @@ static void mci_stats_seq_printout(struct seq_file *s)
 		[UHS_DDR50_BUS_SPEED] = "DDR50 ",
 	};
 	unsigned int speed_class, grade_speed_uhs;
-	struct card_info info = {0};
+	struct card_info *info;
 	unsigned int present;
 	struct sdhci_host *host;
 
 	for (index_mci = 0; index_mci < MCI_SLOT_NUM; index_mci++) {
 		mmc = mci_host[index_mci];
 		if (NULL == mmc) {
-			seq_printf(s, "MCI%d invalid\n", index_mci);
+			seq_printf(s, "MCI%d: invalid\n", index_mci);
 			continue;
 		} else {
 			seq_printf(s, "MCI%d", index_mci);
 		}
+		host = mmc_priv(mmc);
+		info = &host->c_info;
 
-		present = mmc->ops->get_cd(mmc);
+		present = host->mmc->ops->get_cd(host->mmc);
 		if (present) {
 			seq_puts(s, ": pluged");
 		} else {
 			seq_puts(s, ": unplugged");
 		}
 
-		card = mmc->card;
-		if (NULL == card) {
+		/*card = mmc->card;
+		if (NULL == card) {*/
+		if (CARD_CONNECT != info->card_connect) {
 			seq_puts(s, "_disconnected\n");
 		} else {
-			mmc_get_card(card);
-			if (mmc_card_removed(card)) {
-				mmc_put_card(card);
-				seq_puts(s, "_disconnected\n");
-				continue;
-			}
-			info.type = card->type;
-			info.state = card->state;
-			info.sd_bus_speed = card->sd_bus_speed;
-			memcpy(info.raw_ssr, card->raw_ssr, 64);
-			mmc_put_card(card);
 
 			seq_puts(s, "_connected\n");
 
 			seq_printf(s,
 					"\tType: %s",
-					mci_get_card_type(info.type)
+					mci_get_card_type(info->card_type)
 				  );
 
-			if (mmc_card_blockaddr(&info)) {
-				if (mmc_card_ext_capacity(&info))
+			if (info->card_state & MMC_STATE_BLOCKADDR) {
+				if (info->card_state & MMC_CARD_SDXC)
 					type = "SDXC";
 				else
 					type = "SDHC";
 				seq_printf(s, "(%s)\n", type);
 			}
 
-			if (mmc_in_uhs(mmc) &&
-					(info.sd_bus_speed < ARRAY_SIZE(uhs_speeds)))
-				uhs_bus_speed_mode = uhs_speeds[info.sd_bus_speed];
-			else
-				uhs_bus_speed_mode = "";
+			if (is_card_uhs(info->timing) &&
+					info->sd_bus_speed < ARRAY_SIZE(uhs_speeds))
+				uhs_bus_speed_mode = uhs_speeds[info->sd_bus_speed];
 
 			seq_printf(s, "\tMode: %s%s%s%s\n",
-					mmc_in_uhs(mmc) ? "UHS " :
-					(mmc_in_hs(mmc) ? "HS " : ""),
-					mmc_in_hs400(mmc) ? "HS400 " :
-					(mmc_in_hs200(mmc) ? "HS200 " : ""),
-					mmc_in_ddr52(mmc) ? "DDR " : "",
+					is_card_uhs(info->timing) ? "UHS " :
+					(is_card_hs(info->timing) ? "HS " : ""),
+					info->timing == MMC_TIMING_MMC_HS400 ? "HS400 " :
+					(info->timing == MMC_TIMING_MMC_HS200 ? "HS200 " : ""),
+					info->timing == MMC_TIMING_MMC_DDR52 ? "DDR " : "",
 					uhs_bus_speed_mode);
 
-			speed_class = UNSTUFF_BITS(info.raw_ssr, 440 - 384, 8);
-			grade_speed_uhs = UNSTUFF_BITS(info.raw_ssr, 396 - 384, 4);
+			speed_class = UNSTUFF_BITS(info->ssr, 440 - 384, 8);
+			grade_speed_uhs = UNSTUFF_BITS(info->ssr, 396 - 384, 4);
 			seq_printf(s, "\tSpeed Class: Class %s\n",
 					(0x00 == speed_class) ? "0":
 					(0x01 == speed_class) ? "2":
@@ -219,21 +185,21 @@ static void mci_stats_seq_printout(struct seq_file *s)
 					"10MB/sec and above(1h)":
 					"Reserved");
 
-			clock = mmc->ios.clock;
+			clock = info->card_support_clock;
 			clock_scale = analyze_clock_scale(clock, &clock_value);
 			seq_printf(s, "\tHost work clock: %d%s\n",
 					clock_value, clock_unit[clock_scale]);
 
-			clock = mmc->ios.clock;
+			clock = info->card_support_clock;
 			clock_scale = analyze_clock_scale(clock, &clock_value);
 			seq_printf(s, "\tCard support clock: %d%s\n",
 					clock_value, clock_unit[clock_scale]);
+					
 			clock = mmc->actual_clock;
 			clock_scale = analyze_clock_scale(clock, &clock_value);
 			seq_printf(s, "\tCard work clock: %d%s\n",
 					clock_value, clock_unit[clock_scale]);
 
-			host = mmc_priv(mmc);
 			/* add card read/write error count */
 			seq_printf(s, "\tCard error count: %d\n",
 					        host->error_count);

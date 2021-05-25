@@ -64,8 +64,30 @@
 #include "himci_hi3518ev20x.c"
 #endif
 
+#ifdef CONFIG_ARCH_HI3516CV500
+#include "himci_hi3516cv500.c"
+#endif
+
+#ifdef CONFIG_ARCH_HI3516DV300
+#include "himci_hi3516dv300.c"
+#endif
+
+#ifdef CONFIG_ARCH_HI3556V200
+#include "himci_hi3556v200.c"
+#endif
+
+#ifdef CONFIG_ARCH_HI3559V200
+#include "himci_hi3559v200.c"
+#endif
+
 #define DRIVER_NAME "himci"
-#define CMD_DES_PAGE_SIZE	(2 * PAGE_SIZE)
+
+#define CMD_DES_PAGE_SIZE	(3 * PAGE_SIZE)
+
+#if defined(CONFIG_ARCH_HI3516CV500) || defined(CONFIG_ARCH_HI3516DV300) ||\
+    defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)
+void __iomem *crg_ctrl,*misc_ctrl_1;
+#endif
 
 static unsigned int detect_time = HI_MCI_DETECT_TIMEOUT;
 static unsigned int retry_count = MAX_RETRY_COUNT;
@@ -185,9 +207,12 @@ static unsigned int himci_ctrl_card_readonly(struct himci_host *host)
 	return card_value & (HIMCI_CARD0 << host->port);
 }
 
+static int tuning_reset_flag = 0;
+
 static int himci_wait_cmd(struct himci_host *host)
 {
 	int wait_retry_count = 0;
+	int retry_count_cmd = 500;
 	unsigned int reg_data = 0;
 	unsigned long flags;
 
@@ -218,12 +243,14 @@ static int himci_wait_cmd(struct himci_host *host)
 		}
 
 		spin_unlock_irqrestore(&host->lock, flags);
-		udelay(100);
+		udelay(1);
 
 		/* Check if number of retries for this are over. */
 		wait_retry_count++;
-		if (wait_retry_count >= retry_count) {
-			himci_trace(5, "send cmd is timeout!");
+		if (wait_retry_count >= retry_count_cmd) {
+			if (host->is_tuning)
+				tuning_reset_flag = 1;
+			himci_trace(3, "send cmd is timeout!");
 			return -1;
 		}
 	}
@@ -245,6 +272,10 @@ static void himci_control_cclk(struct himci_host *host, unsigned int flag)
 		reg &= ~(CCLK_ENABLE << host->port);
 		reg &= ~(CCLK_LOW_POWER << host->port);
 	}
+#if defined(CONFIG_ARCH_HI3516CV500) || defined(CONFIG_ARCH_HI3516DV300) || defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)
+    if (host->devid == 2)
+		reg &= ~(CCLK_LOW_POWER << host->port);
+#endif
 	himci_writel(reg, host->base + MCI_CLKENA);
 
 	cmd_reg.cmd_arg = himci_readl(host->base + MCI_CMD);
@@ -257,9 +288,12 @@ static void himci_control_cclk(struct himci_host *host, unsigned int flag)
 	cmd_reg.bits.send_auto_stop = 0;
 	cmd_reg.bits.wait_prvdata_complete = 0;
 	cmd_reg.bits.check_response_crc = 0;
+#if defined(CONFIG_ARCH_HI3516CV500) || defined(CONFIG_ARCH_HI3516DV300) || defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)
+    cmd_reg.bits.use_hold_reg = 1;
+#endif
 	himci_writel(cmd_reg.cmd_arg, host->base + MCI_CMD);
 	if (himci_wait_cmd(host) != 0)
-		himci_trace(5, "disable or enable clk is timeout!");
+		himci_trace(3, "disable or enable clk is timeout!");
 }
 
 static void himci_set_cclk(struct himci_host *host, unsigned int cclk)
@@ -276,6 +310,7 @@ static void himci_set_cclk(struct himci_host *host, unsigned int cclk)
 	clk_set_rate(host->clk, hclk);
 
 	hclk = clk_get_rate(host->clk);
+	host->mmc->actual_clock = hclk;
 
 	/*
 	 * set card clk divider value,
@@ -304,6 +339,13 @@ static void himci_set_cclk(struct himci_host *host, unsigned int cclk)
 		himci_trace(5, "set card clk divider is failed!");
 }
 
+static void himci_sys_ctrl_init(struct himci_host *host)
+{
+	reset_control_assert(host->crg_rst);
+	udelay(100);
+	reset_control_deassert(host->crg_rst);
+}
+
 static void himci_init_host(struct himci_host *host)
 {
 	unsigned int tmp_reg = 0;
@@ -314,12 +356,21 @@ static void himci_init_host(struct himci_host *host)
 
 	himci_sys_reset(host);
 
+#if defined(CONFIG_ARCH_HI3516CV500) || defined(CONFIG_ARCH_HI3516DV300) ||\
+	defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)
+	/* controller config gpio */
+	tmp_reg = himci_readl(host->base + MCI_GPIO);
+ 	tmp_reg |= DTO_FIX_BYPASS;
+	himci_writel(tmp_reg, host->base + MCI_GPIO);
+#endif
+
 #ifdef CONFIG_ARCH_HI3518EV20X
 	/* sd use clk0 emmc use clk1 */
 	himci_writel(0x4, host->base + MCI_CLKSRC);
 #endif
 
 	/* set drv/smpl phase shift */
+	tmp_reg = 0;
     	tmp_reg |= SMPL_PHASE_DFLT | DRV_PHASE_DFLT;
 	himci_writel(tmp_reg, host->base + MCI_UHS_REG_EXT);
 
@@ -352,6 +403,9 @@ static void himci_init_host(struct himci_host *host)
 	tmp_reg = 0;
 	tmp_reg |= BURST_SIZE | RX_WMARK | TX_WMARK;
 	himci_writel(tmp_reg, host->base + MCI_FIFOTH);
+
+    host->error_count = 0;
+    host->data_error_count = 0;
 }
 
 static void himci_detect_card(unsigned long arg)
@@ -383,6 +437,7 @@ static void himci_detect_card(unsigned long arg)
 		himci_trace(2, "begin card_status = %d\n", host->card_status);
 		host->card_status = curr_status;
 		if (curr_status != CARD_UNPLUGED) {
+			himci_sys_ctrl_init(host);
 			himci_init_host(host);
 			pr_info("card connected!\n");
 		} else {
@@ -414,6 +469,22 @@ static void himci_idma_stop(struct himci_host *host)
 	tmp_reg = himci_readl(host->base + MCI_BMOD);
 	tmp_reg &= ~BMOD_DMA_EN;
 	himci_writel(tmp_reg, host->base + MCI_BMOD);
+}
+
+static void himci_idma_reset(struct himci_host *host)
+{
+	u32 regval;
+
+	regval = himci_readl(host->base + MCI_BMOD);
+	regval |= BMOD_SWR;
+	himci_writel(regval, host->base + MCI_BMOD);
+
+	regval = himci_readl(host->base + MCI_CTRL);
+	regval |= CTRL_RESET | FIFO_RESET | DMA_RESET;
+	himci_writel(regval, host->base + MCI_CTRL);
+
+	udelay(1);
+	himci_writel(ALL_INT_CLR, host->base + MCI_RINTSTS);
 }
 
 static int himci_setup_data(struct himci_host *host, struct mmc_data *data)
@@ -580,6 +651,9 @@ static int himci_exec_cmd(struct himci_host *host,
 
 	himci_trace(3, "cmd->opcode = %d cmd->arg = 0x%X\n",
 			cmd->opcode, cmd->arg);
+	if (cmd->opcode == MMC_SELECT_CARD) {
+		host->card_rca = (cmd->arg >> 16 );
+	}
 	if (cmd->opcode == MMC_GO_IDLE_STATE)
 		cmd_regs.bits.send_initialization = 1;
 	else
@@ -619,6 +693,14 @@ static void himci_finish_request(struct himci_host *host,
 	mmc_request_done(host->mmc, mrq);
 }
 
+#define CMD_ERRORS                          \
+    (R1_OUT_OF_RANGE |  /* Command argument out of range */ \
+     R1_ADDRESS_ERROR | /* Misaligned address */        \
+     R1_BLOCK_LEN_ERROR |   /* Transferred block length incorrect */\
+     R1_WP_VIOLATION |  /* Tried to write to protected block */ \
+     R1_CC_ERROR |      /* Card controller error */     \
+     R1_ERROR)      /* General/unknown error */
+
 static void himci_cmd_done(struct himci_host *host, unsigned int stat)
 {
 	unsigned int i;
@@ -649,6 +731,16 @@ static void himci_cmd_done(struct himci_host *host, unsigned int stat)
 		himci_trace(3, "irq cmd status stat = 0x%x is response error!",
 				stat);
        }
+
+	 
+	if (((cmd->flags & MMC_RSP_R1) == MMC_RSP_R1) &&
+			((cmd->flags & MMC_CMD_MASK) != MMC_CMD_BCR)) {
+		if ((cmd->resp[0] & CMD_ERRORS)&& !host->is_tuning) {
+			host->error_count++;
+			host->mrq->cmd->error = -EACCES;
+			himci_trace(5, "The status of the card is abnormal, cmd->resp[0]: %x",cmd->resp[0]);
+		}
+	}
 
 	host->cmd = NULL;
 }
@@ -870,7 +962,8 @@ static int himci_wait_card_complete(struct himci_host *host,
 static void himci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct himci_host *host = mmc_priv(mmc);
-	int byte_cnt = 0, fifo_count = 0, ret = 0, tmp_reg;
+	int byte_cnt = 0, fifo_count = 0, ret = 0;
+    unsigned int tmp_reg;
 	unsigned long flags;
 
 	himci_trace(2, "begin");
@@ -925,7 +1018,20 @@ static void himci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		himci_writel(0, host->base + MCI_BYTCNT);
 		himci_writel(0, host->base + MCI_BLKSIZ);
 	}
+	if (mrq->sbc) {
+		ret = himci_exec_cmd(host, mrq->sbc, NULL);
+		if (ret) {
+			mrq->sbc->error = ret;
+			goto request_end;
+		}
 
+		/* wait command send complete */
+		ret = himci_wait_cmd_complete(host);
+		if (ret) {
+			mrq->sbc->error = ret;
+			goto request_end;
+		}
+	}
 	/* send command */
 	ret = himci_exec_cmd(host, mrq->cmd, mrq->data);
 	if (ret) {
@@ -950,12 +1056,34 @@ static void himci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 			/* wait data transfer complete */
 			himci_wait_data_complete(host);
+		} else if (host->is_tuning){
+			unsigned int stat;
+			unsigned int wait_retry_count = 0;
+			
+			do {
+				stat = himci_readl(host->base + MCI_RINTSTS);
+				if (stat & (HTO_INT_STATUS | DRTO_INT_STATUS |
+								EBE_INT_STATUS | SBE_INT_STATUS |
+								FRUN_INT_STATUS | DCRC_INT_STATUS)){
+				 	himci_writel(stat, host->base + MCI_RINTSTS);		
+					himci_trace(3, "data status = 0x%x is error!", stat);
+					himci_trace(3, "udelay count = %d is error!", wait_retry_count);
+					break;
+				}
+				udelay(100);
+				wait_retry_count++;
+			} while (wait_retry_count < 1000);
+	
+			/* CMD error in data command */
+			himci_idma_stop(host);
+
 		} else{
 			/* CMD error in data command */
 			himci_idma_stop(host);
 		}
 
-		if (mrq->stop) {
+		if (mrq->stop && (!mrq->sbc
+			|| (mrq->sbc && (mrq->cmd->error || mrq->data->error)))) {
 #ifdef CONFIG_SEND_AUTO_STOP
 			int trans_cnt;
 
@@ -994,6 +1122,8 @@ request_end:
 	himci_writel(ALL_SD_INT_CLR, host->base + MCI_RINTSTS);
 	spin_unlock_irqrestore(&host->lock, flags);
 
+	if (mrq->data && mrq->data->error && !host->is_tuning)
+		host->data_error_count++;
 	himci_finish_request(host, mrq);
 }
 
@@ -1032,7 +1162,6 @@ static int himci_do_voltage_switch(struct himci_host *host,
 		/* Stop SDCLK */
 		himci_trace(3, "switch voltage 180");
 		himci_control_cclk(host, DISABLE);
-
 
 		/*
 		 * Enable 1.8V Signal Enable in the MCI_UHS_REG
@@ -1135,6 +1264,466 @@ static void himci_set_sap_phase(struct himci_host *host, u32 phase)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+#if defined(CONFIG_ARCH_HI3516DV300) || defined(CONFIG_ARCH_HI3516CV500) ||\
+    defined(CONFIG_ARCH_HI3559V200) || defined(CONFIG_ARCH_HI3556V200)
+static void himci_edge_tuning_enable(struct himci_host *host)
+{
+	unsigned int val;
+       	void __iomem *tmp_reg = 0;
+
+	if (host->devid == 0)
+		tmp_reg  = crg_ctrl + 0x14c;
+	else if (host->devid == 1)
+		tmp_reg = crg_ctrl + 0x164;
+	else if (host->devid == 2)
+		tmp_reg = crg_ctrl + 0x158;
+	else {
+		himci_trace(5, "Devid error, host->devid: %x",host->devid);
+		return;
+	}
+
+	himci_writel(0x80001, tmp_reg);
+
+	val = himci_readl(host->base + MCI_TUNING_CTRL);
+	val |= HW_TUNING_EN;
+	himci_writel(val, host->base + MCI_TUNING_CTRL);
+}
+
+static void himci_edge_tuning_disable(struct himci_host *host)
+{
+	unsigned int val;
+	void __iomem *tmp_reg = 0;
+
+	if (host->devid == 0)
+		tmp_reg  = crg_ctrl + 0x14c;
+	else if (host->devid == 1)
+		tmp_reg = crg_ctrl + 0x164;
+	else if (host->devid == 2)
+		tmp_reg = crg_ctrl + 0x158;
+	else {
+		himci_trace(5, "Devid error, host->devid: %x",host->devid);
+		return;
+	}
+	val = himci_readl(tmp_reg);
+	val |= (1 << 16);
+	himci_writel(val, tmp_reg);
+
+	val = himci_readl(host->base + MCI_TUNING_CTRL);
+	val &= ~HW_TUNING_EN;
+	himci_writel(val, host->base + MCI_TUNING_CTRL);
+}
+
+static int himci_send_status(struct mmc_host *mmc)
+{
+	int err;
+	struct mmc_command cmd = {0};
+	struct himci_host *host;
+
+	BUG_ON(!mmc);
+
+	host = mmc_priv(mmc);
+	cmd.opcode = MMC_SEND_STATUS;
+	if (!mmc_host_is_spi(mmc))
+		cmd.arg = (host->card_rca << 16);
+	cmd.flags = MMC_RSP_SPI_R2 | MMC_RSP_R1 | MMC_CMD_AC;
+
+	err = mmc_wait_for_cmd(mmc, &cmd, 1);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+static int himci_send_tuning(struct mmc_host * mmc, u32 opcode)
+{
+	int err = 0;
+	struct himci_host *host;
+	unsigned cmd_count = 100;
+
+	host = mmc_priv(mmc);
+	himci_control_cclk(host, DISABLE);
+tuning_retry:
+	himci_idma_reset(host);
+	himci_writel(ALL_INT_CLR, host->base + MCI_RINTSTS);
+	himci_control_cclk(host, ENABLE);
+	if(tuning_reset_flag == 1){
+		tuning_reset_flag = 0;
+		cmd_count--;
+		if (cmd_count == 0){
+			printk("BUG_ON:controller reset is failed!!!\n");
+			return -EINVAL;
+		}
+		goto tuning_retry;
+	}
+
+	err = mmc_send_tuning(mmc, opcode, NULL);
+	himci_send_stop(mmc);
+	himci_send_status(mmc);
+	return err;
+}
+
+static u32 himci_get_sap_dll_taps(struct himci_host *host)
+{
+	u32 regval = 0;
+	void __iomem *reg_sap_dll_status = 0;
+
+	if (host->devid == 0)
+		reg_sap_dll_status = crg_ctrl + 0x150;
+	else if (host->devid == 1)
+		reg_sap_dll_status = crg_ctrl + 0x168;
+	else if (host->devid == 2)
+		reg_sap_dll_status = crg_ctrl + 0x15c;
+	else {
+		himci_trace(5, "Devid error, host->devid: %x",host->devid);
+		return 0;
+        }
+	regval = himci_readl(reg_sap_dll_status);
+
+	return (regval & 0xff);
+}
+
+static void himci_set_dll_element(struct himci_host *host, u32 element)
+{
+	u32 regval;
+	void __iomem *reg_sap_dll_ctrl = 0;
+
+
+	if (host->devid == 0)
+		reg_sap_dll_ctrl = crg_ctrl + 0x14c;
+	else if (host->devid == 1)
+		reg_sap_dll_ctrl = crg_ctrl + 0x164;
+	else if (host->devid == 2)
+		reg_sap_dll_ctrl = crg_ctrl + 0x158;
+	else {
+		himci_trace(5, "Devid error, host->devid: %x",host->devid);
+		return;
+	}
+	regval = himci_readl(reg_sap_dll_ctrl);
+	regval &=~(0xFF << 8);
+	regval |= (element << 8);
+	himci_writel(regval, reg_sap_dll_ctrl);
+
+}
+
+/*********************************************
+ *********************************************
+ EdgeMode A:
+ |<---- totalphases(ele) ---->|
+        _____________
+ ______|||||||||||||||_______
+ edge_p2f       edge_f2p
+ (endp)         (startp)
+
+ EdgeMode B:
+ |<---- totalphases(ele) ---->|
+  ________           _________
+ ||||||||||_________|||||||||||
+ edge_f2p     edge_p2f
+ (startp)     (endp)
+
+ BestPhase:
+ if(endp < startp)
+ endp = endp + totalphases;
+ Best = ((startp + endp) / 2) % totalphases
+**********************************************
+**********************************************/
+static int himci_edgedll_mode_tuning(struct himci_host *host, u32 opcode, int edge_p2f, int edge_f2p)
+{
+	u32 index;
+	u32 found = 0;
+	u32 startp =-1, endp = -1;
+	u32 startp_init = 0, endp_init = 0;
+	u32 phaseoffset = 0, totalphases = 0;
+	u16 ele,start_ele, phase_dll_elements;
+	u8 mdly_tap_flag = 0;
+	int prev_err = 0, err = 0;
+	u32 phase_num = HIMCI_PHASE_SCALE;
+
+	himci_trace(3, "begin");
+
+	mdly_tap_flag = himci_get_sap_dll_taps(host);
+	phase_dll_elements = mdly_tap_flag / HIMCI_PHASE_SCALE;
+	totalphases = phase_dll_elements * phase_num;
+
+	startp_init = edge_f2p * phase_dll_elements;
+	endp_init = edge_p2f * phase_dll_elements;
+	startp = startp_init;
+	endp = endp_init;
+
+	found = 1;
+	start_ele = 2;
+
+	/*Note: edgedll tuning must from edge_p2f to edge_f2p*/
+	if(edge_f2p >=  edge_p2f) {
+		phaseoffset = edge_p2f * phase_dll_elements;
+		for (index = edge_p2f; index < edge_f2p; index++) {
+			/* set phase shift */
+			himci_set_sap_phase(host, index);
+			for (ele = start_ele; ele <= phase_dll_elements ; ele++) {
+				himci_set_dll_element(host, ele);
+				err = himci_send_tuning(host->mmc, opcode);
+
+				if (!err)
+					found = 1;
+
+				if (!prev_err && err && (endp == endp_init))
+					endp = phaseoffset + ele;
+
+				if (err)
+					startp = phaseoffset + ele;
+
+#ifdef TUNING_PROC_DEBUG
+				printk("\tphase:%01d ele:%02d st:%03d end:%03d error:%d\n", index, ele, startp, endp, err);
+#endif
+
+				prev_err = err;
+				err = 0;
+			}
+			phaseoffset += phase_dll_elements;
+		}
+	} else {
+		phaseoffset = edge_p2f * phase_dll_elements;
+		for (index = edge_p2f ; index < phase_num ; index++) {
+			/* set phase shift */
+			himci_set_sap_phase(host, index);
+			for (ele = start_ele; ele <= phase_dll_elements ; ele++) {
+				himci_set_dll_element(host, ele);
+				err = himci_send_tuning(host->mmc,opcode);
+				if (!err)
+					found = 1;
+
+				if (!prev_err && err && (endp == endp_init))
+					endp = phaseoffset + ele;
+
+				if (err)
+					startp = phaseoffset + ele;
+
+#ifdef TUNING_PROC_DEBUG
+				printk("\tphase:%02d ele:%02d st:%03d end:%03d error:%d\n", index, ele, startp, endp, err);
+#endif
+
+				prev_err = err;
+				err = 0;
+			}
+			phaseoffset += phase_dll_elements;
+		}
+
+		phaseoffset = 0;
+		for (index = 0; index < edge_f2p; index++) {
+			/* set phase shift */
+			himci_set_sap_phase(host, index);
+			for (ele = start_ele; ele <= phase_dll_elements ; ele++) {
+				himci_set_dll_element(host, ele);
+				err = himci_send_tuning(host->mmc, opcode);
+				if (!err)
+					found = 1;
+
+				if (!prev_err && err && (endp == endp_init))
+					endp = phaseoffset + ele;
+
+				if (err)
+					startp = phaseoffset + ele;
+
+#ifdef TUNING_PROC_DEBUG
+				printk("\tphase:%02d ele:%02d st:%03d end:%03d error:%d\n", index, ele, startp, endp, err);
+#endif
+
+				prev_err = err;
+				err = 0;
+			}
+			phaseoffset += phase_dll_elements;
+		}
+	}
+
+	if (found) {
+		printk("scan elemnts: startp:%d endp:%d\n", startp, endp);
+
+		if (endp <= startp)
+			endp += totalphases;
+
+		if (totalphases == 0) {
+			printk(KERN_NOTICE "totalphases is zero\n");
+			return -1;
+		}
+		phaseoffset = (( startp + endp ) / 2) % totalphases;
+		index = (phaseoffset / phase_dll_elements);
+		ele = (phaseoffset % phase_dll_elements);
+		ele = ((ele > start_ele) ? ele : start_ele);
+
+		himci_set_sap_phase(host, index);
+		himci_set_dll_element(host,ele);
+
+		printk(KERN_NOTICE "Tuning SampleClock. mix set phase:[%02d/%02d] ele:[%02d/%02d] \n",index,(phase_num-1),ele,phase_dll_elements);
+		himci_writel(ALL_INT_CLR, host->base + MCI_RINTSTS);
+		return 0;
+	}
+	printk(KERN_NOTICE "No valid phase shift! use default\n");
+	return -1;
+}
+
+static void himci_tuning_feedback(struct mmc_host * mmc)
+{
+	struct himci_host *host = mmc_priv(mmc);
+
+	himci_control_cclk(host, DISABLE);
+	msleep(1);
+	himci_sys_reset(host);
+	msleep(1);
+	himci_writel(ALL_INT_CLR, host->base + MCI_RINTSTS);
+	himci_control_cclk(host, ENABLE);
+	msleep(1);
+	host->pending_events = 0;
+}
+
+static int himci_check_tuning(struct mmc_host * mmc, u32 opcode)
+{
+	int err;
+
+	err = himci_send_tuning(mmc, opcode);
+
+	return 	err;
+}
+
+static int himci_execute_mix_mode_tuning(struct mmc_host *mmc, u32 opcode)
+{
+	struct himci_host *host = mmc_priv(mmc);
+	u32 index, regval;
+	u32 found = 0,prefound = 0;
+	u32 edge_p2f, edge_f2p;
+	u32 edge_num = 0;
+	int err;
+	u32 phase_num = HIMCI_PHASE_SCALE;
+
+	himci_trace(3, "begin");
+	edge_p2f = 0;
+	edge_f2p = phase_num;
+
+	himci_edge_tuning_enable(host);
+
+	for (index = 0; index < HIMCI_PHASE_SCALE; index++) {
+
+		/* set phase shift */
+		himci_set_sap_phase(host, index);
+		err = himci_send_tuning(mmc, opcode);
+		if (!err) {
+			regval = himci_readl(host->base + MCI_TUNING_CTRL);
+			found = ((regval & FOUND_EDGE) == FOUND_EDGE);
+		} else {
+			found = 1;
+		}
+
+		if(found){
+			edge_num++;
+		}
+		if (prefound && !found) {
+			edge_f2p = index;
+		} else if (!prefound && found) {
+			edge_p2f = index;
+		}
+#ifdef TUNING_PROC_DEBUG
+		printk("\tphase:%02d found:%02d p2f:%d f2p:%d error:%d\n",index, found, edge_p2f, edge_f2p, err);
+#endif
+		if ((edge_p2f != 0) && (edge_f2p != phase_num))
+			break;
+
+		prefound = found;
+		found = 0;
+	}
+
+	if ((edge_p2f == 0) && (edge_f2p == phase_num)) {
+		printk("unfound correct edge! check your config is correct!!\n");
+		return -1;
+	}
+	printk("scan edges:%d p2f:%d f2p:%d\n",edge_num, edge_p2f, edge_f2p);
+
+	if (edge_f2p < edge_p2f)
+		index = (edge_f2p + edge_p2f)/2%phase_num;
+	else
+		index = (edge_f2p + phase_num + edge_p2f)/2%phase_num;
+	printk("mix set temp-phase %d\n", index);
+	himci_set_sap_phase(host, index);
+	err = himci_send_tuning(mmc, opcode);
+
+	himci_edge_tuning_disable(host);
+
+	err = himci_edgedll_mode_tuning(host, opcode, edge_p2f, edge_f2p);
+	return err;
+}
+#if 0
+static int himci_execute_edge_tuning(struct mmc_host *mmc, u32 opcode)
+{
+	struct himci_host *host = mmc_priv(mmc);
+	unsigned int index, val;
+	unsigned int found = 0, prev_found = 0, prev_point = 0;
+	unsigned int start_point = NOT_FOUND, end_point = NOT_FOUND;
+	unsigned int phase = 0;
+
+	himci_trace(3, "begin");
+
+	himci_edge_tuning_enable(host);
+
+	for (index = 0; index < HIMCI_PHASE_SCALE; index++) {
+		himci_set_sap_phase(host, index);
+
+		mmc_send_tuning(mmc, opcode, NULL);
+
+		himci_send_stop(mmc);
+
+		val = himci_readl(host->base + MCI_TUNING_CTRL);
+		found = val & FOUND_EDGE;
+
+		himci_trace(3, "try phase:%02d, found:0x%x\n", index, found);
+
+		if (prev_found && !found) {
+			end_point = prev_point;
+		} else if (!prev_found && found) {
+			if (index != 0)
+				start_point = index;
+		}
+		if ((start_point != NOT_FOUND) && (end_point != NOT_FOUND))
+			goto scan_out;
+
+		prev_point = index;
+		prev_found = found;
+		found = 0;
+	}
+
+scan_out:
+	if ((start_point == NOT_FOUND) && (end_point == NOT_FOUND)) {
+		himci_trace(5, "%s: no valid phase shift! use default",
+				mmc_hostname(mmc));
+		return 0;
+	}
+
+	if (start_point == NOT_FOUND)
+		start_point = end_point;
+
+	if (end_point == NOT_FOUND)
+		end_point = start_point;
+
+	pr_info("tuning %s: found edge on (s:%d, e:%d)",
+			mmc_hostname(mmc), start_point, end_point);
+
+	if (start_point > end_point)
+		end_point += HIMCI_PHASE_SCALE;
+
+	phase = ((start_point + end_point) / 2) % HIMCI_PHASE_SCALE;
+
+	phase += HIMCI_PHASE_SCALE / 2;
+	phase %= HIMCI_PHASE_SCALE;
+
+	himci_set_sap_phase(host, phase);
+
+	himci_edge_tuning_disable(host);
+
+	himci_writel(ALL_INT_CLR, host->base + MCI_RINTSTS);
+
+	pr_info("determing final phase %d\n", phase);
+
+	return 0;
+}
+#endif
+
 /*
  * The procedure of tuning the phase shift of sampling clock
  *
@@ -1158,6 +1747,22 @@ static void himci_set_sap_phase(struct himci_host *host, u32 phase)
  * established, no errors should be visible in the tuning block.
  *
  */
+static int himci_execute_tuning(struct mmc_host *mmc, u32 opcode)
+{
+	struct himci_host *host = mmc_priv(mmc);
+	int err;
+
+	himci_trace(3, "begin");
+
+	host->is_tuning = 1;
+	err = himci_execute_mix_mode_tuning(mmc, opcode);
+	himci_tuning_feedback(mmc);
+	if (!err)
+		err = himci_check_tuning(mmc,opcode);
+	host->is_tuning = 0;
+	return err;
+}
+#else
 static int himci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 {
 	struct himci_host *host;
@@ -1248,6 +1853,7 @@ tuning_out:
 
 	return 0;
 }
+#endif
 
 static void himci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
@@ -1279,6 +1885,8 @@ static void himci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		himci_set_cclk(host, ios->clock);
 		himci_control_cclk(host, ENABLE);
 
+        himci_set_default_phase(host);
+
 		/* speed mode check, if it is DDR50 set DDR mode */
 		if (ios->timing == MMC_TIMING_UHS_DDR50) {
 			ctrl = himci_readl(host->base + MCI_UHS_REG);
@@ -1297,6 +1905,8 @@ static void himci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			}
 		}
 	}
+
+    himci_set_drv_cap(host, 0);
 
 	/* set bus_width */
 	himci_trace(3, "ios->bus_width = %d ", ios->bus_width);
@@ -1317,13 +1927,16 @@ static void himci_enable_sdio_irq(struct mmc_host *mmc, int enable)
 {
 	struct himci_host *host = mmc_priv(mmc);
 	unsigned int reg_value;
+	unsigned long flags;
 
+	spin_lock_irqsave(&host->lock, flags);
 	reg_value = himci_readl(host->base + MCI_INTMASK);
 	if (enable)
 		reg_value |= SDIO_INT_MASK;
 	else
 		reg_value &= ~SDIO_INT_MASK;
 	himci_writel(reg_value, host->base + MCI_INTMASK);
+	spin_unlock_irqrestore(&host->lock, flags);
 }
 
 static int himci_get_card_detect(struct mmc_host *mmc)
@@ -1373,15 +1986,58 @@ static void himci_hw_reset(struct mmc_host *mmc)
 	usleep_range(300, 1000);
 }
 
+static int himci_card_busy(struct mmc_host *mmc)
+{
+	struct himci_host *host = mmc_priv(mmc);
+	u32 regval;
+
+	himci_trace(2, "begin");
+
+	regval = himci_readl(host->base + MCI_STATUS);
+	regval &= DATA_BUSY;
+
+	return regval;
+}
+
+static int himci_card_info_save(struct mmc_host *mmc)
+{
+	struct mmc_card *card = mmc->card;
+	struct himci_host * host= mmc_priv(mmc);
+	struct card_info * c_info = &host->c_info;
+
+	if (!card) {
+		memset(c_info,0,sizeof(struct card_info));
+		c_info->card_connect = CARD_DISCONNECT;
+		goto out;
+	}
+
+	c_info->card_type = card->type;
+	c_info->card_state = card->state;
+
+	c_info->timing = mmc->ios.timing;
+	c_info->card_support_clock = mmc->ios.clock;
+
+	c_info->sd_bus_speed = card->sd_bus_speed;
+
+	memcpy(c_info->ssr, card->raw_ssr, ARRAY_SIZE(c_info->ssr));
+
+	c_info->card_connect = CARD_CONNECT;
+out:
+	return 0;
+}
+
+
 static const struct mmc_host_ops himci_ops = {
 	.request = himci_request,
 	.set_ios = himci_set_ios,
 	.get_ro = himci_get_ro,
+	.card_busy = himci_card_busy,
 	.start_signal_voltage_switch = himci_start_signal_voltage_switch,
 	.execute_tuning	= himci_execute_tuning,
 	.enable_sdio_irq = himci_enable_sdio_irq,
 	.hw_reset = himci_hw_reset,
 	.get_cd = himci_get_card_detect,
+	.card_info_save = himci_card_info_save,
 };
 
 static irqreturn_t hisd_irq(int irq, void *dev_id)
@@ -1440,6 +2096,8 @@ static int himci_of_parse(struct device_node *np, struct mmc_host *mmc)
 	if (ret)
 		return ret;
 
+	mmc->caps |= MMC_CAP_ERASE;
+
 	if (of_property_read_u32(np, "min-frequency", &mmc->f_min))
 		mmc->f_min = MMC_CCLK_MIN;
 
@@ -1449,16 +2107,19 @@ static int himci_of_parse(struct device_node *np, struct mmc_host *mmc)
 	if (of_find_property(np, "cap-mmc-hw-reset", &len))
 		mmc->caps |= MMC_CAP_HW_RESET;
 
+	if (host->devid == 0 || host->devid == 1)
+		mmc->caps |= MMC_CAP_CMD23;
 	return 0;
 }
 
-static int __init himci_probe(struct platform_device *pdev)
+static int himci_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
 	struct himci_host *host = NULL;
 	struct resource *host_ioaddr_res = NULL;
 	int ret = 0, irq;
 	struct device_node *np = pdev->dev.of_node;
+	unsigned int regval;
 
 	himci_trace(2, "begin");
 	pr_info("mmc host probe\n");
@@ -1474,6 +2135,29 @@ static int __init himci_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, mmc);
 
 	mmc->ops = &himci_ops;
+
+#if defined(CONFIG_ARCH_HI3516CV500) || defined(CONFIG_ARCH_HI3516DV300) ||\
+    defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)
+
+	crg_ctrl = ioremap(0x12010000, 0x1000);
+	if (!crg_ctrl){
+		printk("%s ioremap fail\n",__func__);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	misc_ctrl_1 = ioremap(0x12030004,0x4);
+	if (!misc_ctrl_1){
+		printk("%s ioremap fail\n",__func__);
+		ret = -ENOMEM;
+		goto out;
+	}
+	regval=readl(misc_ctrl_1);
+	/* clear sdio0_pswitch_ctrl_sel bit */
+	regval &= ~(0x1 << 2);
+	writel(regval,misc_ctrl_1);
+	iounmap(misc_ctrl_1);
+#endif
 
 	host_ioaddr_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (NULL == host_ioaddr_res) {
@@ -1586,7 +2270,11 @@ out:
 	}
 	if (mmc)
 		mmc_free_host(mmc);
-
+#if defined(CONFIG_ARCH_HI3516CV500) || defined(CONFIG_ARCH_HI3516DV300) ||\
+	defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)
+	if (crg_ctrl)
+		iounmap(crg_ctrl);
+#endif
 	return ret;
 }
 
@@ -1612,6 +2300,9 @@ static int __exit himci_remove(struct platform_device *pdev)
 				host->dma_paddr);
 		mmc_free_host(mmc);
 	}
+
+	if (crg_ctrl)
+		iounmap(crg_ctrl);
 	return 0;
 }
 
@@ -1665,6 +2356,7 @@ static int himci_pltm_resume(struct platform_device *pdev)
 		if (!__clk_is_enabled(host->clk))
 			clk_prepare_enable(host->clk);
 
+		himci_sys_ctrl_init(host);
 		himci_init_host(host);
 
 		add_timer(&host->timer);
@@ -1677,7 +2369,7 @@ static int himci_pltm_resume(struct platform_device *pdev)
 #define himci_pltm_resume     NULL
 #endif
 
-void himci_mmc_rescan(int slot)
+void hisi_sdio_rescan(int slot)
 {
 	struct mmc_host *mmc;
 	struct himci_host *host;
@@ -1697,12 +2389,16 @@ void himci_mmc_rescan(int slot)
 
 	add_timer(&host->timer);
 }
-EXPORT_SYMBOL(himci_mmc_rescan);
+EXPORT_SYMBOL(hisi_sdio_rescan);
 
 static const struct of_device_id
 himci_match[] __maybe_unused = {
 	{.compatible = "hisilicon,hi3516a-himci"},
 	{.compatible = "hisilicon,hi3518ev20x-himci"},
+	{.compatible = "hisilicon,hi3516cv500-himci"},
+	{.compatible = "hisilicon,hi3516dv300-himci"},
+	{.compatible = "hisilicon,hi3556v200-himci"},
+	{.compatible = "hisilicon,hi3559v200-himci"},
 	{},
 };
 
@@ -1738,7 +2434,7 @@ static int __init himci_init(void)
 	}
 
 	/* device proc entry */
-	ret = mci_proc_init(HIMCI_SLOT_NUM);
+	ret = mci_proc_init();
 	if (ret)
 		himci_error("device proc init is failed!");
 

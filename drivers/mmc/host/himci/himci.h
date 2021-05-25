@@ -76,6 +76,18 @@ struct himci_des {
 	unsigned long idmac_des_next_addr;
 };
 
+struct card_info {
+	unsigned int     card_type;
+	unsigned char    timing;
+	unsigned char    card_connect;
+#define CARD_CONNECT    1
+#define CARD_DISCONNECT 0	
+	unsigned int     card_support_clock; /* clock rate */
+	unsigned int     card_state;      /* (our) card state */
+	unsigned int     sd_bus_speed;
+	unsigned int     ssr[16];
+};
+
 struct himci_host {
 	struct mmc_host    *mmc;
 	struct platform_device *pdev;
@@ -98,6 +110,7 @@ struct himci_host {
 #define HIMCI_PEND_DTO_M  (1 << HIMCI_PEND_DTO_B)
 	unsigned long      pending_events;
 	unsigned int       power_status;
+	unsigned int	card_rca;
 	unsigned int	card_status;
 	unsigned int	devid;
 	unsigned int	   hclk;
@@ -105,6 +118,9 @@ struct himci_host {
 	struct clk	*clk;
 	struct reset_control *crg_rst;
 	unsigned int	port;
+    unsigned int error_count;
+    unsigned int data_error_count;
+    struct card_info c_info;
 };
 
 union cmd_arg_u {

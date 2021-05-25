@@ -178,7 +178,7 @@ config MMC_SDHCI_CNS3XXX
 
 config MMC_SDHCI_HISI
 	tristate "SDHCI support on the Hisilicon Hi35xx SoC"
-	depends on ARCH_HI3559AV100
+	depends on ARCH_HI3559AV100 || ARCH_HI3556AV100 || ARCH_HI3519AV100 || ARCH_HI3516EV200 || ARCH_HI3516EV300 || ARCH_HI3518EV300 || ARCH_HI3516DV200
 	depends on MMC_SDHCI_PLTFM
 	help
 	  This selects the SDHCI support for Hi35xx System-on-Chip devices.
