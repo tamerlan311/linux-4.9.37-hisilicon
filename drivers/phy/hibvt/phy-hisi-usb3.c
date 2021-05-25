@@ -40,19 +40,22 @@ static int hisi_usb3_phy_probe(struct platform_device *pdev)
 	priv->misc_ctrl = of_iomap(np, 1);
 	if (IS_ERR(priv->misc_ctrl))
 		priv->misc_ctrl = NULL;
-
-	priv->switch_base = of_iomap(np, 2);
-	if (IS_ERR(priv->switch_base))
-		priv->switch_base = NULL;
-
+#if defined(CONFIG_ARCH_HI3531A)
+	priv->ctrl_base = of_iomap(np, 2);
+	if (IS_ERR(priv->ctrl_base))
+		priv->ctrl_base = NULL;
+#endif
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, phy);
 	phy_set_drvdata(phy, priv);
+#if defined(CONFIG_ARCH_HI3559AV100)
+	if (hisi_usb3_init_para(phy, np))
+		return -EINVAL;
+#endif
 	hisi_usb3_phy_on(phy);
-
 	return 0;
 }
 
@@ -65,7 +68,15 @@ static int hisi_usb3_phy_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id hisi_usb3_phy_of_match[] = {
-	{.compatible = "hisilicon,hisi-usb3-phy",},
+	{
+		.compatible = "hisilicon,hisi-usb3-phy",
+	},
+	{
+		.compatible = "hisilicon,hisi-usb3-phy_0",
+	},
+	{
+		.compatible = "hisilicon,hisi-usb3-phy_1",
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, hisi_usb3_phy_of_match);
@@ -100,11 +111,5 @@ static struct platform_driver hisi_usb3_phy_driver = {
 		.of_match_table = hisi_usb3_phy_of_match,
 	}
 };
-
 module_platform_driver(hisi_usb3_phy_driver);
-
-MODULE_AUTHOR("Chen zequn <chenzequn2@hisilicon.com>");
-MODULE_DESCRIPTION("HISILICON USB PHY driver");
-MODULE_ALIAS("platform:hisi-usb3-phy");
 MODULE_LICENSE("GPL v2");
-

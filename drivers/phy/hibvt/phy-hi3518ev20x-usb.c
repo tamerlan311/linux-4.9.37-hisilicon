@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/phy/phy.h>
+
 #include "phy-hisi-usb.h"
 
 #define USB2_SWITCH_OFFSET 0x130
@@ -64,7 +65,7 @@ void hisi_usb_phy_on(struct phy *phy)
 	reg = readl(priv->peri_ctrl + PERI_CRG46);
 	reg |= USB_CKEN;
 	writel(reg, priv->peri_ctrl + PERI_CRG46);
-	udelay(100);
+	udelay(U_LEVEL5);
 
 	/* config controller */
 	reg = readl(priv->misc_ctrl + PERI_USB);
@@ -73,41 +74,41 @@ void hisi_usb_phy_on(struct phy *phy)
 	reg &= ~(SS_BURST16_EN);
 	reg |= USBOVR_P_CTRL;
 	writel(reg, priv->misc_ctrl + PERI_USB);
-	udelay(100);
+	udelay(U_LEVEL5);
 
 	/* de-assert phy port */
 	reg = readl(priv->peri_ctrl + PERI_CRG46);
 	reg &= ~(USBPHY_REQ);
 	writel(reg, priv->peri_ctrl + PERI_CRG46);
-	udelay(100);
+	udelay(U_LEVEL5);
 
 	/* open phy clk */
 	writel(0xc06, priv->misc_ctrl + MISC_USB);
-	udelay(10);
+	udelay(U_LEVEL1);
 	writel(0xc26, priv->misc_ctrl + MISC_USB);
-	mdelay(5);
+	mdelay(M_LEVEL2);
 
 	/* usb2.0 phy eye pattern */
 	writel(0x1c00, priv->misc_ctrl + MISC_USB);
-	udelay(10);
+	udelay(U_LEVEL1);
 	writel(0x1c20, priv->misc_ctrl + MISC_USB);
-	mdelay(5);
+	mdelay(M_LEVEL2);
 
 	writel(0x0c09, priv->misc_ctrl + MISC_USB);
-	udelay(10);
+	udelay(U_LEVEL1);
 	writel(0x0c29, priv->misc_ctrl + MISC_USB);
-	mdelay(5);
+	mdelay(M_LEVEL2);
 
 	writel(0x1a0a, priv->misc_ctrl + MISC_USB);
-	udelay(10);
+	udelay(U_LEVEL1);
 	writel(0x1a2a, priv->misc_ctrl + MISC_USB);
-	mdelay(5);
+	mdelay(M_LEVEL2);
 
 	/* cancel phy utmi reset */
 	reg = readl(priv->peri_ctrl + PERI_CRG46);
 	reg &= ~(USBPHY_PORT0_TREQ);
 	writel(reg, priv->peri_ctrl + PERI_CRG46);
-	udelay(300);
+	udelay(U_LEVEL7);
 
 	/* de-assert all the rsts of ctrl */
 	reg = readl(priv->peri_ctrl + PERI_CRG46);
@@ -115,13 +116,13 @@ void hisi_usb_phy_on(struct phy *phy)
 	reg &= ~(USB_CTRL_HUB_REG);
 	reg &= ~(USB_AHB_SRST_REQ);
 	writel(reg, priv->peri_ctrl + PERI_CRG46);
-	udelay(200);
+	udelay(U_LEVEL6);
 
 	/* decrease the threshold value from 650 to 550 */
 	writel(0xa, priv->misc_ctrl + MISC_USB);
-	udelay(10);
+	udelay(U_LEVEL1);
 	writel(0x092a, priv->misc_ctrl + MISC_USB);
-	mdelay(5);
+	mdelay(M_LEVEL2);
 }
 EXPORT_SYMBOL(hisi_usb_phy_on);
 
@@ -138,7 +139,7 @@ void hisi_usb_phy_off(struct phy *phy)
 	reg |= (USBPHY_REQ);
 	reg |= (USB_AHB_SRST_REQ);
 	writel(reg, priv->peri_ctrl + PERI_CRG46);
-	udelay(100);
+	udelay(U_LEVEL5);
 
 	/* enable phy */
 	reg = readl(priv->misc_ctrl + PERI_USB);

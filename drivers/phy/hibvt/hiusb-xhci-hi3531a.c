@@ -22,18 +22,85 @@
 #include "phy-hisi-usb.h"
 
 #define PERI_CRG91          0x16C
-#define usb2_phy1_ref_cken			(1 << 0)
-#define usb2_phy1_srst_req			(1 << 8)
-#define usb2_phy1_srst_treq			(1 << 9)
+#define USB2_PHY1_REF_CKEN  (1 << 0)
+#define USB2_PHY1_SRST_REQ  (1 << 8)
+#define USB2_PHY1_SRST_TREQ (1 << 9)
 
 #define PERI_CRG72              0x120
-#define combphy1_refclk1_sel		(3 <<14)
-#define combphy1_lane1_srst_req		(1 <<11)
-#define combphy1_ref1_cken			(1 << 9)
+#define COMBPHY1_REFCLK1_SEL    (3 << 14)
+#define COMBPHY1_LANE1_SRST_REQ (1 << 11)
+#define COMBPHY1_REF1_CKEN      (1 << 9)
 
 #define PERI_CRG75        0x12c
-#define usb3_vcc_srst_req			(1 <<13)
+#define USB3_VCC_SRST_REQ (1 << 13)
 
+#define REG_GUCTL1            0xc11c
+#define PARKMODE_DISABLE_FSLS (0x1 << 15)
+#define PARKMODE_DISABLE_HS   (0x1 << 16)
+#define PARKMODE_DISABLE_SS   (0x1 << 17)
+
+#define USB3_GUSB2PHYCFGN 0xc200
+#define U2_FREECLK_EXIST  (1 << 6)
+
+void usb_ctrl_config(struct phy *phy)
+{
+	int reg;
+	struct hisi_priv *priv = phy_get_drvdata(phy);
+
+	reg = readl(priv->ctrl_base + REG_GUCTL1);
+	reg |= PARKMODE_DISABLE_FSLS;
+	reg |= PARKMODE_DISABLE_HS;
+	reg |= PARKMODE_DISABLE_SS;
+	writel(reg, priv->ctrl_base + REG_GUCTL1);
+	udelay(U_LEVEL2);
+
+	reg = readl(priv->ctrl_base + USB3_GUSB2PHYCFGN);
+	reg &= ~(U2_FREECLK_EXIST);
+	writel_relaxed(reg, priv->ctrl_base + USB3_GUSB2PHYCFGN);
+	udelay(U_LEVEL6);
+}
+
+void usb2_phy_config(struct phy *phy)
+{
+	int reg;
+	struct hisi_priv *priv = phy_get_drvdata(phy);
+
+	reg = readl(priv->peri_ctrl + PERI_CRG91);
+	reg |= (USB2_PHY1_SRST_TREQ | USB2_PHY1_SRST_REQ);
+	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
+	udelay(U_LEVEL6);
+
+	reg = readl(priv->peri_ctrl + PERI_CRG91);
+	reg &= ~(USB2_PHY1_REF_CKEN);
+	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
+	udelay(U_LEVEL6);
+
+	/* open usb2.0 bus clock */
+	reg = readl(priv->peri_ctrl + PERI_CRG91);
+	reg |= USB2_PHY1_REF_CKEN;
+	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
+	udelay(U_LEVEL6);
+
+	reg = readl(priv->peri_ctrl + PERI_CRG91);
+	reg &= ~(USB2_PHY1_SRST_REQ);
+	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
+	mdelay(M_LEVEL1);
+
+	reg = readl(priv->peri_ctrl + PERI_CRG91);
+	reg &= ~(USB2_PHY1_SRST_TREQ);
+	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
+	udelay(U_LEVEL6);
+
+	reg = readl(priv->peri_ctrl + PERI_CRG72);
+	reg &= ~(COMBPHY1_REFCLK1_SEL);
+	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG72);
+	udelay(U_LEVEL6);
+
+	reg = readl(priv->peri_ctrl + PERI_CRG72);
+	reg |= COMBPHY1_REF1_CKEN;
+	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG72);
+	udelay(U_LEVEL6);
+}
 
 void hisi_usb3_phy_on(struct phy *phy)
 {
@@ -42,60 +109,31 @@ void hisi_usb3_phy_on(struct phy *phy)
 
 	/* reset enable */
 	reg = readl(priv->peri_ctrl + PERI_CRG75);
-	reg |= (usb3_vcc_srst_req);
+	reg |= (USB3_VCC_SRST_REQ);
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG75);
-	udelay(200);
-	reg = readl(priv->peri_ctrl + PERI_CRG72);
-	reg |= (combphy1_lane1_srst_req);
-	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG72);
-	udelay(200);
-	reg = readl(priv->peri_ctrl + PERI_CRG91);
-	reg |= (usb2_phy1_srst_treq | usb2_phy1_srst_req);
-	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
-	udelay(200);
-	reg = readl(priv->peri_ctrl + PERI_CRG91);
-	reg &= ~(usb2_phy1_ref_cken);
-	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
-	udelay(200);
-
-	/* open usb2.0 bus clock */
-	reg = readl(priv->peri_ctrl + PERI_CRG91);
-	reg |= usb2_phy1_ref_cken;
-	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
-	udelay(200);
-
-	reg = readl(priv->peri_ctrl + PERI_CRG91);
-	reg &= ~(usb2_phy1_srst_req);
-	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
-	mdelay(2);
-
-	reg = readl(priv->peri_ctrl + PERI_CRG91);
-	reg &= ~(usb2_phy1_srst_treq);
-	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
-	udelay(200);
+	udelay(U_LEVEL6);
 
 	reg = readl(priv->peri_ctrl + PERI_CRG72);
-	reg &= ~(combphy1_refclk1_sel);
+	reg |= (COMBPHY1_LANE1_SRST_REQ);
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG72);
-	udelay(200);
+	udelay(U_LEVEL6);
 
-	reg = readl(priv->peri_ctrl + PERI_CRG72);
-	reg |= combphy1_ref1_cken;
-	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG72);
-	udelay(200);
+	usb2_phy_config(phy);
+
 	/* cancel reset */
 	reg = readl(priv->peri_ctrl + PERI_CRG72);
-	reg &= ~(combphy1_lane1_srst_req);
+	reg &= ~(COMBPHY1_LANE1_SRST_REQ);
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG72);
-	udelay(100);
+	udelay(U_LEVEL5);
 
 	reg = readl(priv->peri_ctrl + PERI_CRG75);
-	reg &= ~(usb3_vcc_srst_req);
+	reg &= ~(USB3_VCC_SRST_REQ);
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG75);
-	udelay(200);
+	udelay(U_LEVEL6);
+
+	usb_ctrl_config(phy);
 }
 EXPORT_SYMBOL(hisi_usb3_phy_on);
-
 
 void hisi_usb3_phy_off(struct phy *phy)
 {
@@ -104,21 +142,23 @@ void hisi_usb3_phy_off(struct phy *phy)
 
 	/* reset enable */
 	reg = readl(priv->peri_ctrl + PERI_CRG75);
-	reg |= (usb3_vcc_srst_req);
+	reg |= (USB3_VCC_SRST_REQ);
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG75);
-	udelay(200);
+	udelay(U_LEVEL6);
+
 	reg = readl(priv->peri_ctrl + PERI_CRG72);
-	reg |= (combphy1_lane1_srst_req);
+	reg |= (COMBPHY1_LANE1_SRST_REQ);
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG72);
-	udelay(200);
+	udelay(U_LEVEL6);
+
 	reg = readl(priv->peri_ctrl + PERI_CRG91);
-	reg |= (usb2_phy1_srst_treq | usb2_phy1_srst_req);
+	reg |= (USB2_PHY1_SRST_TREQ | USB2_PHY1_SRST_REQ);
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
-	udelay(200);
+	udelay(U_LEVEL6);
+
 	reg = readl(priv->peri_ctrl + PERI_CRG91);
-	reg &= ~(usb2_phy1_ref_cken);
+	reg &= ~(USB2_PHY1_REF_CKEN);
 	writel_relaxed(reg, priv->peri_ctrl + PERI_CRG91);
-	udelay(200);
-	
+	udelay(U_LEVEL6);
 }
 EXPORT_SYMBOL(hisi_usb3_phy_off);

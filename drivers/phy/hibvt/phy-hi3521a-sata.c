@@ -69,6 +69,9 @@ enum {
 	PHY_FORCE_1_5G	= 0x2f180000,
 	PHY_FORCE_3G	= 0x2f390000,
 	PHY_FORCE_6G	= 0x2f5a0000,
+
+	HISI_SATA_MISC_PHY0_CTRL0	= IO_ADDRESS(0x12120000 + 0x58),
+	HISI_SATA_MISC_PHY1_CTRL0	= IO_ADDRESS(0x12120000 + 0x64),
 };
 
 static void hisi_sata_poweron(void)
@@ -161,7 +164,7 @@ EXPORT_SYMBOL(hisi_sata_set_fifoth);
 
 static void hisi_sata_phy_config(void *mmio, int phy_mode)
 {
-	unsigned int i, tmp_val, phy_config;
+	unsigned int i, tmp_val, phy_config = PHY_SG_3G;
 
 	hisi_sata_set_fifoth(mmio);
 
@@ -238,4 +241,48 @@ static void hisi_sata_phy_config(void *mmio, int phy_mode)
 	for (i = 0; i < ports_num; i++)
 		writel(phy_config, (mmio + 0x100 + i*0x80
 					+ HISI_SATA_PORT_PHYCTL));
+	mdelay(100);
+	writel(0x10000000, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+	writel(0x10000001, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+
+	writel(0x00a00000, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+	writel(0x00a00002, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+
+	writel(0x8, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+
+	writel(0x10000000, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+	writel(0x10000001, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+
+	writel(0x00000000, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+	writel(0x00000002, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+
+	writel(0x8, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY0_CTRL0);
+
+	writel(0x10000000, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+	writel(0x10000001, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+
+	writel(0x00a00000, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+	writel(0x00a00002, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+
+	writel(0x8, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+
+	writel(0x10000000, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+	writel(0x10000001, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+
+	writel(0x00000000, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+	writel(0x00000002, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+
+	writel(0x8, (void *)HISI_SATA_MISC_PHY1_CTRL0);
+	writel(0x0, (void *)HISI_SATA_MISC_PHY1_CTRL0);
 }
