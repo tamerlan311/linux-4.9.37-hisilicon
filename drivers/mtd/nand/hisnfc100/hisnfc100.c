@@ -534,6 +534,7 @@ static void hisnfc100_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
     }
 #endif
 
+#ifdef CONFIG_HISI_NAND_ECC_STATUS_REPORT
     if (buf != chip->oob_poi) {
         u_int reg, ecc_step = host->pagesize >> 10;
 
@@ -549,6 +550,7 @@ static void hisnfc100_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
             }
         }
     }
+#endif
 
     return;
 }

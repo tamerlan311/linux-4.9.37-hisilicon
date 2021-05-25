@@ -30,19 +30,28 @@
 #include <asm/setup.h>
 
 #include "../hinfc_gen.h"
-#include "hifmc100_os.h"
 #include "hifmc100.h"
 #include <linux/mfd/hisi_fmc.h>
 
 /*****************************************************************************/
 static void hifmc100_switch_to_spi_nand(struct hifmc_host *host)
 {
-	int reg;
+    u32 reg;
 
     reg = hifmc_readl(host, FMC_CFG);
     reg &= ~FLASH_TYPE_SEL_MASK;
     reg |= FMC_CFG_FLASH_SEL(FLASH_TYPE_SPI_NAND);
     hifmc_writel(host, FMC_CFG, reg);
+}
+
+/*****************************************************************************/
+static void hifmc100_set_str_mode(struct hifmc_host *host)
+{
+    u32 reg;
+
+    reg = hifmc_readl(host, FMC_GLOBAL_CFG);
+    reg &= (~FMC_GLOBAL_CFG_DTR_MODE);
+    hifmc_writel(host, FMC_GLOBAL_CFG, reg);
 }
 
 /*****************************************************************************/
@@ -699,6 +708,7 @@ static void hifmc100_cmd_ctrl(struct mtd_info *mtd, int dat, unsigned ctrl)
     int is_cache_invalid = 1;
     struct nand_chip *chip = mtd_to_nand(mtd);
     struct hifmc_host *host = chip->priv;
+    unsigned int udat = (unsigned int)dat;
 
     if (ctrl & NAND_ALE) {
         unsigned int addr_value = 0;
@@ -716,15 +726,14 @@ static void hifmc100_cmd_ctrl(struct mtd_info *mtd, int dat, unsigned ctrl)
                            HIFMC100_ADDR_CYCLE_MASK) << 3;
             addr_value = 1;
         }
-
         host->addr_value[addr_value] |=
-			((dat & 0xff) << addr_offset);
+            ((udat & 0xff) << addr_offset);
 
         host->addr_cycle++;
     }
 
     if ((ctrl & NAND_CLE) && (ctrl & NAND_CTRL_CHANGE)) {
-		cmd = dat & 0xff;
+        cmd = udat & 0xff;
         host->cmd_op.cmd = cmd;
         switch (cmd) {
             case NAND_CMD_PAGEPROG:
@@ -926,7 +935,7 @@ static struct nand_config_info hifmc_spi_nand_config_table[] = {
 #ifdef CONFIG_HISI_NAND_FS_MAY_NO_YAFFS2
     {NAND_PAGE_4K,  NAND_ECC_16BIT, 16, 128,    &hifmc_ooblayout_4k16bit_ops},
 #endif
-	{NAND_PAGE_4K,	NAND_ECC_8BIT,	8, 88,		&hifmc_ooblayout_default_ops},
+    {NAND_PAGE_4K,  NAND_ECC_8BIT,  8, 128,     &hifmc_ooblayout_default_ops},
     {NAND_PAGE_4K,  NAND_ECC_0BIT,  0, 32,      &hifmc_ooblayout_default_ops},
 
     {NAND_PAGE_2K,  NAND_ECC_24BIT, 24, 128,    &hifmc_ooblayout_default_ops},
@@ -1145,6 +1154,9 @@ int hifmc100_spi_nand_init(struct nand_chip *chip)
 
     /* Switch SPI type to SPI nand */
     hifmc100_switch_to_spi_nand(host);
+
+    /* hold on STR mode */
+    hifmc100_set_str_mode(host);
 
     /* Hifmc host init */
     hifmc100_host_init(host);

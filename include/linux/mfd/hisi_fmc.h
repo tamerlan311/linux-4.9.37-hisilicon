@@ -274,13 +274,6 @@
 /*****************************************************************************/
 #define FMC_DMA_SADDR_D0            0x4c
 
-/* Nand Flash pagesize is impossible over 32K; oobsize should less than 8K*/
-#define HIFMC_DMA_MAX_PAGESIZE		(0x8000)
-#define HIFMC_DMA_MAX_OOBSIZE		(0x2000)
-/* HIFMC_DMA_MAX_LEN also suit for SPI Nor Flash DMA LEN */
-#define HIFMC_DMA_MAX_LEN		(HIFMC_DMA_MAX_PAGESIZE + HIFMC_DMA_MAX_OOBSIZE)
-#define HIFMC_DMA_MASK			(HIFMC_DMA_MAX_LEN - 1)
-
 /*****************************************************************************/
 #define FMC_DMA_SADDR_D1            0x50
 
@@ -509,6 +502,7 @@ struct hisi_fmc {
     struct mutex lock;
     void *buffer;
     dma_addr_t dma_buffer;
+    unsigned int dma_len;
 };
 
 struct hifmc_cmd_op {

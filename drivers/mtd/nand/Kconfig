@@ -577,10 +577,10 @@ config MTD_SPI_NAND_HISI_BVT
 
 config HISI_NAND_ECC_STATUS_REPORT
 	tristate "Report the ecc status to MTD for HiSilicon Nand Driver"
-	depends on MFD_HISI_FMC
+	depends on MTD_NAND && ARCH_HISI_BVT
 	default n
 	help
-	  Flash Memory Controller V100 reports the ecc status include ECC error
+	  Flash Memory Controller reports the ecc status include ECC error
 	  and ECC corrected to MTD to monitor the aging of devices.
 
 config HISI_NAND_FS_MAY_NO_YAFFS2

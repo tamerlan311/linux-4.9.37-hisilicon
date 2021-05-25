@@ -937,6 +937,8 @@ static inline void nand_set_controller_data(struct nand_chip *chip, void *priv)
 #define NAND_MFR_ATO		0x9b
 #define NAND_MFR_GD_ESMT	0xc8
 #define NAND_MFR_HEYANGTEK	0xc9
+#define NAND_MFR_DOSILICON	0xe5
+#define NAND_MFR_FIDELIX	0xf8
 
 /* The maximum expected count of bytes in the NAND ID sequence */
 #define NAND_MAX_ID_LEN 8

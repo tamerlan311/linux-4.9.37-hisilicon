@@ -97,6 +97,7 @@ struct hifmc_host {
     unsigned int dma_buffer;
     unsigned int dma_oob;
 #endif
+    unsigned int dma_len;
 
     unsigned int addr_cycle;
     unsigned int addr_value[2];

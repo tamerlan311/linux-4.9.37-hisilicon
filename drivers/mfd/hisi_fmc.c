@@ -51,37 +51,43 @@ static int hisi_fmc_probe(struct platform_device *pdev)
 {
     struct hisi_fmc *fmc;
     struct resource *res;
+    struct device *dev = &pdev->dev;
     int ret;
 
-	fmc = devm_kzalloc(&pdev->dev, sizeof(*fmc), GFP_KERNEL);
+    fmc = devm_kzalloc(dev, sizeof(*fmc), GFP_KERNEL);
     if (!fmc) {
         return -ENOMEM;
     }
 
     res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "control");
-	fmc->regbase = devm_ioremap_resource(&pdev->dev, res);
+    fmc->regbase = devm_ioremap_resource(dev, res);
     if (IS_ERR(fmc->regbase)) {
         return PTR_ERR(fmc->regbase);
     }
 
     res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "memory");
-	fmc->iobase = devm_ioremap_resource(&pdev->dev, res);
+    fmc->iobase = devm_ioremap_resource(dev, res);
     if (IS_ERR(fmc->iobase)) {
         return PTR_ERR(fmc->iobase);
     }
 
-	fmc->clk = devm_clk_get(&pdev->dev, NULL);
+    fmc->clk = devm_clk_get(dev, NULL);
     if (IS_ERR(fmc->clk)) {
         return PTR_ERR(fmc->clk);
     }
 
-	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+    if (of_property_read_u32(dev->of_node, "max-dma-size", &fmc->dma_len)) {
+        dev_err(dev, "Please set the suitable max-dma-size value !!!\n");
+        return -ENOMEM;
+    }
+
+    ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
     if (ret) {
-		dev_warn(&pdev->dev, "Unable to set dma mask\n");
+        dev_warn(dev, "Unable to set dma mask\n");
         return ret;
     }
 
-	fmc->buffer = dmam_alloc_coherent(&pdev->dev, HIFMC_DMA_MAX_LEN,
+    fmc->buffer = dmam_alloc_coherent(dev, fmc->dma_len,
                                       &fmc->dma_buffer, GFP_KERNEL);
     if (IS_ERR(fmc->buffer)) {
         return PTR_ERR(fmc->buffer);
@@ -91,10 +97,10 @@ static int hisi_fmc_probe(struct platform_device *pdev)
 
     platform_set_drvdata(pdev, fmc);
 
-	ret = mfd_add_devices(&pdev->dev, 0, hisi_fmc_devs,
+    ret = mfd_add_devices(dev, 0, hisi_fmc_devs,
                           ARRAY_SIZE(hisi_fmc_devs), NULL, 0, NULL);
     if (ret) {
-		dev_err(&pdev->dev, "add mfd devices failed: %d\n", ret);
+        dev_err(dev, "add mfd devices failed: %d\n", ret);
         return ret;
     }
 
@@ -105,7 +111,7 @@ static int hisi_fmc_remove(struct platform_device *pdev)
 {
     struct hisi_fmc *fmc = platform_get_drvdata(pdev);
 
-	dmam_free_coherent(&pdev->dev, HIFMC_DMA_MAX_LEN,
+    dmam_free_coherent(&pdev->dev, fmc->dma_len,
                        fmc->buffer, fmc->dma_buffer);
     mfd_remove_devices(&pdev->dev);
     mutex_destroy(&fmc->lock);

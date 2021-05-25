@@ -45,11 +45,11 @@ int match_reg_to_type(struct match_t *table, int nr_table, int reg, int def);
 
 int match_type_to_reg(struct match_t *table, int nr_table, int type, int def);
 
-int match_data_to_type(struct match_t *table, int nr_table, char *data,
+int match_data_to_type(struct match_t *table, int nr_table,const char *data,
                        int size, int def);
 
 void *match_type_to_data(struct match_t *table, int nr_table, int type,
-			 void *def);
+                        const void *def);
 
 /*****************************************************************************/
 

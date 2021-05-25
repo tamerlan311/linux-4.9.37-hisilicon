@@ -206,11 +206,12 @@ static int spi_is_quad(struct hifmc_spi *spi)
     FMC_PR(QE_DBG, "\t\t|||*-SPI read iftype: %s write iftype: %s\n",
            if_str[spi->read->iftype], if_str[spi->write->iftype]);
 
-	if ((IF_TYPE_QUAD == spi->read->iftype)
-	    || (IF_TYPE_QIO == spi->read->iftype)
-	    || (IF_TYPE_QUAD == spi->write->iftype)
-	    || (IF_TYPE_QIO == spi->write->iftype))
+    if ((spi->read->iftype == IF_TYPE_QUAD)
+            || (spi->read->iftype == IF_TYPE_QIO)
+            || (spi->write->iftype == IF_TYPE_QUAD)
+            || (spi->write->iftype == IF_TYPE_QIO)) {
         return 1;
+    }
 
     return 0;
 }

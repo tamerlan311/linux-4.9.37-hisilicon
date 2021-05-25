@@ -33,7 +33,6 @@
 
 #include "../../mtdcore.h"
 #include "hifmc100.h"
-#include "hifmc100_os.h"
 
 /*****************************************************************************/
 static int hifmc100_spi_nand_pre_probe(struct nand_chip *chip)
@@ -134,7 +133,7 @@ static int hisi_spi_nand_probe(struct platform_device *pltdev)
     host->buffer = fmc->buffer;
     host->dma_buffer = fmc->dma_buffer;
 
-	memset((char *)host->iobase, 0xff, SPI_NAND_BUFFER_LEN);
+    memset((char *)host->iobase, 0xff, fmc->dma_len);
     chip->IO_ADDR_R = chip->IO_ADDR_W = host->iobase;
 
     chip->priv = host;

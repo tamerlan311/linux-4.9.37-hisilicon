@@ -66,6 +66,7 @@ static int hisi_nand_os_probe(struct platform_device *pltdev)
     chip->IO_ADDR_R = chip->IO_ADDR_W = host->iobase;
     host->buffer = fmc->buffer;
     host->dma_buffer = fmc->dma_buffer;
+    host->dma_len = fmc->dma_len;
 
     /* hifmc Nand host init */
     chip->priv = host;
@@ -140,11 +141,12 @@ static int hifmc100_nand_os_resume(struct platform_device *pltdev)
 {
     int cs;
     struct hifmc_host *host = platform_get_drvdata(pltdev);
-	struct nand_chip *chip = host->chip;
+    struct nand_chip *chip;
 
     if (!host) {
         return 0;
     }
+    chip = host->chip;
 
     for (cs = 0; cs < chip->numchips; cs++) {
         host->send_cmd_reset(host);

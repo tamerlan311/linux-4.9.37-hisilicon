@@ -754,6 +754,7 @@ void hinfc610_write_buf(struct mtd_info *mtd, const uint8_t *buf,
     memcpy(host->buffer + host->column + host->offset, buf, len);
     host->offset += len;
 }
+#ifdef CONFIG_HISI_NAND_ECC_STATUS_REPORT
 /*****************************************************************************/
 static void hinfc610_ecc_err_num_count(struct mtd_info *mtd,
                                        uint8_t ecc_st, int reg)
@@ -773,6 +774,7 @@ static void hinfc610_ecc_err_num_count(struct mtd_info *mtd,
         }
     }
 }
+#endif
 
 /*****************************************************************************/
 
@@ -780,12 +782,15 @@ void hinfc610_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 {
     struct nand_chip *chip = mtd_to_nand(mtd);
     struct hinfc_host *host = chip->priv;
+#ifdef CONFIG_HISI_NAND_ECC_STATUS_REPORT
     int reg;
     uint8_t ecc_step = host->pagesize >> 10;
+#endif
 
     memcpy(buf, host->buffer + host->column + host->offset, len);
     host->offset += len;
 
+#ifdef CONFIG_HISI_NAND_ECC_STATUS_REPORT
     /* 2K or 4K or 8K(1) or 16K(1-1) pagesize */
     reg = hinfc_read(host, HINFC_ECC_ERR_NUM0_BUF0);
     hinfc610_ecc_err_num_count(mtd, ecc_step, reg);
@@ -803,6 +808,7 @@ void hinfc610_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
             hinfc610_ecc_err_num_count(mtd, ecc_step, reg);
         }
     }
+#endif
 }
 /*****************************************************************************/
 /*

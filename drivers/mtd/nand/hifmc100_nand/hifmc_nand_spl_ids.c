@@ -93,7 +93,7 @@ static struct nand_flash_dev *samsung_probe_v02(unsigned char *id)
 
 /*****************************************************************************/
 
-#define DRV_VERSION     "1.39"
+#define DRV_VERSION     "1.40"
 
 /*****************************************************************************/
 /*
@@ -156,6 +156,9 @@ static struct nand_flash_dev *samsung_probe_v02(unsigned char *id)
  * Spansion     |  SLC   | S34ML02G200TFI000     | 24bit/1K |
  * Spansion     |  SLC   | S34ML04G200TFI000     | 24bit/1K |  1.38
  * MXIC Macronix|  SLC   | MX30UF2G18AC 1.8V | 4bit/512 |  1.39
+ * Spansion     |  SLC   | S34MS01G200TFI00 1.8V | 4bit/512 |  1.40
+ * Spansion     |  SLC   | S34MS02G200TFI00 1.8V | 24bit/1K |  1.40
+ * Spansion     |  SLC   | S34MS04G200TFI00 1.8V | 24bit/1K |  1.40
  *
  */
 static struct nand_flash_special_dev nand_flash_special_table[] = {
@@ -196,6 +199,36 @@ static struct nand_flash_special_dev nand_flash_special_table[] = {
     {      /* SLC S34ML04G200TFI000 */
         .name      = "S34ML04G200TFI000",
         .id        = {0x01, 0xDC, 0x90, 0x95, 0x56, 0x00, 0x00, 0x00},
+        .length    = 5,
+        .chipsize  = _512M,
+        .probe     = NULL,
+        .pagesize  = _2K,
+        .erasesize = _128K,
+        .oobsize   = 128,
+        .options   = 0,
+        .read_retry_type = NAND_RR_NONE,
+        .badblock_pos    = BBP_FIRST_PAGE,
+        .flags = 0,
+    },
+
+    {      /* SLC S34MS02G200TFI00 1.8V */
+        .name      = "S34MS02G200TFI00",
+        .id        = {0x01, 0xAA, 0x90, 0x15, 0x46, 0x00, 0x00, 0x00},
+        .length    = 5,
+        .chipsize  = _256M,
+        .probe     = NULL,
+        .pagesize  = _2K,
+        .erasesize = _128K,
+        .oobsize   = 128,
+        .options   = 0,
+        .read_retry_type = NAND_RR_NONE,
+        .badblock_pos    = BBP_FIRST_PAGE,
+        .flags = 0,
+    },
+
+    {      /* SLC S34MS04G200TFI00 1.8V */
+        .name      = "S34MS04G200TFI00",
+        .id        = {0x01, 0xAC, 0x90, 0x15, 0x56, 0x00, 0x00, 0x00},
         .length    = 5,
         .chipsize  = _512M,
         .probe     = NULL,
@@ -920,6 +953,10 @@ struct nand_flash_dev *hifmc_get_spl_flash_type(struct mtd_info *mtd,
         nand_dev->read_retry_type = spl_dev->read_retry_type;
         FMC_PR(BT_DBG, "\t |-Save struct nand_dev_t information\n");
 
+        mtd->oobsize = spl_dev->oobsize;
+        mtd->erasesize = spl_dev->erasesize;
+        mtd->writesize = spl_dev->pagesize;
+        chip->chipsize = spl_dev->chipsize;
         mtd->size = spl_dev->chipsize;
 
         return type;

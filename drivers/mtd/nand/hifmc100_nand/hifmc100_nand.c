@@ -423,6 +423,7 @@ static void hifmc100_write_buf(struct mtd_info *mtd,
     return;
 }
 
+#ifdef CONFIG_HISI_NAND_ECC_STATUS_REPORT
 /*****************************************************************************/
 static void hifmc100_ecc_err_num_count(struct mtd_info *mtd,
                                        u_int ecc_st, u_int reg)
@@ -442,6 +443,7 @@ static void hifmc100_ecc_err_num_count(struct mtd_info *mtd,
         }
     }
 }
+#endif
 
 /*****************************************************************************/
 static void hifmc100_read_buf(struct mtd_info *mtd, u_char *buf, int len)
@@ -462,6 +464,8 @@ static void hifmc100_read_buf(struct mtd_info *mtd, u_char *buf, int len)
         memcpy(buf, (char *)host->buffer, len);
     }
 #endif
+
+#ifdef CONFIG_HISI_NAND_ECC_STATUS_REPORT
     if (buf != chip->oob_poi) {
         u_int reg, ecc_step = host->pagesize >> 10;
 
@@ -485,6 +489,7 @@ static void hifmc100_read_buf(struct mtd_info *mtd, u_char *buf, int len)
             }
         }
     }
+#endif
 
     return;
 }
@@ -1017,7 +1022,9 @@ static int hifmc100_set_config_info(struct mtd_info *mtd,
 /*****************************************************************************/
 static void hifmc100_chip_init(struct nand_chip *chip)
 {
-	memset((char *)chip->IO_ADDR_R, 0xff, NAND_BUFFER_LEN);
+    struct hifmc_host *host = chip->priv;
+
+    memset((char *)chip->IO_ADDR_R, 0xff, host->dma_len);
 
     chip->read_byte = hifmc100_read_byte;
     chip->read_word = hifmc100_read_word;

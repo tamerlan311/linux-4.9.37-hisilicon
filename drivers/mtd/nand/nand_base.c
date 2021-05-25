@@ -2810,6 +2810,10 @@ static int nand_do_write_ops(struct mtd_info *mtd, loff_t to,
 	int ret;
 	int oob_required = oob ? 1 : 0;
 
+#ifdef CONFIG_ARCH_HISI_BVT
+    oob_required = 1;
+#endif
+
 	ops->retlen = 0;
 	if (!writelen)
 		return 0;
@@ -4099,29 +4103,33 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 		return ERR_PTR(-ENODEV);
 	}
 
-#if defined(CONFIG_MTD_NAND_HISNFC100) || defined(CONFIG_MTD_SPI_NAND_HIFMC100)
-	/* SPI Nand Flash*/
-	if (get_spi_nand_flash_type_hook)
-		type = get_spi_nand_flash_type_hook(mtd, id_data);
+#ifdef CONFIG_ARCH_HISI_BVT
 
-	/* SPI Nand Flash only can support the devices on id table */
-	if (!type) {
-		pr_info("This device[%02x,%02x] cannot found in spi nand id table!!\n",
-				*maf_id, *dev_id);
-		return ERR_PTR(-ENODEV);
-	} else
-		goto ident_done;
-
-#elif defined(CONFIG_MTD_NAND_HINFC610) || defined(CONFIG_MTD_NAND_HIFMC100)
+#ifndef CONFIG_MTD_SPI_NAND_HISI_BVT
 	/* Parallel Nand Flash */
 
 	/* The 3rd id byte holds MLC / multichip data */
 	chip->bits_per_cell = nand_get_bits_per_cell(id_data[2]);
+#endif
 
+#ifdef CONFIG_MTD_NAND_HINFC610
 	type = hinfc_get_flash_type(mtd, chip, id_data, &busw);
+#else
+	if (get_spi_nand_flash_type_hook)
+		type = get_spi_nand_flash_type_hook(mtd, id_data);
+#endif
+
 	if (type)
 		goto ident_done;
+#ifdef CONFIG_MTD_SPI_NAND_HISI_BVT
+	else {
+		pr_info("This device[%02x,%02x] cannot found in spi nand id table!!\n",
+				*maf_id, *dev_id);
+		return ERR_PTR(-ENODEV);
+	}
 #endif
+
+#endif /* endif CONFIG_ARCH_HISI_BVT */
 
 	if (!type)
 		type = nand_flash_ids;

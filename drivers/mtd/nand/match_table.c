@@ -79,7 +79,7 @@ int match_type_to_reg(struct match_t *table, int nr_table, int type, int def)
     return def;
 }
 
-int match_data_to_type(struct match_t *table, int nr_table, char *data,
+int match_data_to_type(struct match_t *table, int nr_table,const char *data,
                        int size, int def)
 {
     while (nr_table-- > 0) {
@@ -92,7 +92,7 @@ int match_data_to_type(struct match_t *table, int nr_table, char *data,
 }
 
 void *match_type_to_data(struct match_t *table, int nr_table, int type,
-			 void *def)
+                       const void *def)
 {
     while (nr_table-- > 0) {
         if (table->type == type) {
