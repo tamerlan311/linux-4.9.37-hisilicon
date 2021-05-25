@@ -105,6 +105,7 @@
 			device_type = "cpu";
 			reg = <0x0 0x0>;
 			enable-method = "psci";
+			clock-latency = <100000>; /* From legacy driver */
 			cpu-idle-states = <&CPU_POWERDOWN &CPU_STANDBY>;
 		};
 
@@ -113,6 +114,7 @@
 			device_type = "cpu";
 			reg = <0x0 0x1>;
 			enable-method = "psci";
+			clock-latency = <200000>; /* From legacy driver */
 			cpu-idle-states = <&CPU_POWERDOWN &CPU_STANDBY>;
 		};
 		cpu@2 {
@@ -121,20 +123,77 @@
 			reg = <0x0 0x100>;
 			enable-method = "psci";
 			cpu-idle-states = <&CPU_POWERDOWN &CPU_STANDBY>;
+			vcc-supply = <&a73_regulator>;
 		};
 		cpu@3 {
 			compatible = "arm,cortex-a73";
 			device_type = "cpu";
 			reg = <0x0 0x101>;
 			enable-method = "psci";
+			operating-points = <
+				792000 796000
+				1296000 888000
+				1608000 988000
+				>;
+			clocks = <&clock HI3559AV100_A73_MUX>,
+					<&clock HI3559AV100_FIXED_24M>,
+					<&clock HI3559AV100_APLL_CLK>,
+					<&clock HI3559AV100_FIXED_1000M>;
+			clock-names = "a73_mux","24m","apll","1000m";
+			clock-latency = <400000>; /* From legacy driver */
 			cpu-idle-states = <&CPU_POWERDOWN &CPU_STANDBY>;
+			vcc-supply = <&a73_regulator>;
 		};
 
 	};
 
+	avs {
+	    compatible = "hi3559a,avs";
+	    avs-num = <3>;
+	    avs-name-array = "cpu-avs","media-avs","gpu-avs";
+	    cpu_avs: cpu_avs{
+			avs-name = "cpu-avs";
+			opp-num = <6>;
+			opp-freq = <1250000 1150000 1000000 930000 792000 594000 >;
+			opp-volt-min = <870000 870000 800000 800000 740000 740000>;
+			opp-hpm = <310 310 280 280 250 250>;
+			opp-div = <24 22 19 18 15 11>;
+			opp-volt-max = <1060000>;
+			};
+
+	    media_avs: media_avs{
+			avs-name = "media-avs";
+			opp-num = <4>;
+			opp-prof-num = <2>;
+			opp-temp-num = <2>;
+			opp-temp = <50 200>;
+			opp-freq = <1 2 3 4>;
+			opp-volt-min = <
+				/* profile2    profile3*/
+                  770000       770000
+                  770000       770000
+				  >;
+			opp-hpm = <
+				/* profile2    profile3*/
+				     210       215
+				     190       215
+				  >;
+			opp-div = <3 3 3 3>;
+			opp-volt-max = <
+				/* profile2    profile3*/
+                   977000       977000
+                   977000       977000
+				>;
+			};
+
+		gpu_avs: gpu_avs{
+			avs-name = "gpu-avs";
+			};
+
+	};
 	memory {
 		device_type = "memory";
-		reg = <0x0 0x44000000 0x0 0x80000000>; /* system memory base */
+		reg = <0x0 0x44000000 0x2 0x0>; /* system memory base */
 	};
 };
 
@@ -163,23 +222,23 @@
 };
 
 &uart5 {
-	status = "disable";
+	status = "disabled";
 };
 
 &uart6 {
-	status = "disable";
+	status = "disabled";
 };
 
 &uart7 {
-	status = "disable";
+	status = "disabled";
 };
 
 &uart8 {
-	status = "disable";
+	status = "disabled";
 };
 
 &uart9 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus0 {
@@ -231,35 +290,35 @@
 };
 
 &i2c_bus12 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus13 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus14 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus15 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus16 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus17 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus18 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus19 {
-	status = "disable";
+	status = "disabled";
 };
 
 &spi_bus0{
@@ -269,16 +328,16 @@
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 };
 
@@ -289,16 +348,16 @@
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 };
 
@@ -309,16 +368,16 @@
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 };
 
@@ -329,16 +388,16 @@
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 };
 
@@ -349,98 +408,98 @@
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@2 {
 		compatible = "rohm,dh2228fv";
 		reg = <2>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@3 {
 		compatible = "rohm,dh2228fv";
 		reg = <3>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 };
 
 &spi_bus5{
-	status = "disable";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 	spidev@2 {
 		compatible = "rohm,dh2228fv";
 		reg = <2>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 };
 
 &spi_bus6{
-	status = "disable";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 	spidev@2 {
 		compatible = "rohm,dh2228fv";
 		reg = <2>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 };
 
 &spi_bus7{
-	status = "disable";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 };
 
@@ -580,17 +639,17 @@
 };
 
 &mmc3 {
-	status = "disable";
+	status = "disabled";
 };
 
 &hivdmac {
 	status = "disabled";
 };
 
-&hiedmacv310_0 {
-	status = "okay";
+&hiedmacv310_1 {
+	status = "disabled";
 };
 
-&hiedmacv310_1 {
-	status = "okay";
+&hiedmacv310_2 {
+	status = "disabled";
 };

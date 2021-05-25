@@ -134,7 +134,7 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x0 0x50000000 0x0 0x80000000>; /* system memory base */
+		reg = <0x0 0x50000000 0x2 0x0>; /* system memory base */
 	};
 };
 
@@ -163,55 +163,55 @@
 };
 
 &uart5 {
-	status = "disable";
+	status = "disabled";
 };
 
 &uart6 {
-	status = "disable";
+	status = "disabled";
 };
 
 &uart7 {
-	status = "disable";
+	status = "disabled";
 };
 
 &uart8 {
-	status = "disable";
+	status = "disabled";
 };
 
 &uart9 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c_bus1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c_bus2 {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c_bus3 {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c_bus4 {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c_bus5 {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c_bus6 {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c_bus7 {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c_bus8 {
@@ -227,220 +227,220 @@
 };
 
 &i2c_bus11 {
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c_bus12 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus13 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus14 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus15 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus16 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus17 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus18 {
-	status = "disable";
+	status = "disabled";
 };
 
 &i2c_bus19 {
-	status = "disable";
+	status = "disabled";
 };
 
 &spi_bus0{
-	status = "okay";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 };
 
 &spi_bus1{
-	status = "okay";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 };
 
 &spi_bus2{
-	status = "okay";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 };
 
 &spi_bus3{
-	status = "okay";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 };
 
 &spi_bus4{
-	status = "okay";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@2 {
 		compatible = "rohm,dh2228fv";
 		reg = <2>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 
 	spidev@3 {
 		compatible = "rohm,dh2228fv";
 		reg = <3>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <24750000>;
 	};
 };
 
 &spi_bus5{
-	status = "disable";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 	spidev@2 {
 		compatible = "rohm,dh2228fv";
 		reg = <2>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 };
 
 &spi_bus6{
-	status = "disable";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 
 	spidev@1 {
 		compatible = "rohm,dh2228fv";
 		reg = <1>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 	spidev@2 {
 		compatible = "rohm,dh2228fv";
 		reg = <2>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 };
 
 &spi_bus7{
-	status = "disable";
+	status = "disabled";
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
 		reg = <0>;
 		pl022,interface = <0>;
-		pl022,com_mode = <0>;
-		spi-max-frequency = <12000000>;
+		pl022,com-mode = <0>;
+		spi-max-frequency = <48000000>;
 	};
 };
 
@@ -584,17 +584,13 @@
 };
 
 &mmc3 {
-	status = "disable";
+	status = "disabled";
 };
 
 &hivdmac {
 	status = "disabled";
 };
 
-&hiedmacv310_0 {
-	status = "okay";
-};
-
 &hiedmacv310_1 {
-	status = "okay";
+	status = "disabled";
 };
