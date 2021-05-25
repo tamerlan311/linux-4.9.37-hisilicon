@@ -67,28 +67,22 @@
 		interrupt-parent = <&gic>;
 		ranges;
 
-		clk_3m: clk_3m {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <3000000>;
-		};
-
-		clk_apb: clk_apb {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <50000000>;
-		};
-
 		pmu {
 			compatible = "arm,cortex-a7-pmu";
 			interrupts = <0 54 4>;
 		};
 
 		sysctrl: system-controller@12050000 {
-			compatible = "hisilicon,sysctrl";
+			compatible = "hisilicon,hi3536dv100-sysctrl", "syscon";
 			reg = <0x12050000 0x1000>;
-			reboot-offset = <0x4>;
 			#clock-cells = <1>;
+		};
+
+		reboot {
+			compatible = "syscon-reboot";
+			regmap = <&sysctrl>;
+			offset = <0x4>;
+			mask = <0xdeadbeef>;
 		};
 
 		amba {
@@ -102,8 +96,10 @@
 				/* timer0 & timer1 */
 				interrupts = <0 1 4>;
 				reg = <0x12000000 0x1000>;
-				clocks = <&clk_3m>, <&clk_3m>, <&clk_apb>;
-				clock-names = "timer00", "timer01", "apb_pclk";
+				clocks =  <&sysctrl HI3536DV100_TIME0_0_CLK>,
+						  <&sysctrl HI3536DV100_TIME0_1_CLK>,
+						  <&clock HI3536DV100_SYSAPB_CLK>;
+				clock-names = "timer0", "timer1", "apb_pclk";
 				status = "disabled";
 			};
 
@@ -112,8 +108,10 @@
 				/* timer2 & timer3 */
 				interrupts = <0 2 4>;
 				reg = <0x12010000 0x1000>;
-				clocks = <&clk_3m>, <&clk_3m>, <&clk_apb>;
-				clock-names = "timer10", "timer11", "apb_pclk";
+				clocks =  <&sysctrl HI3536DV100_TIME1_2_CLK>,
+						  <&sysctrl HI3536DV100_TIME1_3_CLK>,
+						  <&clock HI3536DV100_SYSAPB_CLK>;
+				clock-names = "timer2", "timer3", "apb_pclk";
 				status = "disabled";
 			};
 
@@ -122,8 +120,10 @@
 				/* timer4 & timer5 */
 				interrupts = <0 3 4>;
 				reg = <0x12020000 0x1000>;
-				clocks = <&clk_3m>, <&clk_3m>, <&clk_apb>;
-				clock-names = "timer20", "timer21", "apb_pclk";
+				clocks =  <&sysctrl HI3536DV100_TIME2_4_CLK>,
+						  <&sysctrl HI3536DV100_TIME2_5_CLK>,
+						  <&clock HI3536DV100_SYSAPB_CLK>;
+				clock-names = "timer4", "timer5", "apb_pclk";
 				status = "disabled";
 			};
 
@@ -132,8 +132,10 @@
 				/* timer6 & timer7 */
 				interrupts = <0 4 4>;
 				reg = <0x12030000 0x1000>;
-				clocks = <&clk_3m>, <&clk_3m>, <&clk_apb>;
-				clock-names = "timer30", "timer31", "apb_pclk";
+				clocks =  <&sysctrl HI3536DV100_TIME3_6_CLK>,
+						  <&sysctrl HI3536DV100_TIME3_7_CLK>,
+						  <&clock HI3536DV100_SYSAPB_CLK>;
+				clock-names = "timer6", "timer7", "apb_pclk";
 				status = "disabled";
 			};
 
@@ -177,6 +179,7 @@
 		sata_phy: phy@10030000 {
 			compatible = "hisilicon,hisi-sata-phy";
 			reg = <0x10030000 0x10000>;
+			ports_num_max = <1>;
 			#phy-cells = <0>;
 		};
 
@@ -232,7 +235,7 @@
 
 		fmc: flash-memory-controller@10000000 {
 			compatible = "hisilicon,hisi-fmc";
-			reg = <0x10000000 0x1000>, <0x14000000 0x1000000>;
+			reg = <0x10000000 0x1000>, <0x14000000 0x10000>;
 			reg-names = "control", "memory";
 			clocks = <&clock HI3536DV100_FMC_CLK>;
 			#address-cells = <1>;

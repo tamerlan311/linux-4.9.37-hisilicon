@@ -65,10 +65,16 @@
 	};
 
 	sysctrl: system-controller@20050000 {
-		compatible = "hisilicon,sysctrl";
+		compatible = "hisilicon,hi3516a-sysctrl", "syscon";
 		reg = <0x20050000 0x1000>;
-		reboot-offset = <0x4>;
 		#clock-cells = <1>;
+	};
+
+	reboot {
+		 compatible = "syscon-reboot";
+		 regmap = <&sysctrl>;
+		 offset = <0x4>;
+		 mask = <0xdeadbeef>;
 	};
 
 	soc {
@@ -78,17 +84,6 @@
 		interrupt-parent = <&gic>;
 		ranges;
 
-		clk_3m: clk_3m {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <3000000>;
-		};
-
-		clk_apb: clk_apb {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <50000000>;
-		};
 
 		pmu {
 			compatible = "arm,cortex-a7-pmu";
@@ -179,8 +174,10 @@
 			compatible = "arm,sp804", "arm,primecell";
 			interrupts = <0 3 4>;
 			reg = <0x20000000 0x1000>;
-			clocks = <&clk_apb>, <&clk_3m>, <&clk_apb>;
-			clock-names = "timer00", "timer01", "apb_pclk";
+			clocks =  <&sysctrl HI3516A_TIME0_0_CLK>,
+					  <&sysctrl HI3516A_TIME0_1_CLK>,
+					  <&clock HI3516A_SYSAXI_CLK>;
+			clock-names = "timer0", "timer1", "apb_pclk";
 			status = "disabled";
 		};
 
@@ -189,8 +186,10 @@
 			/* timer0 & timer1 */
 			interrupts = <0 4 4>;
 			reg = <0x20010000 0x1000>;
-			clocks = <&clk_3m>, <&clk_3m>, <&clk_apb>;
-			clock-names = "timer12", "timer13", "apb_pclk";
+			clocks =  <&sysctrl HI3516A_TIME1_2_CLK>,
+					  <&sysctrl HI3516A_TIME1_3_CLK>,
+					  <&clock HI3516A_SYSAXI_CLK>;
+			clock-names = "timer2", "timer3", "apb_pclk";
 			status = "disabled";
 		};
 
@@ -284,7 +283,7 @@
 
 		hisnfc100: spi_nand_controller@10040000 {
 			compatible = "hisilicon,hisi-spi-nand";
-			reg = <0x10040000 0x1000>, <0x54000000 0x1000000>;
+			reg = <0x10040000 0x1000>, <0x54000000 0x10000>;
 			reg-names = "control", "memory";
 			clocks = <&clock HI3516A_SNAND_CLK>;
 			assigned-clocks = <&clock HI3516A_SNAND_CLK>;
@@ -300,7 +299,7 @@
 
 		hinfc610: nand_controller@10000000 {
 			compatible = "hisilicon,hisi-parallel-nand";
-			reg = <0x10000000 0x1000>, <0x50000000 0x1000000>;
+			reg = <0x10000000 0x1000>, <0x50000000 0x10000>;
 			reg-names = "control", "memory";
 			clocks = <&clock HI3516A_NAND_CLK>;
 			assigned-clocks = <&clock HI3516A_NAND_CLK>;
