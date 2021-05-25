@@ -59,7 +59,7 @@ static void hisi_sata_poweroff(void)
 {
 }
 
-void hisi_sata_reset_rxtx_assert(void)
+void hisi_sata_reset_rxtx_assert(unsigned int port_no)
 {
 	unsigned int tmp_val;
 
@@ -70,7 +70,7 @@ void hisi_sata_reset_rxtx_assert(void)
 }
 EXPORT_SYMBOL(hisi_sata_reset_rxtx_assert);
 
-void hisi_sata_reset_rxtx_deassert(void)
+void hisi_sata_reset_rxtx_deassert(unsigned int port_no)
 {
 	unsigned int tmp_val;
 

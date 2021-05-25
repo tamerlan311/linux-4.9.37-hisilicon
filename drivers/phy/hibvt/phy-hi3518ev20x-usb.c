@@ -64,21 +64,11 @@ void hisi_usb_phy_on(struct phy *phy)
 	writel(reg, priv->peri_ctrl + PERI_CRG46);
 	udelay(100);
 
-	writel(0x908, priv->misc_ctrl + MISC_USB);
-	udelay(10);
-	writel(0x928, priv->misc_ctrl + MISC_USB);
-	mdelay(1);
-
 	/* open phy clk */
 	writel(0xc06, priv->misc_ctrl + MISC_USB);
 	udelay(10);
 	writel(0xc26, priv->misc_ctrl + MISC_USB);
 	mdelay(5);
-
-	writel(0x108, priv->misc_ctrl + MISC_USB);
-	udelay(10);
-	writel(0x128, priv->misc_ctrl + MISC_USB);
-	mdelay(2);
 
 	/* usb2.0 phy eye pattern */
 	writel(0x1c00, priv->misc_ctrl + MISC_USB);

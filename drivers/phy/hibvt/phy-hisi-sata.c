@@ -24,6 +24,8 @@
 #include <mach/io.h>
 
 static unsigned int phy_mode = CONFIG_HISI_SATA_MODE;
+static unsigned int ports_num;
+unsigned int sata_port_map;
 
 #ifdef MODULE
 module_param(mode_3g, uint, 0600);
@@ -34,9 +36,25 @@ MODULE_PARM_DESC(phy_mode, "sata phy mode (0:1.5G;1:3G(default);2:6G)");
 #include "phy-hi3536dv100-sata.c"
 #endif
 
+#ifdef CONFIG_ARCH_HI3521A
+#include "phy-hi3521a-sata.c"
+#endif
+
+#ifdef CONFIG_ARCH_HI3531A
+#include "phy-hi3531a-sata.c"
+#endif
+
 static int hisi_sata_phy_init(struct phy *phy)
 {
 	void __iomem *mmio = phy_get_drvdata(phy);
+
+#ifdef CONFIG_ARCH_HI3531A
+	hisi_sata_get_port_info();
+	if ((ports_num < 1) || (ports_num > 4)) {
+		pr_err("sata ports number:%d WRONG!!!\n", ports_num);
+		return -EINVAL;
+	}
+#endif
 
 	hisi_sata_poweron();
 	hisi_sata_reset();
@@ -97,6 +115,8 @@ static int hisi_sata_phy_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to create PHY\n");
 		return PTR_ERR(phy);
 	}
+
+	of_property_read_u32(dev->of_node, "ports_num_max", &ports_num);
 
 	phy_set_drvdata(phy, mmio);
 
