@@ -203,22 +203,29 @@ static void higmac_set_rss_cap(struct higmac_netdev_local *priv)
 	writel(val, priv->gmac_iobase + HW_CAP_EN);
 }
 
+/* config AXI bus burst and outstanding for better performance */
+static void higmac_axi_bus_cfg(struct higmac_netdev_local *priv)
+{
+	if (!priv->axi_bus_cfg_base)
+		return;
+
+#if defined(CONFIG_ARCH_HI3519) || defined(CONFIG_ARCH_HI3519V101) || \
+	defined(CONFIG_ARCH_HI3559) || defined(CONFIG_ARCH_HI3556) || \
+	defined(CONFIG_ARCH_HI3516AV200)
+	if (!(readl(priv->axi_bus_cfg_base) >> BURST_OUTSTANDING_OFFSET))
+		writel(BURST4_OUTSTANDING1, priv->axi_bus_cfg_base);
+#elif defined(CONFIG_ARCH_HI3521A) || defined(CONFIG_ARCH_HI3531A)
+	writel(BURST4_OUTSTANDING1, priv->axi_bus_cfg_base);
+#endif
+}
+
 static void higmac_hw_init(struct higmac_netdev_local *priv)
 {
 	u32 val;
 	u32 reg;
 	int i;
 
-#if defined(CONFIG_ARCH_HI3519) || defined(CONFIG_ARCH_HI3519V101) || \
-	defined(CONFIG_ARCH_HI3559) || defined(CONFIG_ARCH_HI3556) || \
-	defined(CONFIG_ARCH_HI3516AV200)
-	/* config AXI parameter for better performance. */
-	val = readl(priv->gmac_iobase + BURST_OUTSTANDING_REG);
-	val >>= BURST_OUTSTANDING_OFFSET;
-	if (!val)
-		writel(BURST4_OUTSTANDING1, priv->gmac_iobase +
-			BURST_OUTSTANDING_REG);
-#endif
+	higmac_axi_bus_cfg(priv);
 
 	/* disable and clear all interrupts */
 	writel(0, priv->gmac_iobase + ENA_PMU_INT);
@@ -652,6 +659,34 @@ static int higmac_net_set_mac_address(struct net_device *dev, void *p)
 	return ret;
 }
 
+#define HIGMAC_LINK_CHANGE_PROTECT
+
+#ifdef HIGMAC_LINK_CHANGE_PROTECT
+#define HIGMAC_MS_TO_NS (1000000ULL)
+#define HIGMAC_FLUSH_WAIT_TIME (100*HIGMAC_MS_TO_NS)
+/* protect code */
+static void higmac_linkup_flush(struct higmac_netdev_local *ld)
+{
+	int tx_bq_wr_offset, tx_bq_rd_offset;
+	unsigned long long time_limit, time_now;
+
+	time_now = sched_clock();
+	time_limit = time_now + HIGMAC_FLUSH_WAIT_TIME;
+
+	do {
+		tx_bq_wr_offset = readl(ld->gmac_iobase + TX_BQ_WR_ADDR);
+		tx_bq_rd_offset = readl(ld->gmac_iobase + TX_BQ_RD_ADDR);
+
+		time_now = sched_clock();
+		if (unlikely((long long)time_now -
+					(long long)time_limit >= 0))
+			break;
+	} while (tx_bq_rd_offset != tx_bq_wr_offset);
+
+	mdelay(1);
+}
+#endif
+
 static void higmac_adjust_link(struct net_device *dev)
 {
 	struct higmac_netdev_local *priv = netdev_priv(dev);
@@ -661,7 +696,17 @@ static void higmac_adjust_link(struct net_device *dev)
 	if (phy->link) {
 		if ((priv->old_speed != phy->speed) ||
 		    (priv->old_duplex != phy->duplex)) {
+#ifdef HIGMAC_LINK_CHANGE_PROTECT
+			unsigned long txflags;
+
+			spin_lock_irqsave(&priv->txlock, txflags);
+
+			higmac_linkup_flush(priv);
+#endif
 			higmac_config_port(dev, phy->speed, phy->duplex);
+#ifdef HIGMAC_LINK_CHANGE_PROTECT
+			spin_unlock_irqrestore(&priv->txlock, txflags);
+#endif
 			higmac_set_flow_ctrl_state(priv, phy->pause);
 
 			if (priv->autoeee)
@@ -915,7 +960,7 @@ static int higmac_rx(struct net_device *dev, int limit, int rxq_id)
 
 		napi_gro_receive(&ld->q_napi[rxq_id].napi, skb);
 		dev->stats.rx_packets++;
-		dev->stats.rx_bytes += skb->len;
+		dev->stats.rx_bytes += len;
 		dev->last_rx = jiffies;
 next:
 		spin_lock(&ld->rxlock);
@@ -2552,6 +2597,13 @@ static int higmac_dev_probe(struct platform_device *pdev)
 		ret = PTR_ERR(priv->macif_base);
 		goto out_free_netdev;
 	}
+
+	/* only for some chip to fix AXI bus burst and outstanding config */
+	res = platform_get_resource(pdev, IORESOURCE_MEM,
+				    MEM_AXI_BUS_CFG_IOBASE);
+	priv->axi_bus_cfg_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(priv->axi_bus_cfg_base))
+		priv->axi_bus_cfg_base = NULL;
 
 	priv->port_rst = devm_reset_control_get(dev, HIGMAC_PORT_RST_NAME);
 	if (IS_ERR(priv->port_rst)) {

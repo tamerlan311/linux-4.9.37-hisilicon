@@ -297,6 +297,7 @@ enum {
 enum {
 	MEM_GMAC_IOBASE,
 	MEM_MACIF_IOBASE,
+	MEM_AXI_BUS_CFG_IOBASE,
 	MEM_FWD_IOBASE,
 	MEM_CTRL_IOBASE,
 };
@@ -502,6 +503,7 @@ struct higmac_netdev_local {
 
 	void __iomem *gmac_iobase;
 	void __iomem *macif_base;
+	void __iomem *axi_bus_cfg_base;
 	int index;		/* 0 -- mac0, 1 -- mac1 */
 
 	u32 hw_cap;
