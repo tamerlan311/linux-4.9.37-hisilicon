@@ -137,12 +137,17 @@
 /* This one is only in the PL023 variant */
 #define SSP_CR1_MASK_FBCLKDEL_ST (0x7UL << 13)
 
+#ifdef CONFIG_ARCH_HISI_BVT
 /*
  * The Hisilicon version of this block adds some bits
  * in SSP_CR1
  */
 #define SSP_CR1_MASK_BIGEND_HISI	(0x1UL << 4)
 #define SSP_CR1_MASK_ALTASENS_HISI	(0x1UL << 6)
+
+#define SSP_TX_FIFO_CR(r)  (r + 0x28)
+#define SSP_RX_FIFO_CR(r)  (r + 0x2C)
+#endif
 
 /*
  * SSP Status Register - SSP_SR
@@ -304,7 +309,9 @@
 
 #define SPI_POLLING_TIMEOUT 1000
 
+#ifdef CONFIG_ARCH_HISI_BVT
 #define PL022_IDS_INDEX_HISI		4
+#endif
 
 /*
  * The type of reading going on on this chip
@@ -347,12 +354,14 @@ struct vendor_data {
 	bool internal_cs_ctrl;
 };
 
+#ifdef CONFIG_ARCH_HISI_BVT
 struct cs_data {
 	struct resource		res;
 	void __iomem		*virt_addr;
 	unsigned int		cs_sb;
 	unsigned int		cs_mask_bit;
 };
+#endif
 
 /**
  * struct pl022 - This is the private SSP driver data structure
@@ -427,7 +436,9 @@ struct pl022 {
 #endif
 	int cur_cs;
 	int *chipselects;
+#ifdef CONFIG_ARCH_HISI_BVT
 	struct cs_data		*cs_data;
+#endif
 };
 
 /**
@@ -484,6 +495,7 @@ static void null_cs_control(u32 command)
 static void internal_cs_control(struct pl022 *pl022, u32 command)
 {
 	u32 tmp;
+#ifdef CONFIG_ARCH_HISI_BVT
 	struct amba_device *adev = pl022->adev;
 	struct amba_driver *adrv = container_of(adev->dev.driver,
 			struct amba_driver, drv);
@@ -508,13 +520,16 @@ static void internal_cs_control(struct pl022 *pl022, u32 command)
 						(~SSP_CR1_MASK_SSE)),
 					SSP_CR1(pl022->virtbase));
 	} else {
-		tmp = readw(SSP_CSR(pl022->virtbase));
-		if (command == SSP_CHIP_SELECT)
-			tmp &= ~BIT((u32)pl022->cur_cs);
-		else
-			tmp |= BIT((u32)pl022->cur_cs);
-		writew(tmp, SSP_CSR(pl022->virtbase));
+#endif
+	tmp = readw(SSP_CSR(pl022->virtbase));
+	if (command == SSP_CHIP_SELECT)
+		tmp &= ~BIT((u32)pl022->cur_cs);
+	else
+		tmp |= BIT((u32)pl022->cur_cs);
+	writew(tmp, SSP_CSR(pl022->virtbase));
+#ifdef CONFIG_ARCH_HISI_BVT
 	}
+#endif
 }
 
 static void pl022_cs_control(struct pl022 *pl022, u32 command)
@@ -615,12 +630,16 @@ static int flush(struct pl022 *pl022)
 static void restore_state(struct pl022 *pl022)
 {
 	struct chip_data *chip = pl022->cur_chip;
+#ifdef CONFIG_ARCH_HISI_BVT
 	struct amba_device *adev = pl022->adev;
 	struct amba_driver *adrv = container_of(adev->dev.driver,
 			struct amba_driver, drv);
 
 	if (pl022->vendor->extended_cr && (adev->periphid !=
 				adrv->id_table[PL022_IDS_INDEX_HISI].id))
+#else
+	if (pl022->vendor->extended_cr)
+#endif
 		writel(chip->cr0, SSP_CR0(pl022->virtbase));
 	else
 		writew(chip->cr0, SSP_CR0(pl022->virtbase));
@@ -693,12 +712,14 @@ static void restore_state(struct pl022 *pl022)
 	GEN_MASK_BITS(SSP_FEEDBACK_CLK_DELAY_NONE, SSP_CR1_MASK_FBCLKDEL_ST, 13) \
 )
 
+#ifdef CONFIG_ARCH_HISI_BVT
 /* Hisilicon versions extend this register to use all 16 bits */
 #define DEFAULT_SSP_REG_CR1_HISI ( \
 	DEFAULT_SSP_REG_CR1 | \
 	GEN_MASK_BITS(SSP_RX_MSB, SSP_CR1_MASK_BIGEND_HISI, 4) | \
 	GEN_MASK_BITS(0x1, SSP_CR1_MASK_ALTASENS_HISI, 6) \
 )
+#endif
 
 #define DEFAULT_SSP_REG_CPSR ( \
 	GEN_MASK_BITS(SSP_DEFAULT_PRESCALE, SSP_CPSR_MASK_CPSDVSR, 0) \
@@ -715,24 +736,26 @@ static void restore_state(struct pl022 *pl022)
  */
 static void load_ssp_default_config(struct pl022 *pl022)
 {
-	struct amba_device *adev = pl022->adev;
-	struct amba_driver *adrv = container_of(adev->dev.driver,
-			struct amba_driver, drv);
-
 	if (pl022->vendor->pl023) {
 		writel(DEFAULT_SSP_REG_CR0_ST_PL023, SSP_CR0(pl022->virtbase));
 		writew(DEFAULT_SSP_REG_CR1_ST_PL023, SSP_CR1(pl022->virtbase));
 	} else if (pl022->vendor->extended_cr) {
+#ifdef CONFIG_ARCH_HISI_BVT
+		struct amba_device *adev = pl022->adev;
+		struct amba_driver *adrv = container_of(adev->dev.driver,
+				struct amba_driver, drv);
+
 		if (adev->periphid == adrv->id_table[PL022_IDS_INDEX_HISI].id) {
 			writew(DEFAULT_SSP_REG_CR0, SSP_CR0(pl022->virtbase));
 			writew(DEFAULT_SSP_REG_CR1_HISI,
 					SSP_CR1(pl022->virtbase));
 		} else {
-			writel(DEFAULT_SSP_REG_CR0_ST,
-					SSP_CR0(pl022->virtbase));
-			writew(DEFAULT_SSP_REG_CR1_ST,
-					SSP_CR1(pl022->virtbase));
+#endif
+		writel(DEFAULT_SSP_REG_CR0_ST, SSP_CR0(pl022->virtbase));
+		writew(DEFAULT_SSP_REG_CR1_ST, SSP_CR1(pl022->virtbase));
+#ifdef CONFIG_ARCH_HISI_BVT
 		}
+#endif
 	} else {
 		writew(DEFAULT_SSP_REG_CR0, SSP_CR0(pl022->virtbase));
 		writew(DEFAULT_SSP_REG_CR1, SSP_CR1(pl022->virtbase));
@@ -1361,7 +1384,6 @@ static irqreturn_t pl022_interrupt_handler(int irq, void *dev_id)
 		if (readw(SSP_SR(pl022->virtbase)) & SSP_SR_MASK_RFF)
 			dev_err(&pl022->adev->dev,
 				"RXFIFO is full\n");
-
 		/*
 		 * Disable and clear interrupts, disable SSP,
 		 * mark message with bad status so it can be
@@ -1907,10 +1929,13 @@ static int pl022_setup(struct spi_device *spi)
 	unsigned int bits = spi->bits_per_word;
 	u32 tmp;
 	struct device_node *np = spi->dev.of_node;
+#ifdef CONFIG_ARCH_HISI_BVT
 	struct amba_device *adev = pl022->adev;
 	struct amba_driver *adrv = container_of(adev->dev.driver,
 			struct amba_driver, drv);
-
+	writel(0, SSP_TX_FIFO_CR(pl022->virtbase));
+	writel(0, SSP_RX_FIFO_CR(pl022->virtbase));
+#endif
 
 	if (!spi->max_speed_hz)
 		return -EINVAL;
@@ -2053,8 +2078,12 @@ static int pl022_setup(struct spi_device *spi)
 	chip->cpsr = clk_freq.cpsdvsr;
 
 	/* Special setup for the ST micro extended control registers */
+#ifdef CONFIG_ARCH_HISI_BVT
 	if (pl022->vendor->extended_cr && (adev->periphid !=
 				adrv->id_table[PL022_IDS_INDEX_HISI].id)) {
+#else
+	if (pl022->vendor->extended_cr) {
+#endif
 		u32 etx;
 
 		if (pl022->vendor->pl023) {
@@ -2088,6 +2117,7 @@ static int pl022_setup(struct spi_device *spi)
 			       SSP_CR1_MASK_RXIFLSEL_ST, 7);
 		SSP_WRITE_BITS(chip->cr1, chip_info->tx_lev_trig,
 			       SSP_CR1_MASK_TXIFLSEL_ST, 10);
+#ifdef CONFIG_ARCH_HISI_BVT
 	} else if (pl022->vendor->extended_cr && (adev->periphid ==
 				adrv->id_table[PL022_IDS_INDEX_HISI].id)) {
 		SSP_WRITE_BITS(chip->cr0, bits - 1,
@@ -2102,6 +2132,7 @@ static int pl022_setup(struct spi_device *spi)
 
 		SSP_WRITE_BITS(chip->cr1, tmp, SSP_CR1_MASK_BIGEND_HISI, 4);
 		SSP_WRITE_BITS(chip->cr1, 0x1, SSP_CR1_MASK_ALTASENS_HISI, 6);
+#endif
 	} else {
 		SSP_WRITE_BITS(chip->cr0, bits - 1,
 			       SSP_CR0_MASK_DSS, 0);
@@ -2256,6 +2287,7 @@ static int pl022_probe(struct amba_device *adev, const struct amba_id *id)
 		for (i = 0; i < num_cs; i++)
 			pl022->chipselects[i] = i;
 
+#ifdef CONFIG_ARCH_HISI_BVT
 		if ((adev->periphid == adrv->id_table[PL022_IDS_INDEX_HISI].id)
 				&& pl022->vendor->extended_cr
 				&& (num_cs > 1)) {
@@ -2290,6 +2322,7 @@ static int pl022_probe(struct amba_device *adev, const struct amba_id *id)
 					resource_size(&adev->res));
 		} else
 				pl022->cs_data = NULL;
+#endif
 	} else if (IS_ENABLED(CONFIG_OF)) {
 		for (i = 0; i < num_cs; i++) {
 			int cs_gpio = of_get_named_gpio(np, "cs-gpios", i);
@@ -2416,10 +2449,11 @@ static int pl022_probe(struct amba_device *adev, const struct amba_id *id)
  err_no_ioremap:
 	amba_release_regions(adev);
  err_no_ioregion:
+#ifdef CONFIG_ARCH_HISI_BVT
 	if (pl022->cs_data)
 		release_mem_region(pl022->cs_data->res.start,
 				resource_size(&pl022->cs_data->res));
-
+#endif
  err_no_gpio:
  err_no_mem:
 	spi_master_put(master);
@@ -2446,10 +2480,11 @@ pl022_remove(struct amba_device *adev)
 
 	clk_disable_unprepare(pl022->clk);
 	amba_release_regions(adev);
+#ifdef CONFIG_ARCH_HISI_BVT
 	if (pl022->cs_data)
 		release_mem_region(pl022->cs_data->res.start,
 				resource_size(&pl022->cs_data->res));
-
+#endif
 	tasklet_disable(&pl022->pump_transfers);
 	return 0;
 }
@@ -2565,6 +2600,7 @@ static struct vendor_data vendor_lsi = {
 	.internal_cs_ctrl = true,
 };
 
+#ifdef CONFIG_ARCH_HISI_BVT
 static struct vendor_data vendor_hisi = {
 	.fifodepth = 256,
 	.max_bpw = 16,
@@ -2574,6 +2610,7 @@ static struct vendor_data vendor_hisi = {
 	.loopback = true,
 	.internal_cs_ctrl = true,
 };
+#endif
 
 static struct amba_id pl022_ids[] = {
 	{
@@ -2615,6 +2652,7 @@ static struct amba_id pl022_ids[] = {
 		.mask	= 0x000fffff,
 		.data	= &vendor_lsi,
 	},
+#ifdef CONFIG_ARCH_HISI_BVT
 	{
 		/*
 		 * Hisilicon derivative, this has a 16bit wide
@@ -2624,6 +2662,7 @@ static struct amba_id pl022_ids[] = {
 		.mask	= 0xffffffff,
 		.data	= &vendor_hisi,
 	},
+#endif
 	{ 0, 0 },
 };
 
