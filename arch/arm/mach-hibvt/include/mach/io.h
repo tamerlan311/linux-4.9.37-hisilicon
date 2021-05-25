@@ -21,4 +21,24 @@
 #include <mach/hi3531a_io.h>
 #endif
 
+#ifdef CONFIG_ARCH_HI3516CV500
+#include <mach/hi3516cv500_io.h>
+#endif
+
+#ifdef CONFIG_ARCH_HI3516DV300
+#include <mach/hi3516dv300_io.h>
+#endif
+
+#ifdef CONFIG_ARCH_HI3556V200
+#include <mach/hi3556v200_io.h>
+#endif
+
+#ifdef CONFIG_ARCH_HI3559V200
+#include <mach/hi3559v200_io.h>
+#endif
+
+#ifdef CONFIG_ARCH_HI3519AV100
+#include <mach/hi3519av100_io.h>
+#endif
+
 #endif

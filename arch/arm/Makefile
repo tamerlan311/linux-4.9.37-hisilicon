@@ -235,6 +235,8 @@ plat-$(CONFIG_PLAT_ORION)	+= orion
 plat-$(CONFIG_PLAT_PXA)		+= pxa
 plat-$(CONFIG_PLAT_S3C24XX)	+= samsung
 plat-$(CONFIG_PLAT_VERSATILE)	+= versatile
+plat-$(CONFIG_ARCH_HI3519AV100)	+= hi3519av100
+plat-$(CONFIG_ARCH_HI3556AV100)	+= hi3556av100
 
 ifeq ($(CONFIG_ARCH_EBSA110),y)
 # This is what happens if you forget the IOCS16 line.

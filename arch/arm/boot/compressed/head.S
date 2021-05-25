@@ -220,7 +220,9 @@ not_angel:
 		orrcc	r4, r4, #1		@ remember we skipped cache_on
 
 /*TODO all the Cortex-A7 Single Core must fix this bug */
-#if defined(CONFIG_ARCH_HI3516A) || defined(CONFIG_ARCH_HI3536DV100)
+#if defined(CONFIG_ARCH_HI3516A) || defined(CONFIG_ARCH_HI3536DV100)|| defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)\
+   || defined(CONFIG_ARCH_HI3516EV200) || defined(CONFIG_ARCH_HI3516EV300) || defined(CONFIG_ARCH_HI3518EV300)\
+ || defined(CONFIG_ARCH_HI3516DV200)
 /*
  * This is a bug on Cortex-A7 MPCORE. see buglist of Cortex-A7
  * The D-caches are disabled when ACTLR.SMP is set to 0 regardless of the
