@@ -118,6 +118,7 @@
 #define FLASH_TYPE_SEL_MASK			(0x3 << 1)
 #define FMC_CFG_FLASH_SEL(_type)		(((_type) & 0x3) << 1)
 
+#define FMC_GLOBAL_CFG_DTR_MODE		BIT(11)
 /*****************************************************************************/
 #define FMC_SPI_TIMING_CFG			0x08
 #define TIMING_CFG_TCSH(nr)			(((nr) & 0xf) << 8)
@@ -201,6 +202,7 @@
 #define OP_CFG_MEM_IF_TYPE(_type)		(((_type) & 0x7) << 7)
 #define OP_CFG_ADDR_NUM(_addr)			(((_addr) & 0x7) << 4)
 #define OP_CFG_DUMMY_NUM(_dummy)		((_dummy) & 0xf)
+#define OP_CFG_OEN_EN               (0x1 << 13)
 
 #define IF_TYPE_SHIFT				7
 #define IF_TYPE_MASK				(0x7 << IF_TYPE_SHIFT)
@@ -271,8 +273,13 @@
 
 /*****************************************************************************/
 #define FMC_DMA_SADDR_D0			0x4c
-#define HIFMC_DMA_MAX_LEN			(4096)
-#define HIFMC_DMA_MASK				(HIFMC_DMA_MAX_LEN - 1)
+
+/* Nand Flash pagesize is impossible over 32K; oobsize should less than 8K*/
+#define HIFMC_DMA_MAX_PAGESIZE		(0x8000)
+#define HIFMC_DMA_MAX_OOBSIZE		(0x2000)
+/* HIFMC_DMA_MAX_LEN also suit for SPI Nor Flash DMA LEN */
+#define HIFMC_DMA_MAX_LEN		(HIFMC_DMA_MAX_PAGESIZE + HIFMC_DMA_MAX_OOBSIZE)
+#define HIFMC_DMA_MASK			(HIFMC_DMA_MAX_LEN - 1)
 
 /*****************************************************************************/
 #define FMC_DMA_SADDR_D1			0x50
@@ -416,7 +423,7 @@ extern unsigned char hifmc_cs_user[];
 	(writeb((u_int)(_val), ((char *)_addr)))
 
 /*****************************************************************************/
-#define FMC_WAIT_TIMEOUT 0x1000000
+#define FMC_WAIT_TIMEOUT 0x2000000
 
 #define FMC_CMD_WAIT_CPU_FINISH(_host) \
 	do { \
@@ -500,6 +507,8 @@ struct hisi_fmc {
 	void __iomem *iobase;
 	struct clk *clk;
 	struct mutex lock;
+	void *buffer;
+	dma_addr_t dma_buffer;
 };
 
 struct hifmc_cmd_op {
@@ -512,5 +521,7 @@ struct hifmc_cmd_op {
 	unsigned short option;
 	unsigned short op_cfg;
 };
+
+extern struct mutex fmc_switch_mutex;
 
 #endif /*__HISI_FMC_H*/

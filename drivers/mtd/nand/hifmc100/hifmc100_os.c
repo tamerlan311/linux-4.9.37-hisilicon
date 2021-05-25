@@ -105,6 +105,11 @@ static int hisi_spi_nand_probe(struct platform_device *pltdev)
 
 	FMC_PR(BT_DBG, "\t*-Start SPI Nand flash driver probe\n");
 
+	if (!fmc) {
+		dev_err(dev, "get mfd fmc devices failed\n");
+		return -ENXIO;
+	}
+
 	len = sizeof(struct hifmc_host) + sizeof(struct nand_chip)
 		+ sizeof(struct mtd_info);
 	host = devm_kzalloc(dev, len, GFP_KERNEL);
@@ -122,18 +127,11 @@ static int hisi_spi_nand_probe(struct platform_device *pltdev)
 	host->iobase = fmc->iobase;
 	host->clk = fmc->clk;
 	host->lock = &fmc->lock;
+	host->buffer = fmc->buffer;
+	host->dma_buffer = fmc->dma_buffer;
 
 	memset((char *)host->iobase, 0xff, SPI_NAND_BUFFER_LEN);
 	chip->IO_ADDR_R = chip->IO_ADDR_W = host->iobase;
-
-	host->buffer = dmam_alloc_coherent(host->dev, SPI_NAND_BUFFER_LEN,
-			&host->dma_buffer, GFP_KERNEL);
-	if (!host->buffer) {
-		DB_MSG("Error: Can't allocate memory for dma buffer.");
-		result = -EIO;
-		goto fail;
-	}
-	memset(host->buffer, 0xff, SPI_NAND_BUFFER_LEN);
 
 	chip->priv = host;
 	result = hifmc100_spi_nand_init(chip);
@@ -179,8 +177,6 @@ static int hisi_spi_nand_remove(struct platform_device *pltdev)
 {
 	struct hifmc_host *host = platform_get_drvdata(pltdev);
 
-	dmam_free_coherent(host->dev, SPI_NAND_BUFFER_LEN,
-			host->buffer, host->dma_buffer);
 	clk_disable_unprepare(host->clk);
 	nand_release(host->mtd);
 

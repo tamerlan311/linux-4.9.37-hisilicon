@@ -18,6 +18,7 @@
 
 #include <linux/clk.h>
 #include <linux/device.h>
+#include <linux/dma-mapping.h>
 #include <linux/err.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/hisi_fmc.h>
@@ -26,6 +27,10 @@
 #include <linux/platform_device.h>
 
 unsigned char hifmc_cs_user[HIFMC_MAX_CHIP_NUM];
+
+DEFINE_MUTEX(fmc_switch_mutex);
+EXPORT_SYMBOL_GPL(fmc_switch_mutex);
+
 /* ------------------------------------------------------------------------ */
 static const struct mfd_cell hisi_fmc_devs[] = {
 	{
@@ -66,6 +71,17 @@ static int hisi_fmc_probe(struct platform_device *pdev)
 	if (IS_ERR(fmc->clk))
 		return PTR_ERR(fmc->clk);
 
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_warn(&pdev->dev, "Unable to set dma mask\n");
+		return ret;
+	}
+
+	fmc->buffer = dmam_alloc_coherent(&pdev->dev, HIFMC_DMA_MAX_LEN,
+			&fmc->dma_buffer, GFP_KERNEL);
+	if (IS_ERR(fmc->buffer))
+		return PTR_ERR(fmc->buffer);
+
 	mutex_init(&fmc->lock);
 
 	platform_set_drvdata(pdev, fmc);
@@ -84,6 +100,8 @@ static int hisi_fmc_remove(struct platform_device *pdev)
 {
 	struct hisi_fmc *fmc = platform_get_drvdata(pdev);
 
+	dmam_free_coherent(&pdev->dev, HIFMC_DMA_MAX_LEN,
+			fmc->buffer, fmc->dma_buffer);
 	mfd_remove_devices(&pdev->dev);
 	mutex_destroy(&fmc->lock);
 

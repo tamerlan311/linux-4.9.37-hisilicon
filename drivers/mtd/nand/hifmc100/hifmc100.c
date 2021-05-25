@@ -114,7 +114,8 @@ static void hifmc100_send_cmd_write(struct hifmc_host *host)
 	FMC_PR(WR_DBG, "|-Set INT_CLR[%#x]%#x\n", FMC_INT_CLR, reg);
 
 	reg = OP_CFG_FM_CS(host->cmd_op.cs)
-		| OP_CFG_MEM_IF_TYPE(spi->write->iftype);
+		| OP_CFG_MEM_IF_TYPE(spi->write->iftype)
+		| OP_CFG_OEN_EN;
 	hifmc_writel(host, FMC_OP_CFG, reg);
 	FMC_PR(WR_DBG, "|-Set OP_CFG[%#x]%#x\n", FMC_OP_CFG, reg);
 
@@ -233,7 +234,8 @@ static void hifmc100_send_cmd_read(struct hifmc_host *host)
 
 	reg = OP_CFG_FM_CS(host->cmd_op.cs)
 		| OP_CFG_MEM_IF_TYPE(spi->read->iftype)
-		| OP_CFG_DUMMY_NUM(spi->read->dummy);
+		| OP_CFG_DUMMY_NUM(spi->read->dummy)
+		| OP_CFG_OEN_EN;
 	hifmc_writel(host, FMC_OP_CFG, reg);
 	FMC_PR(RD_DBG, "\t|-Set OP_CFG[%#x]%#x\n", FMC_OP_CFG, reg);
 
@@ -355,7 +357,8 @@ static void hifmc100_send_cmd_erase(struct hifmc_host *host)
 	reg = OP_CFG_FM_CS(host->cmd_op.cs)
 		| OP_CFG_MEM_IF_TYPE(spi->erase->iftype)
 		| OP_CFG_ADDR_NUM(STD_OP_ADDR_NUM)
-		| OP_CFG_DUMMY_NUM(spi->erase->dummy);
+		| OP_CFG_DUMMY_NUM(spi->erase->dummy)
+		| OP_CFG_OEN_EN;
 	hifmc_writel(host, FMC_OP_CFG, reg);
 	FMC_PR(ER_DBG, "\t|-Set OP_CFG[%#x]%#x\n", FMC_OP_CFG, reg);
 
@@ -423,7 +426,8 @@ static void hifmc100_send_cmd_readid(struct hifmc_host *host)
 	FMC_PR(BT_DBG, "\t||-Set ADDRL[%#x]%#x\n", FMC_ADDRL, reg);
 
 	reg = OP_CFG_FM_CS(host->cmd_op.cs)
-		| OP_CFG_ADDR_NUM(READ_ID_ADDR_NUM);
+		| OP_CFG_ADDR_NUM(READ_ID_ADDR_NUM)
+		| OP_CFG_OEN_EN;
 	hifmc_writel(host, FMC_OP_CFG, reg);
 	FMC_PR(BT_DBG, "\t||-Set OP_CFG[%#x]%#x\n", FMC_OP_CFG, reg);
 
@@ -458,7 +462,7 @@ static void hifmc100_send_cmd_reset(struct hifmc_host *host)
 	hifmc_writel(host, FMC_CMD, reg);
 	FMC_PR(BT_DBG, "\t||-Set CMD[%#x]%#x\n", FMC_CMD, reg);
 
-	reg = OP_CFG_FM_CS(host->cmd_op.cs);
+	reg = OP_CFG_FM_CS(host->cmd_op.cs) | OP_CFG_OEN_EN;
 	hifmc_writel(host, FMC_OP_CFG, reg);
 	FMC_PR(BT_DBG, "\t||-Set OP_CFG[%#x]%#x\n", FMC_OP_CFG, reg);
 
@@ -650,8 +654,12 @@ static void hifmc100_select_chip(struct mtd_info *mtd, int chipselect)
 	struct nand_chip *chip = mtd_to_nand(mtd);
 	struct hifmc_host *host = chip->priv;
 
-	if (chipselect < 0)
+	if (chipselect < 0) {
+		mutex_unlock(&fmc_switch_mutex);
 		return;
+	}
+
+	mutex_lock(&fmc_switch_mutex);
 
 	if (chipselect > CONFIG_SPI_NAND_MAX_CHIP_NUM)
 		DB_BUG("Error: Invalid chipselect: %d\n", chipselect);
@@ -769,7 +777,7 @@ static int hifmc100_dev_ready(struct mtd_info *mtd)
 	struct hifmc_host *host = chip->priv;
 
 	do {
-		reg = OP_CFG_FM_CS(host->cmd_op.cs);
+		reg = OP_CFG_FM_CS(host->cmd_op.cs) | OP_CFG_OEN_EN;
 		hifmc_writel(host, FMC_OP_CFG, reg);
 
 		reg = FMC_OP_READ_STATUS_EN | FMC_OP_REG_OP_START;

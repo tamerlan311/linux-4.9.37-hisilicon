@@ -481,8 +481,12 @@ static void hifmc100_select_chip(struct mtd_info *mtd, int chipselect)
 	struct nand_chip *chip = mtd_to_nand(mtd);
 	struct hifmc_host *host = chip->priv;
 
-	if (chipselect < 0)
+	if (chipselect < 0) {
+		mutex_unlock(&fmc_switch_mutex);
 		return;
+	}
+
+	mutex_lock(&fmc_switch_mutex);
 
 	if (chipselect > CONFIG_HIFMC100_MAX_NAND_CHIP)
 		DB_BUG("Error: Invalid chip select: %d\n", chipselect);
@@ -901,12 +905,6 @@ static void hifmc100_set_oob_info(struct mtd_info *mtd,
 	host->oobsize = mtd->oobsize;
 
 	buffer_len = host->pagesize + host->oobsize;
-	host->buffer = dmam_alloc_coherent(host->dev, buffer_len,
-			&host->dma_buffer, GFP_KERNEL);
-	if (WARN_ON(!host->buffer)) {
-		dev_err(host->dev, "failed to allocate host->buffer\n");
-		return;
-	}
 
 	memset(host->buffer, 0xff, buffer_len);
 	host->dma_oob = host->dma_buffer + host->pagesize;

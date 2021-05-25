@@ -40,6 +40,11 @@ static int hisi_nand_os_probe(struct platform_device *pltdev)
 	struct device_node *np = NULL;
 	struct hisi_fmc *fmc = dev_get_drvdata(dev->parent);
 
+	if (!fmc) {
+		dev_err(dev, "get mfd fmc devices failed\n");
+		return -ENXIO;
+	}
+
 	len = sizeof(struct hifmc_host) + sizeof(struct nand_chip)
 		+ sizeof(struct mtd_info);
 	host = devm_kzalloc(dev, len, GFP_KERNEL);
@@ -55,6 +60,8 @@ static int hisi_nand_os_probe(struct platform_device *pltdev)
 	host->iobase = fmc->iobase;
 	host->clk = fmc->clk;
 	chip->IO_ADDR_R = chip->IO_ADDR_W = host->iobase;
+	host->buffer = fmc->buffer;
+	host->dma_buffer = fmc->dma_buffer;
 
 	/* hifmc Nand host init */
 	chip->priv = host;

@@ -33,7 +33,7 @@ u_char spi_nand_feature_op(struct hifmc_spi *spi, u_char op, u_char addr,
 			pr_info("\n");
 		FMC_PR(SR_DBG, "\t\t|*-Start Get Status\n");
 
-		reg = OP_CFG_FM_CS(host->cmd_op.cs);
+		reg = OP_CFG_FM_CS(host->cmd_op.cs) | OP_CFG_OEN_EN;
 		hifmc_writel(host, FMC_OP_CFG, reg);
 		FMC_PR(SR_DBG, "\t\t||-Set OP_CFG[%#x]%#x\n", FMC_OP_CFG, reg);
 
@@ -61,7 +61,8 @@ u_char spi_nand_feature_op(struct hifmc_spi *spi, u_char op, u_char addr,
 	FMC_PR(FT_DBG, "\t||||-Set ADDRL[%#x]%#x\n", FMC_ADDRL, addr);
 
 	reg = OP_CFG_FM_CS(host->cmd_op.cs)
-		| OP_CFG_ADDR_NUM(FEATURES_OP_ADDR_NUM);
+		| OP_CFG_ADDR_NUM(FEATURES_OP_ADDR_NUM)
+		| OP_CFG_OEN_EN;
 	hifmc_writel(host, FMC_OP_CFG, reg);
 	FMC_PR(FT_DBG, "\t||||-Set OP_CFG[%#x]%#x\n", FMC_OP_CFG, reg);
 
@@ -163,7 +164,7 @@ static int spi_general_write_enable(struct hifmc_spi *spi)
 	hifmc_writel(host, FMC_CMD, reg);
 	FMC_PR(WE_DBG, "\t||-Set CMD[%#x]%#x\n", FMC_CMD, reg);
 
-	reg = OP_CFG_FM_CS(host->cmd_op.cs);
+	reg = OP_CFG_FM_CS(host->cmd_op.cs) | OP_CFG_OEN_EN;
 	hifmc_writel(host, FMC_OP_CFG, reg);
 	FMC_PR(WE_DBG, "\t||-Set OP_CFG[%#x]%#x\n", FMC_OP_CFG, reg);
 

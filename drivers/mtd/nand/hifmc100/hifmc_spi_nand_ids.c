@@ -35,34 +35,29 @@
 /*****************************************************************************/
 SET_READ_STD(1, INFINITE, 24);
 
-SET_READ_FAST(1, INFINITE, 75);
 SET_READ_FAST(1, INFINITE, 80);
 SET_READ_FAST(1, INFINITE, 104);
 SET_READ_FAST(1, INFINITE, 108);
 SET_READ_FAST(1, INFINITE, 120);
 
-SET_READ_DUAL(1, INFINITE, 75);
 SET_READ_DUAL(1, INFINITE, 80);
 SET_READ_DUAL(1, INFINITE, 104);
 SET_READ_DUAL(1, INFINITE, 108);
 SET_READ_DUAL(1, INFINITE, 120);
 
-SET_READ_DUAL_ADDR(1, INFINITE, 75);
 SET_READ_DUAL_ADDR(1, INFINITE, 80);
 SET_READ_DUAL_ADDR(1, INFINITE, 104);
 SET_READ_DUAL_ADDR(1, INFINITE, 108);
 SET_READ_DUAL_ADDR(1, INFINITE, 120);
 
-SET_READ_QUAD(1, INFINITE, 75);
 SET_READ_QUAD(1, INFINITE, 80);
 SET_READ_QUAD(1, INFINITE, 104);
 SET_READ_QUAD(1, INFINITE, 108);
 SET_READ_QUAD(1, INFINITE, 120);
 
-SET_READ_QUAD_ADDR(1, INFINITE, 75);
-SET_READ_QUAD_ADDR(2, INFINITE, 75);
 SET_READ_QUAD_ADDR(1, INFINITE, 80);
 SET_READ_QUAD_ADDR(2, INFINITE, 80);
+SET_READ_QUAD_ADDR(1, INFINITE, 104);
 SET_READ_QUAD_ADDR(2, INFINITE, 104);
 SET_READ_QUAD_ADDR(1, INFINITE, 108);
 SET_READ_QUAD_ADDR(1, INFINITE, 120);
@@ -73,7 +68,6 @@ SET_WRITE_STD(0, 256, 75);
 SET_WRITE_STD(0, 256, 80);
 SET_WRITE_STD(0, 256, 104);
 
-SET_WRITE_QUAD(0, 256, 75);
 SET_WRITE_QUAD(0, 256, 80);
 SET_WRITE_QUAD(0, 256, 104);
 SET_WRITE_QUAD(0, 256, 108);
@@ -105,46 +99,83 @@ static struct spi_drv spi_driver_no_qe = {
 };
 
 /*****************************************************************************/
-#define SPI_NAND_ID_TAB_VER		"2.4"
+#define SPI_NAND_ID_TAB_VER		"2.6"
 
 /******* SPI Nand ID Table ***************************************************
 * Version	Manufacturer	Chip Name	Size		Operation
-* 1.0		ESMT		F50L512M41A	64MB		Add 5 chip
-*		GD		5F1GQ4UAYIG	128MB
-*		GD		5F2GQ4UAYIG	256MB
-*		GD		5F4GQ4UAYIG	512MB
-*		GD		5F4GQ4UBYIG	512MB
-* 1.1		ESMT		F50L1G41A	128MB		Add 2 chip
-*		Winbond		W25N01GV	128MB
-* 1.2		GD		5F1GQ4UBYIG	128MB		Add 2 chip
-*		GD		5F2GQ4UBYIG	256MB
-* 1.3		ATO		ATO25D1GA	128MB		Add 1 chip
-* 1.4		MXIC		MX35LF1GE4AB	128MB		Add 2 chip
+* 1.0	ESMT		F50L512M41A		64MB		Add 5 chip
+*		GD			5F1GQ4UAYIG		128MB
+*		GD			5F2GQ4UAYIG		256MB
+*		GD			5F4GQ4UAYIG		512MB
+*		GD			5F4GQ4UBYIG		512MB
+* 1.1	ESMT		F50L1G41A		128MB		Add 2 chip
+*		Winbond		W25N01GV		128MB
+* 1.2	GD			5F1GQ4UBYIG		128MB		Add 2 chip
+*		GD			5F2GQ4UBYIG		256MB
+* 1.3	ATO			ATO25D1GA		128MB		Add 1 chip
+* 1.4	MXIC		MX35LF1GE4AB	128MB		Add 2 chip
 *		MXIC		MX35LF2GE4AB	256MB		(SOP-16Pin)
-* 1.5		Paragon		PN26G01A	128MB		Add 1 chip
-* 1.6		All-flash	AFS1GQ4UAC	128MB		Add 1 chip
-* 1.7		TOSHIBA		TC58CVG0S3H	128MB		Add 2 chip
-*		TOSHIBA		TC58CVG2S0H	512MB
-* 1.8		ALL-flash	AFS2GQ4UAD	256MB		Add 2 chip
-*		Paragon		PN26G02A	256MB
-* 1.9		TOSHIBA		TC58CVG1S3H	256MB		Add 1 chip
-* 2.0		HeYangTek	HYF1GQ4UAACAE	128MB		Add 3 chip
+* 1.5	Paragon		PN26G01A		128MB		Add 1 chip
+* 1.6	All-flash	AFS1GQ4UAC		128MB		Add 1 chip
+* 1.7	TOSHIBA		TC58CVG0S3H		128MB		Add 2 chip
+*		TOSHIBA		TC58CVG2S0H		512MB
+* 1.8	ALL-flash	AFS2GQ4UAD		256MB		Add 2 chip
+*		Paragon		PN26G02A		256MB
+* 1.9	TOSHIBA		TC58CVG1S3H		256MB		Add 1 chip
+* 2.0	HeYangTek	HYF1GQ4UAACAE	128MB		Add 3 chip
 *		HeYangTek	HYF2GQ4UAACAE	256MB
 *		HeYangTek	HYF4GQ4UAACBE	512MB
-* 2.1		Micron		MT29F1G01ABA	128MB		Add 5 chip
-		Paragon	1.8V	PN26Q01AWSIUG	128MB
-		TOSHIBA 1.8V	TC58CYG0S3H	128MB
-		TOSHIBA 1.8V	TC58CYG1S3H	256MB
-		TOSHIBA 1.8V	TC58CYG2S0H	512MB
-* 2.2		Micron		MT29F2G01ABA	256MB		Add 1 chip
-* 2.3		MXIC		MX35LF2G14AC	256MB		Add 1 chip
-* 2.4	    GD 1.8V		5F4GQ4RAYIG		512MB		Add 1 chip
+* 2.1	Micron		MT29F1G01ABA	128MB		Add 6 chip
+		Paragon	1.8V PN26Q01AWSIUG	128MB
+		TOSHIBA 1.8V TC58CYG0S3H	128MB
+		TOSHIBA 1.8V TC58CYG1S3H	256MB
+		TOSHIBA 1.8V TC58CYG2S0H	512MB
+		Winbond 1.8V W25N01GWZEIG	128MB
+* 2.2	Micron		MT29F2G01ABA	256MB		Add 1 chip
+* 2.3	MXIC		MX35LF2G14AC	256MB		Add 1 chip
+* 2.4	GD 1.8V		5F4GQ4RAYIG		512MB		Add 1 chip
+* 2.5	GD 1.8V		5F2GQ4RB9IGR	256MB		Add 1 chip
+* 2.6	MXIC 1.8V	MX35UF1G14AC	128MB		Add 4 chip
+*		MXIC 1.8V   MX35UF2G14AC	256MB
+*		Micron 1.8V MT29F1G01ABB	128MB
+*		Micron 1.8V MT29F2G01ABB	256MB
 ******************************************************************************/
 struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 	/* Micron MT29F1G01ABA 1GBit */
 	{
 		.name      = "MT29F1G01ABA",
 		.id        = {0x2C, 0x14},
+		.id_len    = 2,
+		.chipsize  = _128M,
+		.erasesize = _128K,
+		.pagesize  = _2K,
+		.oobsize   = 128,
+		.badblock_pos = BBP_FIRST_PAGE,
+		.read      = {
+			&READ_STD(1, INFINITE, 24),
+			&READ_FAST(1, INFINITE, 80),
+			&READ_DUAL(1, INFINITE, 80),
+			&READ_DUAL_ADDR(1, INFINITE, 80),
+			&READ_QUAD(1, INFINITE, 80),
+			&READ_QUAD_ADDR(2, INFINITE, 80),
+			0
+		},
+		.write     = {
+			&WRITE_STD(0, 256, 80),
+			&WRITE_QUAD(0, 256, 80),
+			0
+		},
+		.erase     = {
+			&ERASE_SECTOR_128K(0, _128K, 80),
+			0
+		},
+		.driver    = &spi_driver_no_qe,
+	},
+
+	/* Micron MT29F1G01ABB 1GBit 1.8V */
+	{
+		.name      = "MT29F1G01ABB",
+		.id        = {0x2C, 0x15},
 		.id_len    = 2,
 		.chipsize  = _128M,
 		.erasesize = _128K,
@@ -194,6 +225,37 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.write     = {
 			&WRITE_STD(0, 256, 80),
 			&WRITE_QUAD(0, 256, 108),
+			0
+		},
+		.erase     = {
+			&ERASE_SECTOR_128K(0, _128K, 80),
+			0
+		},
+		.driver    = &spi_driver_no_qe,
+	},
+
+	/* Micron MT29F2G01ABB 2GBit 1.8V */
+	{
+		.name      = "MT29F2G01ABB",
+		.id        = {0x2C, 0x25},
+		.id_len    = 2,
+		.chipsize  = _256M,
+		.erasesize = _128K,
+		.pagesize  = _2K,
+		.oobsize   = 128,
+		.badblock_pos = BBP_FIRST_PAGE,
+		.read      = {
+			&READ_STD(1, INFINITE, 24),
+			&READ_FAST(1, INFINITE, 80),
+			&READ_DUAL(1, INFINITE, 80),
+			&READ_DUAL_ADDR(1, INFINITE, 80),
+			&READ_QUAD(1, INFINITE, 80),
+			&READ_QUAD_ADDR(2, INFINITE, 80),
+			0
+		},
+		.write     = {
+			&WRITE_STD(0, 256, 80),
+			&WRITE_QUAD(0, 256, 80),
 			0
 		},
 		.erase     = {
@@ -447,6 +509,37 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.driver    = &spi_driver_general,
 	},
 
+	/* GD 1.8V GD5F2GQ4RB9IGR 2Gbit */
+	{
+		.name      = "5F2GQ4RB9IGR",
+		.id        = {0xc8, 0xc2},
+		.id_len    = 2,
+		.chipsize  = _256M,
+		.erasesize = _128K,
+		.pagesize  = _2K,
+		.oobsize   = 128,
+		.badblock_pos = BBP_FIRST_PAGE,
+		.read      = {
+			&READ_STD(1, INFINITE, 24),
+			&READ_FAST(1, INFINITE, 104),
+			&READ_DUAL(1, INFINITE, 104),
+			&READ_DUAL_ADDR(1, INFINITE, 104),
+			&READ_QUAD(1, INFINITE, 104),
+			&READ_QUAD_ADDR(1, INFINITE, 104),
+			0
+		},
+		.write     = {
+			&WRITE_STD(0, 256, 24),
+			&WRITE_QUAD(0, 256, 104),
+			0
+		},
+		.erase     = {
+			&ERASE_SECTOR_128K(0, _128K, 24),
+			0
+		},
+		.driver    = &spi_driver_general,
+	},
+
 	/* GD 1.8V 5F4GQ4RAYIG 4Gbit */
 	{
 		.name      = "5F4GQ4RAYIG",
@@ -459,16 +552,16 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.badblock_pos = BBP_FIRST_PAGE,
 		.read      = {
 			&READ_STD(1, INFINITE, 24),
-			&READ_FAST(1, INFINITE, 75),
-			&READ_DUAL(1, INFINITE, 75),
-			&READ_DUAL_ADDR(1, INFINITE, 75),
-			&READ_QUAD(1, INFINITE, 75),
-			&READ_QUAD_ADDR(1, INFINITE, 75),
+			&READ_FAST(1, INFINITE, 104),
+			&READ_DUAL(1, INFINITE, 104),
+			&READ_DUAL_ADDR(1, INFINITE, 104),
+			&READ_QUAD(1, INFINITE, 104),
+			&READ_QUAD_ADDR(1, INFINITE, 104),
 			0
 		},
 		.write     = {
 			&WRITE_STD(0, 256, 24),
-			&WRITE_QUAD(0, 256, 75),
+			&WRITE_QUAD(0, 256, 104),
 			0
 		},
 		.erase     = {
@@ -509,9 +602,9 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.driver    = &spi_driver_no_qe,
 	},
 
-	/* Winbond W25N01GW 1Gbit 1.8V */
+	/* Winbond W25N01GWZEIG 1Gbit 1.8V */
 	{
-		.name      = "W25N01GW",
+		.name      = "W25N01GWZEIG",
 		.id        = {0xef, 0xba, 0x21},
 		.id_len    = 3,
 		.chipsize  = _128M,
@@ -521,16 +614,16 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.badblock_pos = BBP_FIRST_PAGE,
 		.read      = {
 			&READ_STD(1, INFINITE, 24),
-			&READ_FAST(1, INFINITE, 75),
-			&READ_DUAL(1, INFINITE, 75),
-			&READ_DUAL_ADDR(1, INFINITE, 75),
-			&READ_QUAD(1, INFINITE, 75),
-			&READ_QUAD_ADDR(2, INFINITE, 75),
+			&READ_FAST(1, INFINITE, 104),
+			&READ_DUAL(1, INFINITE, 104),
+			&READ_DUAL_ADDR(1, INFINITE, 104),
+			&READ_QUAD(1, INFINITE, 104),
+			&READ_QUAD_ADDR(2, INFINITE, 104),
 			0
 		},
 		.write     = {
 			&WRITE_STD(0, 256, 24),
-			&WRITE_QUAD(0, 256, 75),
+			&WRITE_QUAD(0, 256, 80),
 			0
 		},
 		.erase     = {
@@ -596,6 +689,34 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.driver    = &spi_driver_general,
 	},
 
+	/* MXIC MX35UF1G14AC 1Gbit 1.8V */
+	{
+		.name      = "MX35UF1G14AC",
+		.id        = {0xc2, 0x90},
+		.id_len    = 2,
+		.chipsize  = _128M,
+		.erasesize = _128K,
+		.pagesize  = _2K,
+		.oobsize   = 64,
+		.badblock_pos = BBP_FIRST_PAGE,
+		.read      = {
+			&READ_STD(1, INFINITE, 24),
+			&READ_FAST(1, INFINITE, 104),
+			&READ_QUAD(1, INFINITE, 104),
+			0
+		},
+		.write     = {
+			&WRITE_STD(0, 256, 24),
+			&WRITE_QUAD(0, 256, 104),
+			0
+		},
+		.erase     = {
+			&ERASE_SECTOR_128K(0, _128K, 104),
+			0
+		},
+		.driver    = &spi_driver_general,
+	},
+
 	/* MXIC MX35LF2GE4AB 2Gbit SOP-16Pin */
 	{
 		.name      = "MX35LF2GE4AB",
@@ -652,6 +773,34 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.driver    = &spi_driver_general,
 	},
 
+	/* MXIC MX35UF2G14AC 2Gbit 1.8V */
+	{
+		.name      = "MX35UF2G14AC",
+		.id        = {0xc2, 0xa0},
+		.id_len    = 2,
+		.chipsize  = _256M,
+		.erasesize = _128K,
+		.pagesize  = _2K,
+		.oobsize   = 64,
+		.badblock_pos = BBP_FIRST_PAGE,
+		.read      = {
+			&READ_STD(1, INFINITE, 24),
+			&READ_FAST(1, INFINITE, 104),
+			&READ_QUAD(1, INFINITE, 104),
+			0
+		},
+		.write     = {
+			&WRITE_STD(0, 256, 24),
+			&WRITE_QUAD(0, 256, 104),
+			0
+		},
+		.erase     = {
+			&ERASE_SECTOR_128K(0, _128K, 104),
+			0
+		},
+		.driver    = &spi_driver_general,
+	},
+
 	/* Paragon PN26G01AWSIUG 1Gbit 1.8V */
 	{
 		.name      = "PN26G01AW",
@@ -664,16 +813,16 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.badblock_pos = BBP_FIRST_PAGE,
 		.read      = {
 			&READ_STD(1, INFINITE, 24),
-			&READ_FAST(1, INFINITE, 75),
-			&READ_DUAL(1, INFINITE, 75),
-			&READ_DUAL_ADDR(1, INFINITE, 75),
-			&READ_QUAD(1, INFINITE, 75),
-			&READ_QUAD_ADDR(1, INFINITE, 75),
+			&READ_FAST(1, INFINITE, 104),
+			&READ_DUAL(1, INFINITE, 104),
+			&READ_DUAL_ADDR(1, INFINITE, 104),
+			&READ_QUAD(1, INFINITE, 104),
+			&READ_QUAD_ADDR(1, INFINITE, 104),
 			0
 		},
 		.write     = {
 			&WRITE_STD(0, 256, 24),
-			&WRITE_QUAD(0, 256, 75),
+			&WRITE_QUAD(0, 256, 104),
 			0
 		},
 		.erase     = {
@@ -847,17 +996,17 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.badblock_pos = BBP_FIRST_PAGE,
 		.read      = {
 			&READ_STD(1, INFINITE, 24),
-			&READ_FAST(1, INFINITE, 75),
-			&READ_DUAL(1, INFINITE, 75),
-			&READ_QUAD(1, INFINITE, 75),
+			&READ_FAST(1, INFINITE, 104),
+			&READ_DUAL(1, INFINITE, 104),
+			&READ_QUAD(1, INFINITE, 104),
 			0
 		},
 		.write     = {
-			&WRITE_STD(0, 256, 75),
+			&WRITE_STD(0, 256, 104),
 			0
 		},
 		.erase     = {
-			&ERASE_SECTOR_128K(0, _128K, 75),
+			&ERASE_SECTOR_128K(0, _128K, 104),
 			0
 		},
 		.driver    = &spi_driver_no_qe,
@@ -903,9 +1052,9 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.badblock_pos = BBP_FIRST_PAGE,
 		.read      = {
 			&READ_STD(1, INFINITE, 24),
-			&READ_FAST(1, INFINITE, 75),
-			&READ_DUAL(1, INFINITE, 75),
-			&READ_QUAD(1, INFINITE, 75),
+			&READ_FAST(1, INFINITE, 104),
+			&READ_DUAL(1, INFINITE, 104),
+			&READ_QUAD(1, INFINITE, 104),
 			0
 		},
 		.write     = {
@@ -959,9 +1108,9 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
 		.badblock_pos = BBP_FIRST_PAGE,
 		.read      = {
 			&READ_STD(1, INFINITE, 24),
-			&READ_FAST(1, INFINITE, 75),
-			&READ_DUAL(1, INFINITE, 75),
-			&READ_QUAD(1, INFINITE, 75),
+		    &READ_FAST(1, INFINITE, 104),
+			&READ_DUAL(1, INFINITE, 104),
+			&READ_QUAD(1, INFINITE, 104),
 			0
 		},
 		.write     = {
