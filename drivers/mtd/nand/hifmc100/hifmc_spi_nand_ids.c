@@ -806,37 +806,6 @@ struct spi_nand_info hifmc_spi_nand_flash_table[] = {
         .driver    = &spi_driver_no_qe,
     },
 
-    /* Winbond W25M02GV 2Gbit 3.3V*/
-    {
-        .name      = "W25M02GV",
-        .id        = {0xef, 0xab, 0x21},
-        .id_len    = 3,
-        .chipsize  = _256M,
-        .erasesize = _128K,
-        .pagesize  = _2K,
-        .oobsize   = 64,
-        .badblock_pos = BBP_FIRST_PAGE,
-        .read      = {
-            &READ_STD(1, INFINITE, 24),
-            &READ_FAST(1, INFINITE, 104),
-            &READ_DUAL(1, INFINITE, 104),
-            &READ_DUAL_ADDR(1, INFINITE, 104),
-            &READ_QUAD(1, INFINITE, 104),
-            &READ_QUAD_ADDR(2, INFINITE, 104),
-            0
-        },
-        .write     = {
-            &WRITE_STD(0, 256, 24),
-            &WRITE_QUAD(0, 256, 104),
-            0
-        },
-        .erase     = {
-            &ERASE_SECTOR_128K(0, _128K, 104),
-            0
-        },
-        .driver    = &spi_driver_no_qe,
-    },
-    
     /* Winbond W25N01GWZEIG 1Gbit 1.8V */
     {
         .name      = "W25N01GWZEIG",
