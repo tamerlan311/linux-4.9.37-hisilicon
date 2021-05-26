@@ -118,6 +118,11 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 
 	pr_debug("%s(limit %08lx)\n", __func__, (unsigned long)limit);
 
+#ifdef CONFIG_ARCH_HISI_BVT
+#ifdef CONFIG_64BIT
+	hisi_declare_heap_memory();
+#endif
+#endif
 	if (size_cmdline != -1) {
 		selected_size = size_cmdline;
 		selected_base = base_cmdline;
@@ -145,11 +150,6 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 					    &dma_contiguous_default_area,
 					    fixed);
 	}
-#ifdef CONFIG_ARCH_HISI_BVT
-#ifdef CONFIG_64BIT
-	hisi_declare_heap_memory();
-#endif
-#endif
 }
 
 /**

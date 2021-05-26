@@ -307,7 +307,7 @@ config ARM_ARCH_TIMER_EVTSTREAM
 
 config ARM_ARCH_TIMER_VCT_ACCESS
 	bool "Support for ARM architected timer virtual counter access in userspace"
-	default !ARM64
+	default n 
 	depends on ARM_ARCH_TIMER
 	help
 	  This option enables support for reading the ARM architected timer's
@@ -338,7 +338,7 @@ config ARM_TIMER_SP804
 
 config TIMER_HISP804
     bool "Support for hisilicon SP804 module"
-    depends on GENERIC_SCHED_CLOCK && CLKDEV_LOOKUP && SMP
+    depends on GENERIC_SCHED_CLOCK && CLKDEV_LOOKUP
     select CLKSRC_MMIO
     select CLKSRC_OF if OF
 

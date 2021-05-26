@@ -84,6 +84,22 @@ union u_spi_rw {
 #define RTC_FREQ_H		0x51
 #define RTC_FREQ_L		0x52
 
+#if defined(CONFIG_ARCH_HI3556AV100) || defined(CONFIG_ARCH_HI3519AV100)\
+    || defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)\
+    || defined(CONFIG_ARCH_HI3516CV500) || defined(CONFIG_ARCH_HI3516DV300)\
+	|| defined(CONFIG_ARCH_HI3516EV200)	|| defined(CONFIG_ARCH_HI3516EV300)\
+	|| defined(CONFIG_ARCH_HI3518EV300) || defined(CONFIG_ARCH_HI3516DV200)
+#define RTC_REG_LOCK1	0x64
+#define RTC_REG_LOCK2	0x65
+#define RTC_REG_LOCK3	0x66
+#define RTC_REG_LOCK4	0x67
+#endif
+
+#if defined(CONFIG_ARCH_HI3559AV100) || defined(CONFIG_ARCH_HI3559CV100)
+#define PWR_REG_ADDR	0x180C0000
+#define PWR_REG_LENGTH	0x100
+#endif
+
 #define FREQ_H_DEFAULT  0x8
 #define FREQ_L_DEFAULT  0x1B
 
@@ -98,7 +114,9 @@ union u_spi_rw {
 #define REG_LOCK_STAT      BIT(1)
 #define REG_LOCK_BYPASS    BIT(2)
 
-#define RETRY_CNT 500
+#define RTC_RW_RETRY_CNT    5
+#define SPI_RW_RETRY_CNT    500
+#define RTC_SLEEP_TIME_MS   20
 
 #define DATE_TO_SEC(d, h, m, s)     (s + m*60 + h*60*60 + d*24*60*60)
 #define SEC_TO_DAY(s)            (s/(60*60*24))
@@ -113,7 +131,7 @@ static int hibvt_spi_write(void *spi_reg, unsigned char reg,
 	unsigned char val)
 {
 	union u_spi_rw w_data, r_data;
-	int cnt = RETRY_CNT;
+	int cnt = SPI_RW_RETRY_CNT;
 
 	r_data.u32 = 0;
 	w_data.u32 = 0;
@@ -146,7 +164,7 @@ static int hibvt_spi_read(void *spi_reg, unsigned char reg,
 	unsigned char *val)
 {
 	union u_spi_rw w_data, r_data;
-	int cnt = RETRY_CNT;
+	int cnt = SPI_RW_RETRY_CNT;
 
 	r_data.u32 = 0;
 	w_data.u32 = 0;
@@ -182,7 +200,7 @@ static int hibvt_rtc_read_time(struct device *dev, struct rtc_time *time)
 	unsigned long seconds = 0;
 	unsigned int day;
 	unsigned char raw_value;
-	int cnt = RETRY_CNT;
+	int cnt = RTC_RW_RETRY_CNT;
 	int ret = 0;
 
 	ret = hibvt_spi_rtc_read(rtc->regs, RTC_INT_RAW, &raw_value);
@@ -210,7 +228,7 @@ static int hibvt_rtc_read_time(struct device *dev, struct rtc_time *time)
 	/* wait rtc load flag */
 	do {
 		ret |= hibvt_spi_rtc_read(rtc->regs, RTC_LORD, &raw_value);
-		msleep(20);
+		msleep(RTC_SLEEP_TIME_MS);
 	} while ((ret || (raw_value & REG_LOCK_STAT)) && (--cnt));
 
 	if (!ret && (raw_value & REG_LOCK_STAT))
@@ -238,10 +256,10 @@ static int hibvt_rtc_read_time(struct device *dev, struct rtc_time *time)
 static int hibvt_rtc_set_time(struct device *dev, struct rtc_time *time)
 {
 	struct hibvt_rtc	*rtc = dev_get_drvdata(dev);
-	unsigned char ret = 0;
+	int ret;
 	unsigned int days;
 	unsigned long seconds = 0;
-	unsigned int cnt = RETRY_CNT;
+	unsigned int cnt = RTC_RW_RETRY_CNT;
 	unsigned char raw_value = 0;
 
 	ret = rtc_tm_to_time(time, &seconds);
@@ -261,7 +279,7 @@ static int hibvt_rtc_set_time(struct device *dev, struct rtc_time *time)
 	/* wait rtc load flag */
 	do {
 		ret |= hibvt_spi_rtc_read(rtc->regs, RTC_LORD, &raw_value);
-		msleep(20);
+		msleep(RTC_SLEEP_TIME_MS);
 	} while ((ret || (raw_value & REG_LOAD_STAT)) && (--cnt));
 
 	if (!ret && (raw_value & REG_LOAD_STAT))
@@ -277,7 +295,7 @@ static int hibvt_rtc_read_alarm(struct device *dev,
 	struct rtc_wkalrm *alrm)
 {
 	struct hibvt_rtc *rtc = dev_get_drvdata(dev);
-	unsigned char dayl, dayh;
+	unsigned char dayl = 0, dayh = 0;
 	unsigned char second, minute, hour;
 	unsigned long seconds = 0;
 	unsigned int day;
@@ -477,6 +495,9 @@ static int hibvt_rtc_init(struct hibvt_rtc *rtc)
 	void *spi_reg = rtc->regs;
 	int ret = 0;
 	unsigned char val = 0;
+	#if defined(CONFIG_ARCH_HI3559AV100) || defined(CONFIG_ARCH_HI3559CV100)
+	void *pwr_reg = NULL;
+	#endif
 	/*
 	 * clk div value = (apb_clk/spi_clk)/2-1,
 	 *	apb clk = 100MHz, spi_clk = 10MHz,so value= 0x4
@@ -486,15 +507,44 @@ static int hibvt_rtc_init(struct hibvt_rtc *rtc)
 	ret |= hibvt_spi_rtc_write(spi_reg, RTC_IMSC, INT_MSK_DEFAULT);
 	ret |= hibvt_spi_rtc_write(spi_reg, RTC_SAR_CTRL, LV_CTL_DEFAULT);
 
-   
-	ret |= hibvt_spi_rtc_write(spi_reg, RTC_CLK_CFG, 0x01);
+#if defined(CONFIG_ARCH_HI3556AV100) || defined(CONFIG_ARCH_HI3519AV100)\
+	|| defined(CONFIG_ARCH_HI3516EV200)	|| defined(CONFIG_ARCH_HI3516EV300)\
+	|| defined(CONFIG_ARCH_HI3518EV300) || defined(CONFIG_ARCH_HI3516DV200)
+    /* default driver capability */ 
+	ret |= hibvt_spi_rtc_write(spi_reg, RTC_REG_LOCK4, 0x5A);
+	ret |= hibvt_spi_rtc_write(spi_reg, RTC_REG_LOCK3, 0x5A);
+	ret |= hibvt_spi_rtc_write(spi_reg, RTC_REG_LOCK2, 0xAB);
+	ret |= hibvt_spi_rtc_write(spi_reg, RTC_REG_LOCK1, 0xCD);
+#endif
+
+#if defined(CONFIG_ARCH_HI3559AV100) || defined(CONFIG_ARCH_HI3559CV100)
+	pwr_reg = ioremap(PWR_REG_ADDR, PWR_REG_LENGTH);
+	if(pwr_reg == NULL)	{
+	    return -1;
+	}
+	writel(0x5A5AABCD, pwr_reg+0x58);
+	iounmap(pwr_reg);
+#endif
+ /*driver capability */
+#if defined(CONFIG_ARCH_HI3516CV500)|| defined(CONFIG_ARCH_HI3516DV300)\
+    || defined(CONFIG_ARCH_HI3556V200) || defined(CONFIG_ARCH_HI3559V200)\
+	|| defined(CONFIG_ARCH_HI3559AV100) || defined(CONFIG_ARCH_HI3559CV100)\
+	|| defined(CONFIG_ARCH_HI3519AV100) || defined(CONFIG_ARCH_HI3556AV100)\
+	|| defined(CONFIG_ARCH_HI3536DV100) 
+	ret |= hibvt_spi_rtc_write(spi_reg, RTC_CLK_CFG, 0x02);
+#elif defined(CONFIG_ARCH_HI3516EV200) || defined(CONFIG_ARCH_HI3516EV300)\
+	|| defined(CONFIG_ARCH_HI3518EV300) || defined(CONFIG_ARCH_HI3516DV200)
+	ret |= hibvt_spi_rtc_write(spi_reg, RTC_CLK_CFG, 0x03);
+#else
+    /* HI3536CV100 */
+    ret |= hibvt_spi_rtc_write(spi_reg, RTC_CLK_CFG, 0x01);
+#endif
 
     /* default FREQ COEF */
 	ret |= hibvt_spi_rtc_write(spi_reg, RTC_FREQ_H, FREQ_H_DEFAULT);
 	ret |= hibvt_spi_rtc_write(spi_reg, RTC_FREQ_L, FREQ_L_DEFAULT);
 
 	ret |= hibvt_spi_rtc_read(spi_reg, RTC_INT_RAW, &val);
-    //ret |= hibvt_spi_rtc_read(spi_reg, RTC_CLK_CFG, &val2);
 	if (ret) {
 		dev_err(&rtc->rtc_dev->dev, "IO err.\n");
 		return ret;
