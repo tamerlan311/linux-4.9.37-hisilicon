@@ -756,6 +756,10 @@
              reg-names = "crg", "sys", "ddr", "misc";
         };
 		
+	osal: osal {
+		compatible = "hisilicon,osal";
+	};
+
         sysctrl: system-controller@00000000 {
              compatible = "hisilicon,sysctrl";
              reg = <0x12020000 0x1000>;
