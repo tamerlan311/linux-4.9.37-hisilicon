@@ -69,6 +69,41 @@ void hisi_usb_phy_on(struct phy *phy)
 	writel(0x426, priv->misc_ctrl + MISC_USB);
 	mdelay(M_LEVEL3);
 
+	/*
+	 * usb2.0 phy eye pattern:Icomp = 212.5 RCOMP = 212.5
+	 */
+	writel(0xa, priv->misc_ctrl + MISC_USB);
+	udelay(U_LEVEL1);
+	writel(0xbb2a, priv->misc_ctrl + MISC_USB);
+	mdelay(M_LEVEL3);
+
+	writel(0x5, priv->misc_ctrl + MISC_USB);
+	udelay(U_LEVEL1);
+	writel(0x9225, priv->misc_ctrl + MISC_USB);
+	mdelay(M_LEVEL3);
+
+	writel(0x6, priv->misc_ctrl + MISC_USB);
+	udelay(U_LEVEL1);
+	writel(0x626, priv->misc_ctrl + MISC_USB);
+	mdelay(M_LEVEL3);
+
+	/*close eop pre-emphasis*/
+	writel(0x0, priv->misc_ctrl + MISC_USB);
+	udelay(U_LEVEL1);
+	writel(0x1820, priv->misc_ctrl + MISC_USB);
+	mdelay(M_LEVEL3);
+
+	writel(0x10, priv->misc_ctrl + MISC_USB);
+	udelay(U_LEVEL1);
+	writel(0x1830, priv->misc_ctrl + MISC_USB);
+	mdelay(M_LEVEL3);
+
+	/* open port1 pre-emphasis */
+	writel(0x10, priv->misc_ctrl + MISC_USB);
+	udelay(U_LEVEL1);
+	writel(0x1c30, priv->misc_ctrl + MISC_USB);
+	mdelay(M_LEVEL3);
+
 	/* cancel phy utmi reset */
 	reg = readl(priv->peri_ctrl + PERI_CRG28);
 	reg &= ~(USBPHY_PORT0_TREQ);
