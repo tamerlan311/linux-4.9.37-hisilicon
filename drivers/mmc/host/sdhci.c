@@ -1545,7 +1545,7 @@ void sdhci_set_power_noreg(struct sdhci_host *host, unsigned char mode,
 		 * Controllers need an extra 100ms delay to ensure power off
 		 * completely
 		 */
-		mdelay(100);
+		msleep(100);
 
 	} else {
 		/*
