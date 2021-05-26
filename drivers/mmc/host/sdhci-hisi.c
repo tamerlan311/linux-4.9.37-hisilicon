@@ -110,7 +110,7 @@ static void hisi_mmc_crg_init(struct sdhci_host *host)
 	clk_prepare_enable(pltfm_host->clk);
 	reset_control_assert(hisi_priv->crg_rst);
 	reset_control_assert(hisi_priv->dll_rst);
-	if(hisi_priv->sampl_rst)
+	if (hisi_priv->sampl_rst)
 		reset_control_assert(hisi_priv->sampl_rst);
 
 	udelay(25);
@@ -252,7 +252,7 @@ static void sdhci_hisi_set_clock(struct sdhci_host *host, unsigned int clock)
 		return;
 
 	reset_control_assert(hisi_priv->dll_rst);
-	if(hisi_priv->sampl_rst)
+	if (hisi_priv->sampl_rst)
 		reset_control_assert(hisi_priv->sampl_rst);
 	udelay(25);
 
@@ -268,7 +268,7 @@ static void sdhci_hisi_set_clock(struct sdhci_host *host, unsigned int clock)
 	if (host->mmc->actual_clock > MMC_HIGH_52_MAX_DTR) {
 		hisi_enable_sampl_dll_slave(host);
 		reset_control_deassert(hisi_priv->dll_rst);
-		if(hisi_priv->sampl_rst)
+		if (hisi_priv->sampl_rst)
 			reset_control_deassert(hisi_priv->sampl_rst);
 	}
 
@@ -382,7 +382,7 @@ static int hisi_get_best_sampl(u32 candidates)
 				}
 			} else
 				end_fall = fall;
-		}
+			}
 		candidates = ror32(candidates, 1);
 	}
 
@@ -591,7 +591,7 @@ static void sdhci_hisi_hw_reset(struct sdhci_host *host)
 	udelay(200);
 }
 
-/* This api is for wifi driver rescan the sdio device, 
+/* This api is for wifi driver rescan the sdio device,
  * ugly but it is needed */
 int hisi_sdio_rescan(int slot)
 {

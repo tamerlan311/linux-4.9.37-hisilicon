@@ -567,12 +567,14 @@ static void sdhci_prep_adma3_desc(struct sdhci_host *host,
 
 	sdhci_write_cmd_table(host->cmd_table, data->blocks, ADMA3_CMD_VALID);
 	sdhci_write_cmd_table(host->cmd_table + 0x8, blksz, ADMA3_CMD_VALID);
-	sdhci_write_cmd_table(host->cmd_table + 0x10, cmd->arg, ADMA3_CMD_VALID);
-	sdhci_write_cmd_table(host->cmd_table + 0x18, cmd_xfer, ADMA3_CMD_VALID);
+	sdhci_write_cmd_table(host->cmd_table + 0x10,
+			cmd->arg, ADMA3_CMD_VALID);
+	sdhci_write_cmd_table(host->cmd_table + 0x18,
+			cmd_xfer, ADMA3_CMD_VALID);
 	sdhci_adma_write_desc(host, host->cmd_table + 0x20,
 			host->adma_addr, 0x0, ADMA2_LINK_VALID);
-
-	sdhci_write_adma3_desc(host, host->adma3_table, host->cmd_addr, ADMA3_END);
+	sdhci_write_adma3_desc(host, host->adma3_table,
+			host->cmd_addr, ADMA3_END);
 
 	ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 	ctrl_2 |= SDHCI_CTRL_HOST_VER4_ENABLE;
@@ -925,9 +927,9 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 		ctrl &= ~SDHCI_CTRL_DMA_MASK;
 		if ((host->flags & SDHCI_REQ_USE_DMA) &&
 			(host->flags & SDHCI_USE_ADMA)) {
-			if (host->flags & SDHCI_USE_ADMA3)
+			if (host->flags & SDHCI_USE_ADMA3) {
 					ctrl |= SDHCI_CTRL_ADMA3;
-			else {
+			} else {
 				if (host->flags & SDHCI_USE_64_BIT_DMA)
 					ctrl |= SDHCI_CTRL_ADMA64;
 				else
@@ -1230,12 +1232,15 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 	if (host->flags & SDHCI_USE_ADMA3 && cmd->data) {
 		sdhci_prep_adma3_desc(host, cmd, flags);
 
-		sdhci_writel(host, (u32)host->adma3_addr, SDHCI_ADMA3_ID_ADDR_LOW);
+		sdhci_writel(host, (u32)host->adma3_addr,
+				SDHCI_ADMA3_ID_ADDR_LOW);
 		if (host->flags & SDHCI_USE_64_BIT_DMA)
 			sdhci_writel(host, (u32)((u64)host->adma3_addr >> 32),
 					SDHCI_ADMA3_ID_ADDR_HI);
-	} else
-		sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
+	} else {
+		sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags),
+				SDHCI_COMMAND);
+	}
 }
 EXPORT_SYMBOL_GPL(sdhci_send_command);
 
@@ -2612,12 +2617,13 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 		/*pr_err("%s: Got command interrupt 0x%08x even though no command operation was in progress.\n",
 		       mmc_hostname(host->mmc), (unsigned)intmask);
 		sdhci_dumpregs(host);*/
-		
+
 		return;
 	}
 
 	if (intmask & (SDHCI_INT_TIMEOUT | SDHCI_INT_CRC |
-		       SDHCI_INT_END_BIT | SDHCI_INT_INDEX | SDHCI_INT_ACMD_ERR)) {
+		       SDHCI_INT_END_BIT | SDHCI_INT_INDEX |
+		       SDHCI_INT_ACMD_ERR)) {
 		if (intmask & SDHCI_INT_TIMEOUT)
 			host->cmd->error = -ETIMEDOUT;
 		else if (intmask & SDHCI_INT_ACMD_ERR) {
@@ -2698,7 +2704,7 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 
 #ifndef SDHCI_HISI_EDGE_TUNING
 	u32 command;
-	
+
 	/* CMD19 generates _only_ Buffer Read Ready interrupt */
 	if (intmask & SDHCI_INT_DATA_AVAIL) {
 		command = SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND));
@@ -2748,7 +2754,7 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		 */
 		if (host->pending_reset)
 			return;
-		
+
 		if (host->is_tuning)
 			return;
 

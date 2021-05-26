@@ -655,7 +655,7 @@
 			reg-names = "vedu0", "jpge";
 			interrupts = <0 47 4>, <0 48 4>;
 			interrupt-names = "vedu0","jpge";
-		};		
+		};
 
 		aiao: aiao@100e0000 {
 			compatible = "hisilicon,hisi-aiao";

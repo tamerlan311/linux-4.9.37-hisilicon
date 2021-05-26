@@ -1003,7 +1003,7 @@
 			interrupts = <0 115 4>, <0 132 4>;
 			interrupt-names = "vedu0","jpge";
 		};
-
+		
 		vdh: vdh@047d0000 {
 			compatible = "hisilicon,hisi-vdh";
 			reg = <0x047d0000 0x10000>;

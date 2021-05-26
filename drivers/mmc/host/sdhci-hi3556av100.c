@@ -18,32 +18,32 @@
 #define REG_EMMC_DRV_DLL_CTRL		0x1b0
 #define REG_SDIO0_DRV_DLL_CTRL		0x1d4
 #define REG_SDIO1_DRV_DLL_CTRL		0x1fc
-#define REG_SDIO2_DRV_DLL_CTRL		/*no sdio2*/
+#define REG_SDIO2_DRV_DLL_CTRL          /* no sdio2 */
 #define SDIO_DRV_PHASE_SEL_MASK		(0x1f << 24)
 #define SDIO_DRV_SEL(phase)		((phase) << 24)
 
 #define REG_EMMC_DRV_DLL_STATUS		0x1c4
 #define REG_SDIO0_DRV_DLL_STATUS	0x1e8
 #define REG_SDIO1_DRV_DLL_STATUS	0x210
-#define REG_SDIO2_DRV_DLL_STATUS	/*no sdio2*/
+#define REG_SDIO2_DRV_DLL_STATUS        /* no sdio2 */
 #define SDIO_DRV_DLL_LOCK		BIT(15)
 
 #define REG_EMMC_SAMPL_DLL_STATUS	0x1bc
 #define REG_SDIO0_SAMPL_DLL_STATUS	0x1e0
 #define REG_SDIO1_SAMPL_DLL_STATUS	0x208
-#define REG_SDIO2_SAMPL_DLL_STATUS	/*no sdio2*/
+#define REG_SDIO2_SAMPL_DLL_STATUS      /* no sdio2 */
 #define SDIO_SAMPL_DLL_SLAVE_READY	BIT(14)
 
 #define REG_EMMC_SAMPL_DLL_CTRL		0x1a8
 #define REG_SDIO0_SAMPL_DLL_CTRL	0x1ec
 #define REG_SDIO1_SAMPL_DLL_CTRL	0x214
-#define REG_SDIO2_SAMPL_DLL_CTRL	/*no sdio2*/
+#define REG_SDIO2_SAMPL_DLL_CTRL        /* no sdio2 */
 #define SDIO_SAMPL_DLL_SLAVE_EN		BIT(16)
 
 #define REG_EMMC_SAMPLB_DLL_CTRL	0x1ac
 #define REG_SDIO0_SAMPLB_DLL_CTRL	0x1d0
 #define REG_SDIO1_SAMPLB_DLL_CTRL	0x1f8
-#define REG_SDIO2_SAMPLB_DLL_CTRL	/*no sdio2*/
+#define REG_SDIO2_SAMPLB_DLL_CTRL       /* no sdio2 */
 #define SDIO_SAMPLB_DLL_CLK_MASK	(0x1f << 24)
 #define SDIO_SAMPLB_SEL(phase)		((phase) << 24)
 
@@ -345,17 +345,17 @@ static int sdhci_hisi_start_signal_voltage_switch(struct sdhci_host *host,
 		struct mmc_ios *ios)
 {
 	switch (ios->signal_voltage) {
-		case MMC_SIGNAL_VOLTAGE_330:
-			if (!(host->flags & SDHCI_SIGNALING_330))
-				return -EINVAL;
-			return hisi_set_signal_voltage_3v3(host);
-		case MMC_SIGNAL_VOLTAGE_180:
-			if (!(host->flags & SDHCI_SIGNALING_180))
-				return -EINVAL;
-			return hisi_set_signal_voltage_1v8(host);
-		default:
-			/* No signal voltage switch required */
-			return 0;
+	case MMC_SIGNAL_VOLTAGE_330:
+		if (!(host->flags & SDHCI_SIGNALING_330))
+			return -EINVAL;
+		return hisi_set_signal_voltage_3v3(host);
+	case MMC_SIGNAL_VOLTAGE_180:
+		if (!(host->flags & SDHCI_SIGNALING_180))
+			return -EINVAL;
+		return hisi_set_signal_voltage_1v8(host);
+	default:
+		/* No signal voltage switch required */
+		return 0;
 	}
 }
 
@@ -384,7 +384,7 @@ static void hisi_host_extra_init(struct sdhci_host *host)
 static void hisi_set_sd_iocfg(struct sdhci_host *host)
 {
 	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	void* iocfg_regmap = hisi_priv->iocfg_regmap;
+	void *iocfg_regmap = hisi_priv->iocfg_regmap;
 	unsigned int reg_addr;
 	unsigned int *pin_drv_cap = NULL;
 
@@ -408,7 +408,7 @@ static void hisi_set_sd_iocfg(struct sdhci_host *host)
 static void hisi_set_sdio_iocfg(struct sdhci_host *host)
 {
 	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	void* iocfg_regmap = hisi_priv->iocfg_regmap;
+	void *iocfg_regmap = hisi_priv->iocfg_regmap;
 	unsigned int reg_addr;
 	unsigned int *pin_drv_cap = NULL;
 
@@ -433,7 +433,7 @@ static void hisi_set_io_config(struct sdhci_host *host)
 {
 	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
 	unsigned int devid = hisi_priv->devid;
-	void* phy_addr = hisi_priv->phy_addr;
+	void *phy_addr = hisi_priv->phy_addr;
 	unsigned short reg;
 
 	if (devid == 0) {

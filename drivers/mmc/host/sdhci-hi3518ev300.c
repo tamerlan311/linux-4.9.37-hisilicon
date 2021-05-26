@@ -8,43 +8,43 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #define REG_EMMC_DRV_DLL_CTRL		0x1fc    /*emmc&sd share emmc0 controller*/
 #define REG_SDIO0_DRV_DLL_CTRL		0x1fc
 #define REG_SDIO1_DRV_DLL_CTRL		0x220
-#define REG_SDIO2_DRV_DLL_CTRL		/*no sdio2*/
+#define REG_SDIO2_DRV_DLL_CTRL          /* no sdio2 */
 #define SDIO_DRV_PHASE_SEL_MASK		(0x1f << 24)
 #define SDIO_DRV_SEL(phase)		    ((phase) << 24)
 
 #define REG_EMMC_DRV_DLL_STATUS		0x210
 #define REG_SDIO0_DRV_DLL_STATUS	0x210
 #define REG_SDIO1_DRV_DLL_STATUS	0x228
-#define REG_SDIO2_DRV_DLL_STATUS	/*no sdio2*/
+#define REG_SDIO2_DRV_DLL_STATUS        /* no sdio2 */
 #define SDIO_DRV_DLL_LOCK		BIT(15)
 #define SDIO_DRV_DLL_READY		BIT(14)
 
 #define REG_EMMC_SAMPL_DLL_STATUS	0x208
 #define REG_SDIO0_SAMPL_DLL_STATUS	0x208
 #define REG_SDIO1_SAMPL_DLL_STATUS	0x224
-#define REG_SDIO2_SAMPL_DLL_STATUS	/*no sdio2*/
+#define REG_SDIO2_SAMPL_DLL_STATUS      /* no sdio2 */
 #define SDIO_SAMPL_DLL_SLAVE_READY	BIT(0)
 
 #define REG_EMMC_SAMPL_DLL_CTRL		0x1f4
 #define REG_SDIO0_SAMPL_DLL_CTRL	0x1f4
 #define REG_SDIO1_SAMPL_DLL_CTRL	0x22c
-#define REG_SDIO2_SAMPL_DLL_CTRL	/*no sdio2*/
+#define REG_SDIO2_SAMPL_DLL_CTRL        /* no sdio2 */
 #define SDIO_SAMPL_DLL_SLAVE_EN		BIT(16)
 
 #define REG_EMMC_SAMPLB_DLL_CTRL	0x1f8
 #define REG_SDIO0_SAMPLB_DLL_CTRL	0x1f8
 #define REG_SDIO1_SAMPLB_DLL_CTRL	0x21c
-#define REG_SDIO2_SAMPLB_DLL_CTRL	/*no sdio2*/
+#define REG_SDIO2_SAMPLB_DLL_CTRL       /* no sdio2 */
 #define SDIO_SAMPLB_DLL_CLK_MASK	(0x1f << 0)
 #define SDIO_SAMPLB_SEL(phase)		((phase) << 0)
 
@@ -63,12 +63,12 @@
 #define REG_EMMC_CLK_CTRL		0x1f4
 #define REG_SDIO0_CLK_CTRL		0x1f4
 #define REG_SDIO1_CLK_CTRL		0x22c
-#define REG_SDIO2_CLK_CTRL		/*no sdio2*/
+#define REG_SDIO2_CLK_CTRL              /* no sdio2 */
 #define SDIO_CLK_DRV_DLL_RST		BIT(29)
 #define SDIO_CLK_CRG_RST		BIT(27)
 
 #define IO_CFG_SR			BIT(10)
-#define IO_CFG_PULL_DOWN	    	BIT(9)
+#define IO_CFG_PULL_DOWN		BIT(9)
 #define IO_CFG_PULL_UP			BIT(8)
 #define IO_CFG_DRV_STR_MASK		(0xf << 4)
 #define IO_CFG_DRV_STR_SEL(str)		((str) << 4)
@@ -284,9 +284,9 @@ static void hisi_set_drv_str(struct regmap *iocfg_regmap, unsigned int offset,
 	regmap_read(iocfg_regmap, offset, &reg);
 
 	reg &= ~(IO_CFG_PULL_UP | IO_CFG_PULL_DOWN | IO_CFG_DRV_STR_MASK | IO_CFG_SR);
-	reg |= (pull_up ? IO_CFG_PULL_UP: 0);
-	reg |= (pull_down ? IO_CFG_PULL_DOWN: 0);
-	reg |= (sr ? IO_CFG_SR: 0);
+	reg |= (pull_up ? IO_CFG_PULL_UP : 0);
+	reg |= (pull_down ? IO_CFG_PULL_DOWN : 0);
+	reg |= (sr ? IO_CFG_SR : 0);
 	reg |= IO_CFG_DRV_STR_SEL(drv_str);
 
 	regmap_write(iocfg_regmap, offset, reg);
@@ -305,7 +305,7 @@ static void hisi_set_emmc_ctrl(struct sdhci_host *host)
 static void hisi_set_mmc_drv(struct sdhci_host *host)
 {
 	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	void* iocfg_regmap = hisi_priv->iocfg_regmap;
+	void *iocfg_regmap = hisi_priv->iocfg_regmap;
 	int i;
 
 	switch (host->timing) {
@@ -356,7 +356,7 @@ static void hisi_set_mmc_drv(struct sdhci_host *host)
 static void hisi_set_sd_drv(struct sdhci_host *host)
 {
 	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	void* iocfg_regmap = hisi_priv->iocfg_regmap;
+	void *iocfg_regmap = hisi_priv->iocfg_regmap;
 	int i;
 
 	switch (host->timing) {
@@ -383,7 +383,7 @@ static void hisi_set_sd_drv(struct sdhci_host *host)
 static void hisi_set_sdio_drv(struct sdhci_host *host)
 {
 	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	void* iocfg_regmap = hisi_priv->iocfg_regmap;
+	void *iocfg_regmap = hisi_priv->iocfg_regmap;
 	int i;
 
 	hisi_set_drv_str(iocfg_regmap, REG_CTRL_SDIO1_CLK, 0, 1, 1, 0x3);
@@ -398,7 +398,7 @@ static void hisi_set_io_config(struct sdhci_host *host)
 {
 	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
 	unsigned int devid = hisi_priv->devid;
-	void* iocfg_regmap = hisi_priv->iocfg_regmap;
+	void *iocfg_regmap = hisi_priv->iocfg_regmap;
 	unsigned int reg = 0;
 
 	if (devid == 0) {

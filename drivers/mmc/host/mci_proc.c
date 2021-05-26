@@ -182,7 +182,7 @@ static void mci_stats_seq_printout(struct seq_file *s)
 					(0x00 == grade_speed_uhs)?
 					"Less than 10MB/sec(0h)" :
 					(0x01 == grade_speed_uhs)?
-					"10MB/sec and above(1h)":
+					"10MB/sec and above(1h)" :
 					"Reserved");
 
 			clock = info->card_support_clock;
@@ -194,7 +194,7 @@ static void mci_stats_seq_printout(struct seq_file *s)
 			clock_scale = analyze_clock_scale(clock, &clock_value);
 			seq_printf(s, "\tCard support clock: %d%s\n",
 					clock_value, clock_unit[clock_scale]);
-					
+
 			clock = mmc->actual_clock;
 			clock_scale = analyze_clock_scale(clock, &clock_value);
 			seq_printf(s, "\tCard work clock: %d%s\n",
@@ -202,7 +202,7 @@ static void mci_stats_seq_printout(struct seq_file *s)
 
 			/* add card read/write error count */
 			seq_printf(s, "\tCard error count: %d\n",
-					        host->error_count);
+					host->error_count);
 		}
 	}
 }
@@ -253,7 +253,7 @@ static const struct seq_operations mci_stats_seq_ops = {
 	.show = mci_stats_seq_show
 };
 
-/* proc file open*/
+/* proc file open */
 static int mci_stats_proc_open(struct inode *inode, struct file *file)
 {
 	return seq_open(file, &mci_stats_seq_ops);
