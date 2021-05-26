@@ -1211,7 +1211,10 @@ err_alloc_rx_sg:
 static int pl022_dma_probe(struct pl022 *pl022)
 {
 	dma_cap_mask_t mask;
-
+#ifdef CONFIG_ARCH_HI3559AV100
+	dev_dbg(&pl022->adev->dev, "spi in soc cannot work with dma!\n");
+	return -ENODEV;
+#endif
 	/* Try to acquire a generic DMA engine slave channel */
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
