@@ -372,12 +372,12 @@ static int __init init_jffs2_fs(void)
 	BUILD_BUG_ON(sizeof(struct jffs2_raw_inode) != 68);
 	BUILD_BUG_ON(sizeof(struct jffs2_raw_summary) != 32);
 
-	pr_info("version 2.2."
+	pr_info("version 2.2"
 #ifdef CONFIG_JFFS2_FS_WRITEBUFFER
 	       " (NAND)"
 #endif
 #ifdef CONFIG_JFFS2_SUMMARY
-	       " (SUMMARY) "
+	       " (SUMMARY)"
 #endif
 #ifdef CONFIG_JFFS2_ZLIB
 	       " (ZLIB)"
@@ -406,7 +406,7 @@ static int __init init_jffs2_fs(void)
 #ifdef CONFIG_JFFS2_CMODE_FAVOURLZO
 	       " (CMODE_FAVOURLZO)"
 #endif
-	       " © 2001-2006 Red Hat, Inc.\n");
+	       " (c) 2001-2006 Red Hat, Inc.\n");
 
 	jffs2_inode_cachep = kmem_cache_create("jffs2_i",
 					     sizeof(struct jffs2_inode_info),
