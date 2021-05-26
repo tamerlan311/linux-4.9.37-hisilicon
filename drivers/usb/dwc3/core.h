@@ -493,7 +493,7 @@ struct dwc3_event_buffer {
 #define DWC3_EP_DIRECTION_TX	true
 #define DWC3_EP_DIRECTION_RX	false
 
-#define DWC3_TRB_NUM		256
+#define DWC3_TRB_NUM		4096
 
 /**
  * struct dwc3_ep - device side endpoint representation
@@ -540,7 +540,6 @@ struct dwc3_ep {
 #define DWC3_EP_WEDGE		(1 << 2)
 #define DWC3_EP_BUSY		(1 << 4)
 #define DWC3_EP_PENDING_REQUEST	(1 << 5)
-#define DWC3_EP_MISSED_ISOC	(1 << 6)
 #define DWC3_EP_UPDATE		(1 << 7)
 
 	/* This last one is specific to EP0 */
@@ -555,8 +554,8 @@ struct dwc3_ep {
 	 * By using u8 types we ensure that our % operator when incrementing
 	 * enqueue and dequeue get optimized away by the compiler.
 	 */
-	u8			trb_enqueue;
-	u8			trb_dequeue;
+	u32			trb_enqueue;
+	u32			trb_dequeue;
 
 	u8			number;
 	u8			type;

@@ -39,6 +39,7 @@ static void dwc3_gadget_sync_connected_status(struct dwc3 *dwc);
 static int __dwc3_gadget_get_frame(struct dwc3 *dwc);
 static void dwc3_gadget_endpoint_frame_from_event(struct dwc3_ep *dep,
 		const struct dwc3_event_depevt *event);
+static bool __dwc3_gadget_target_frame_elapsed(struct dwc3_ep *dep);
 
 #define DWC3_ALIGN_FRAME(d) (((d)->frame_number + (d)->interval) \
 		& ~((d)->interval - 1))
@@ -161,7 +162,7 @@ int dwc3_gadget_set_link_state(struct dwc3 *dwc, enum dwc3_link_state state)
  * if it is point to the link TRB, wrap around to the beginning. The
  * link TRB is always at the last TRB entry.
  */
-static void dwc3_ep_inc_trb(u8 *index)
+static void dwc3_ep_inc_trb(u32 *index)
 {
 	(*index)++;
 	if (*index == (DWC3_TRB_NUM - 1))
@@ -795,6 +796,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 	struct dwc3		*dwc = dep->dwc;
 	struct usb_gadget	*gadget = &dwc->gadget;
 	enum usb_device_speed	speed = gadget->speed;
+	unsigned int chain_skip = 0;
 
 	trb = &dep->trb_pool[dep->trb_enqueue];
 
@@ -855,8 +857,20 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 					mult--;
 
 				trb->size |= DWC3_TRB_SIZE_PCM1(mult);
+
+				/*
+				 * If there are three transactions per mframe,
+				 * and each transcation length = 1024B, no any
+				 * chain trb needed, so skip it.
+				 */
+				if (length == (3 * maxp))
+					chain_skip = 1;
 			}
+
+			if (speed == USB_SPEED_SUPER)
+				chain_skip = 1;
 		} else {
+			chain_skip = 1;
 			trb->ctrl = DWC3_TRBCTL_ISOCHRONOUS;
 		}
 
@@ -883,7 +897,7 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 			(dwc3_calc_trbs_left(dep) == 0))
 		trb->ctrl |= DWC3_TRB_CTRL_IOC | DWC3_TRB_CTRL_ISP_IMI;
 
-	if (chain)
+	if ((!chain_skip) && chain)
 		trb->ctrl |= DWC3_TRB_CTRL_CHN;
 
 	if (usb_endpoint_xfer_bulk(dep->endpoint.desc) && dep->stream_capable)
@@ -903,9 +917,9 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
  * index is 0, we will wrap backwards, skip the link TRB, and return
  * the one just before that.
  */
-static struct dwc3_trb *dwc3_ep_prev_trb(struct dwc3_ep *dep, u8 index)
+static struct dwc3_trb *dwc3_ep_prev_trb(struct dwc3_ep *dep, u32 index)
 {
-	u8 tmp = index;
+	u32 tmp = index;
 
 	if (!tmp)
 		tmp = DWC3_TRB_NUM - 1;
@@ -916,7 +930,7 @@ static struct dwc3_trb *dwc3_ep_prev_trb(struct dwc3_ep *dep, u8 index)
 static u32 dwc3_calc_trbs_left(struct dwc3_ep *dep)
 {
 	struct dwc3_trb		*tmp;
-	u8			trbs_left;
+	u32			trbs_left;
 
 	/*
 	 * If enqueue & dequeue are equal than it is either full or empty.
@@ -945,11 +959,13 @@ static u32 dwc3_calc_trbs_left(struct dwc3_ep *dep)
 static void dwc3_prepare_one_trb_sg(struct dwc3_ep *dep,
 		struct dwc3_request *req)
 {
+	struct dwc3		*dwc = dep->dwc;
+	struct usb_gadget	*gadget = &dwc->gadget;
+	enum usb_device_speed   speed = gadget->speed;
 	struct scatterlist *sg = req->sg;
 	struct scatterlist *s;
-	unsigned int	length;
+	unsigned int	length, i;
 	dma_addr_t	dma;
-	int		i;
 
 	for_each_sg(sg, s, req->num_pending_sgs, i) {
 		unsigned chain = true;
@@ -960,8 +976,11 @@ static void dwc3_prepare_one_trb_sg(struct dwc3_ep *dep,
 		if (sg_is_last(s))
 			chain = false;
 
-		dwc3_prepare_one_trb(dep, req, dma, length,
-				chain, i);
+		if ((speed == USB_SPEED_HIGH) &&
+			usb_endpoint_xfer_isoc(dep->endpoint.desc))
+			dwc3_prepare_one_trb(dep, req, dma, length, chain, 0);
+		else
+			dwc3_prepare_one_trb(dep, req, dma, length, chain, i);
 
 		if (!dwc3_calc_trbs_left(dep))
 			break;
@@ -1032,8 +1051,17 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param)
 	if (starting && !(dep->flags&DWC3_EP_UPDATE)) {
 		params.param0 = upper_32_bits(req->trb_dma);
 		params.param1 = lower_32_bits(req->trb_dma);
-		cmd = DWC3_DEPCMD_STARTTRANSFER |
-			DWC3_DEPCMD_PARAM(cmd_param);
+
+		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
+			while (__dwc3_gadget_target_frame_elapsed(dep))
+				dep->frame_number = DWC3_ALIGN_FRAME(dep);
+
+			dep->frame_number = DWC3_ALIGN_FRAME(dep);
+			cmd_param = dep->frame_number;
+		}
+
+		cmd = DWC3_DEPCMD_STARTTRANSFER | DWC3_DEPCMD_PARAM(cmd_param);
+
 		if (usb_endpoint_xfer_isoc(dep->endpoint.desc))
 			dep->flags |= DWC3_EP_UPDATE;
 	} else {
@@ -2032,7 +2060,6 @@ static int __dwc3_cleanup_done_trbs(struct dwc3_ep *dep, struct dwc3_request *re
 {
 	unsigned int		count;
 	unsigned int		s_pkt = 0;
-	unsigned int		trb_status;
 
 	dwc3_ep_inc_deq(dep);
 
@@ -2061,37 +2088,6 @@ static int __dwc3_cleanup_done_trbs(struct dwc3_ep *dep, struct dwc3_request *re
 	req->request.actual += count;
 
 	if (dep->direction) {
-		if (count) {
-			trb_status = DWC3_TRB_SIZE_TRBSTS(trb->size);
-			if (trb_status == DWC3_TRBSTS_MISSED_ISOC) {
-				dwc3_trace(trace_dwc3_gadget,
-						"%s: incomplete IN transfer",
-						dep->name);
-				/*
-				 * If missed isoc occurred and there is
-				 * no request queued then issue END
-				 * TRANSFER, so that core generates
-				 * next xfernotready and we will issue
-				 * a fresh START TRANSFER.
-				 * If there are still queued request
-				 * then wait, do not issue either END
-				 * or UPDATE TRANSFER, just attach next
-				 * request in pending_list during
-				 * giveback.If any future queued request
-				 * is successfully transferred then we
-				 * will issue UPDATE TRANSFER for all
-				 * request in the pending_list.
-				 */
-				dep->flags |= DWC3_EP_MISSED_ISOC;
-			} else {
-				dev_err(dep->dwc->dev, "incomplete IN transfer %s\n",
-						dep->name);
-				status = -ECONNRESET;
-			}
-		} else {
-			dep->flags &= ~DWC3_EP_MISSED_ISOC;
-		}
-	} else {
 		if (count && (event->status & DEPEVT_STATUS_SHORT))
 			s_pkt = 1;
 	}

@@ -23,6 +23,8 @@
 #include "uvc_queue.h"
 #include "uvc_video.h"
 
+#include <linux/scatterlist.h>
+#include <linux/io.h>
 /* --------------------------------------------------------------------------
  * Video codecs
  */
@@ -102,9 +104,45 @@ static void
 uvc_video_encode_isoc(struct usb_request *req, struct uvc_video *video,
 		struct uvc_buffer *buf)
 {
+	int ret;
+#ifdef UVC_SG_REQ
+	int len;
+	int ttllen = 0;
+	unsigned int sg_idx;
+	u8 *mem = NULL;
+
+	for (sg_idx = 0; sg_idx < video->num_sgs; sg_idx++) {
+		mem = sg_virt(&req->sg[sg_idx]);
+		len = video->req_size;
+
+		/* Add the header. */
+		ret = uvc_video_encode_header(video, buf, mem, len);
+		mem += ret;
+		len -= ret;
+
+		/* Process video data. */
+		ret = uvc_video_encode_data(video, buf, mem, len);
+		len -= ret;
+
+		/* Sync sg buffer len , default is 1024 or 3072 */
+		sg_set_buf(&req->sg[sg_idx], sg_virt(&req->sg[sg_idx]),
+				video->req_size - len);
+		ttllen += video->req_size - len;
+
+		if (buf->bytesused == video->queue.buf_used) {
+			video->queue.buf_used = 0;
+			buf->state = UVC_BUF_STATE_DONE;
+			uvcg_queue_next_buffer(&video->queue, buf);
+			video->fid ^= UVC_STREAM_FID;
+			break;
+		}
+	}
+	req->num_sgs = sg_idx + 1;
+	sg_mark_end(&req->sg[sg_idx]);
+	req->length = ttllen;
+#else
 	void *mem = req->buf;
 	int len = video->req_size;
-	int ret;
 
 	/* Add the header. */
 	ret = uvc_video_encode_header(video, buf, mem, len);
@@ -123,6 +161,7 @@ uvc_video_encode_isoc(struct usb_request *req, struct uvc_video *video,
 		uvcg_queue_next_buffer(&video->queue, buf);
 		video->fid ^= UVC_STREAM_FID;
 	}
+#endif
 }
 
 /* --------------------------------------------------------------------------
@@ -210,7 +249,9 @@ uvc_video_complete(struct usb_ep *ep, struct usb_request *req)
 		spin_unlock_irqrestore(&video->queue.irqlock, flags);
 		goto requeue;
 	}
-
+#ifdef UVC_SG_REQ
+	sg_unmark_end(&req->sg[req->num_sgs - 1]);
+#endif
 	video->encode(req, video, buf);
 
 	ret = uvcg_video_ep_queue(video, req);
@@ -225,6 +266,9 @@ uvc_video_complete(struct usb_ep *ep, struct usb_request *req)
 
 requeue:
 	spin_lock_irqsave(&video->req_lock, flags);
+#ifdef UVC_SG_REQ
+	sg_unmark_end(&req->sg[req->num_sgs - 1]);
+#endif
 	list_add_tail(&req->list, &video->req_free);
 	spin_unlock_irqrestore(&video->req_lock, flags);
 }
@@ -233,9 +277,22 @@ static int
 uvc_video_free_requests(struct uvc_video *video)
 {
 	unsigned int i;
+#ifdef UVC_SG_REQ
+	unsigned int sg_idx;
+#endif
 
 	for (i = 0; i < UVC_NUM_REQUESTS; ++i) {
 		if (video->req[i]) {
+#ifdef UVC_SG_REQ
+			for (sg_idx = 0; sg_idx < video->num_sgs; sg_idx++)
+				if (sg_page(&video->req[i]->sg[sg_idx]))
+					kfree(sg_virt(&video->req[i]->sg[sg_idx]));
+
+			if (video->req[i]->sg) {
+				kfree(video->req[i]->sg);
+				video->req[i]->sg = NULL;
+			}
+#endif
 			usb_ep_free_request(video->ep, video->req[i]);
 			video->req[i] = NULL;
 		}
@@ -257,6 +314,11 @@ uvc_video_alloc_requests(struct uvc_video *video)
 	unsigned int req_size;
 	unsigned int i;
 	int ret = -ENOMEM;
+#ifdef UVC_SG_REQ
+	struct scatterlist  *sg;
+	unsigned int num_sgs;
+	unsigned int sg_idx;
+#endif
 
 	BUG_ON(video->req_size);
 
@@ -264,6 +326,35 @@ uvc_video_alloc_requests(struct uvc_video *video)
 		 * max_t(unsigned int, video->ep->maxburst, 1)
 		 * (video->ep->mult);
 
+#ifdef UVC_SG_REQ
+	num_sgs = ((video->imagesize / (req_size - 2)) + 1);
+	video->num_sgs = num_sgs;
+
+	for (i = 0; i < UVC_NUM_REQUESTS; ++i) {
+		sg = kmalloc(num_sgs * sizeof(struct scatterlist), GFP_ATOMIC);
+		if (sg == NULL)
+			goto error;
+		sg_init_table(sg, num_sgs);
+
+		video->req[i] = usb_ep_alloc_request(video->ep, GFP_KERNEL);
+		if (video->req[i] == NULL)
+			goto error;
+
+		for (sg_idx = 0 ; sg_idx < num_sgs ; sg_idx++) {
+			video->sg_buf = kmalloc(req_size, GFP_KERNEL);
+			if (video->sg_buf == NULL)
+				goto error;
+			sg_set_buf(&sg[sg_idx], video->sg_buf, req_size);
+		}
+		video->req[i]->sg = sg;
+		video->req[i]->num_sgs = num_sgs;
+		video->req[i]->length = 0;
+		video->req[i]->complete = uvc_video_complete;
+		video->req[i]->context = video;
+
+		list_add_tail(&video->req[i]->list, &video->req_free);
+	}
+#else
 	for (i = 0; i < UVC_NUM_REQUESTS; ++i) {
 		video->req_buffer[i] = kmalloc(req_size, GFP_KERNEL);
 		if (video->req_buffer[i] == NULL)
@@ -280,7 +371,7 @@ uvc_video_alloc_requests(struct uvc_video *video)
 
 		list_add_tail(&video->req[i]->list, &video->req_free);
 	}
-
+#endif
 	video->req_size = req_size;
 
 	return 0;
