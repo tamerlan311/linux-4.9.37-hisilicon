@@ -117,7 +117,7 @@
 #define I2C_RXF_DEPTH       64
 #define I2C_TXF_WATER       32
 #define I2C_RXF_WATER       32
-#define I2C_WAIT_TIMEOUT	0x10000
+#define I2C_WAIT_TIMEOUT    0x400
 #define I2C_IRQ_TIMEOUT     (msecs_to_jiffies(1000))
 
 
@@ -778,6 +778,7 @@ static int hibvt_i2c_interrupt_xfer_one_msg(struct hibvt_i2c_dev *i2c)
     timeout = wait_for_completion_timeout(&i2c->msg_complete,
                                           I2C_IRQ_TIMEOUT);
 
+    spin_lock_irqsave(&i2c->lock, flags);
     if (timeout == 0) {
         hibvt_i2c_disable_irq(i2c, INTR_ALL_MASK);
         status = -EIO;
@@ -789,6 +790,7 @@ static int hibvt_i2c_interrupt_xfer_one_msg(struct hibvt_i2c_dev *i2c)
 
     hibvt_i2c_disable(i2c);
 
+    spin_unlock_irqrestore(&i2c->lock, flags);
     return status;
 }
 
@@ -817,7 +819,6 @@ static int hibvt_i2c_xfer(struct i2c_adapter *adap,
      * function can not be locked by spin_lock_irqsave. And actually I2C interrupt
      * tranfer is rarely used, so we ignore the irq setting to limit the interrupt
      * way. But we keep these codes below, reserve for future modifications */
-	i2c->irq = -1;
 
     while (i2c->msg_idx < i2c->msg_num) {
 #if defined(CONFIG_HI_DMAC) || defined(CONFIG_HIEDMAC)
@@ -830,7 +831,9 @@ static int hibvt_i2c_xfer(struct i2c_adapter *adap,
 #else
         if (i2c->irq >= 0) {
 #endif
+            spin_unlock_irqrestore(&i2c->lock, flags);
             status = hibvt_i2c_interrupt_xfer_one_msg(i2c);
+            spin_lock_irqsave(&i2c->lock, flags);
             if (status) {
                 break;
             }
@@ -849,7 +852,48 @@ static int hibvt_i2c_xfer(struct i2c_adapter *adap,
     }
 
     spin_unlock_irqrestore(&i2c->lock, flags);
+    return status;
+}
 
+/* hibvt_i2c_break_polling_xfer
+ *
+ * I2c polling independent branch, Shielding interrupt interface
+ */
+static int hibvt_i2c_break_polling_xfer(struct i2c_adapter *adap,
+                                        struct i2c_msg *msgs, int num)
+{
+    struct hibvt_i2c_dev *i2c = i2c_get_adapdata(adap);
+    int status = -EINVAL;
+    unsigned long flags;
+    if (!msgs || (num <= 0)) {
+        dev_err(i2c->dev, "msgs == NULL || num <= 0, Invalid argument!\n");
+        return -EINVAL;
+    }
+    spin_lock_irqsave(&i2c->lock, flags);
+    i2c->msg = msgs;
+    i2c->msg_num = num;
+    i2c->msg_idx = 0;
+    while (i2c->msg_idx < i2c->msg_num) {
+#if defined(CONFIG_HI_DMAC) || defined(CONFIG_HIEDMAC)
+        if ((i2c->msg->len >= CONFIG_DMA_MSG_MIN_LEN) && (i2c->msg->len <= CONFIG_DMA_MSG_MAX_LEN)) {
+            status = hibvt_i2c_dma_xfer_one_msg(i2c);
+            if (status) {
+                break;
+            }
+        }
+#else
+        status = hibvt_i2c_polling_xfer_one_msg(i2c);
+        if (status) {
+            break;
+        }
+#endif
+        i2c->msg++;
+        i2c->msg_idx++;
+    }
+    if (!status || i2c->msg_idx > 0) {
+        status = i2c->msg_idx;
+    }
+    spin_unlock_irqrestore(&i2c->lock, flags);
     return status;
 }
 /* HI I2C READ *
@@ -901,7 +945,7 @@ int hi_i2c_master_send(const struct i2c_client *client,
     }
     msg.buf = (__u8 *)buf;
 
-	msgs_count = hibvt_i2c_xfer(adap, &msg, 1);
+    msgs_count = hibvt_i2c_break_polling_xfer(adap, &msg, 1);
 
     return (msgs_count == 1) ? count : -EIO;
 }
@@ -945,7 +989,11 @@ EXPORT_SYMBOL(hi_i2c_transfer);
 static u32 hibvt_i2c_func(struct i2c_adapter *adap)
 {
     return I2C_FUNC_I2C | I2C_FUNC_10BIT_ADDR
-		| I2C_FUNC_PROTOCOL_MANGLING;
+           | I2C_FUNC_PROTOCOL_MANGLING
+           | I2C_FUNC_SMBUS_WORD_DATA
+           | I2C_FUNC_SMBUS_BYTE_DATA
+           | I2C_FUNC_SMBUS_BYTE
+           | I2C_FUNC_SMBUS_I2C_BLOCK;
 }
 
 static const struct i2c_algorithm hibvt_i2c_algo = {
@@ -971,6 +1019,11 @@ static int hibvt_i2c_probe(struct platform_device *pdev)
     init_completion(&i2c->msg_complete);
 
     res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+    if (!res) {
+        dev_err(i2c->dev, "Invalid mem resource./n");
+        return -ENODEV;
+    }
+
     i2c->phybase = res->start;
     i2c->base = devm_ioremap_resource(&pdev->dev, res);
     if (IS_ERR(i2c->base)) {

@@ -11,9 +11,9 @@
 struct cma_zone {
     struct device pdev;
     char name[NAME_LEN_MAX];
-	u32 gfp;
-	u32 phys_start;
-	u32 nbytes;
+    gfp_t gfp;
+    phys_addr_t phys_start;
+    phys_addr_t nbytes;
     u32 alloc_type;
     u32 block_align;
 };
@@ -35,6 +35,27 @@ unsigned int get_cma_size(void)
     /* unit is M */
     return (unsigned int)(total >> 20);
 }
+
+int is_hicma_address(phys_addr_t phys, unsigned long size)
+{
+    phys_addr_t start, end;
+    int i;
+
+    for (i = 0; i < num_zones; i++) {
+        start = hisi_zone[i].phys_start;
+        end = hisi_zone[i].phys_start + hisi_zone[i].nbytes;
+
+        if ((phys >= start) && ((phys + size) <= end)) {
+            /*
+             * Yes, found!
+             */
+            return 1;
+        }
+    }
+
+    return 0;
+}
+EXPORT_SYMBOL(is_hicma_address);
 
 static int __init hisi_mmz_parse_cmdline(char *s)
 {
@@ -61,7 +82,7 @@ static int __init hisi_mmz_parse_cmdline(char *s)
         hisi_zone[num_zones].pdev.coherent_dma_mask = DMA_BIT_MASK(64);
         if (i == 4) {
             strlcpy(hisi_zone[num_zones].name, argv[0], NAME_LEN_MAX);
-			hisi_zone[num_zones].gfp = memparse(argv[2], NULL);
+            hisi_zone[num_zones].gfp = memparse(argv[1], NULL);
             hisi_zone[num_zones].phys_start = memparse(argv[2], NULL);
             hisi_zone[num_zones].nbytes = memparse(argv[3], NULL);
         }
@@ -87,6 +108,22 @@ static int __init hisi_mmz_parse_cmdline(char *s)
     return 0;
 }
 early_param("mmz", hisi_mmz_parse_cmdline);
+
+#include <linux/memblock.h>
+phys_addr_t hisi_get_zones_start(void)
+{
+    int i;
+    phys_addr_t lowest_zone_base = memblock_end_of_DRAM();
+
+    for (i = 0; i < num_zones; i++) {
+        if (lowest_zone_base > hisi_zone[i].phys_start) {
+            lowest_zone_base = hisi_zone[i].phys_start;
+        }
+    }
+
+    return lowest_zone_base;
+}
+EXPORT_SYMBOL(hisi_get_zones_start);
 
 struct cma_zone *hisi_get_cma_zone(const char *name)
 {
@@ -135,15 +172,27 @@ int __init hisi_declare_heap_memory(void)
     for (i = 0; i < num_zones; i++) {
         ret = dma_declare_contiguous(&hisi_zone[i].pdev,
                                      hisi_zone[i].nbytes, hisi_zone[i].phys_start, 0);
-		if (ret)
-			panic("declare cma zone %s base: %u size:%uMB failed. ret:%d",
-			      hisi_zone[i].name, hisi_zone[i].phys_start,
-			      hisi_zone[i].nbytes>>20, ret);
+        if (ret) {
+            panic("declare cma zone %s base: %lux size:%lux MB failed. ret:%d",
+                  hisi_zone[i].name, (unsigned long)hisi_zone[i].phys_start,
+                  (unsigned long)hisi_zone[i].nbytes >> 20, ret);
+        }
         hisi_zone[i].phys_start = cma_get_base(hisi_zone[i].pdev.cma_area);
         hisi_zone[i].nbytes = cma_get_size(hisi_zone[i].pdev.cma_area);
 
         /* FIXME need to fix dma_declare_contiguous return value &&value type */
     }
+
     return ret;
 }
 EXPORT_SYMBOL(hisi_declare_heap_memory);
+
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_reserved_mem.h>
+static int hisi_mmz_setup(struct reserved_mem *rmem)
+{
+    return 0;
+}
+RESERVEDMEM_OF_DECLARE(cma, "hisi-mmz", hisi_mmz_setup);
+
