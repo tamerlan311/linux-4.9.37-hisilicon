@@ -576,11 +576,36 @@ static struct hisi_gate_clock hi3559av100_shub_gate_clks[] __initdata = {
 		0, 0x24, 4, 0, },
 };
 
+static int hi3559av100_shub_default_clk_set(void)
+{
+	void *crg_base;
+	unsigned int val;
+
+	crg_base = ioremap_nocache(0x18020000, 0x1000);
+
+	/* SSP: 192M/2 */
+	val = readl_relaxed(crg_base + 0x20);
+	val |= (0x2 << 24);
+	writel_relaxed(val, crg_base + 0x20);
+
+	/* UART: 192M/8 */
+	val = readl_relaxed(crg_base + 0x1C);
+	val |= (0x1 << 28);
+	writel_relaxed(val, crg_base + 0x1C);
+
+	iounmap(crg_base);
+	crg_base = NULL;
+
+	return 0;
+}
+
 static __init struct hisi_clock_data *hi3559av100_shub_clk_register(
 		struct platform_device *pdev)
 {
 	struct hisi_clock_data *clk_data;
 	int ret;
+
+	hi3559av100_shub_default_clk_set();
 
 	clk_data = hisi_clk_alloc(pdev, HI3559AV100_SHUB_NR_CLKS);
 	if (!clk_data)
