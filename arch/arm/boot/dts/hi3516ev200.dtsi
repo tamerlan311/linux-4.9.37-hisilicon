@@ -649,12 +649,16 @@
 			interrupt-names = "gzip";
 		};
 
-		venc: venc@11410000 {
+		vedu: vedu@11410000 {
 			compatible = "hisilicon,hisi-vedu";
 			reg = <0x11410000 0x10000>, <0x11420000 0x10000>;
 			reg-names = "vedu0", "jpge";
 			interrupts = <0 47 4>, <0 48 4>;
 			interrupt-names = "vedu0","jpge";
+		};
+
+		venc: venc {
+			compatible = "hisilicon,hisi-venc";
 		};
 
 		aiao: aiao@100e0000 {

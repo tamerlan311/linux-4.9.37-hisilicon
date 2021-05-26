@@ -888,7 +888,7 @@
 			interrupt-names = "jpegd";
 		};
 
-		venc: venc@047c0000 {
+		vedu: vedu@047c0000 {
 			compatible = "hisilicon,hisi-vedu";
 			reg = <0x047c0000 0x8000>, <0x047c8000 0x8000>;
 			reg-names = "vedu0", "jpge";
@@ -896,6 +896,10 @@
 			interrupt-names = "vedu0","jpge";
 		};
 		
+		venc: venc {
+			compatible = "hisilicon,hisi-venc";
+		};
+
 		vdh: vdh@047d0000 {
 			compatible = "hisilicon,hisi-vdh";
 			reg = <0x047d0000 0x10000>;

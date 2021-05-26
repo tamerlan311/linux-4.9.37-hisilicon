@@ -1181,7 +1181,7 @@
             interrupt-names = "timer";
         };
 
-        venc: venc@0x11300000 {
+        vedu: vedu@0x11300000 {
             compatible = "hisilicon,hisi-vedu";
             reg = <0x11300000 0x10000>, <0x11310000 0x10000>,<0x11400000 0x10000>,<0x11320000 0x10000>;
             reg-names = "vedu0", "vedu1","vedu2","jpge";
@@ -1189,6 +1189,10 @@
             interrupt-names = "vedu0", "vedu1","vedu2","jpge";
         };
 		
+		venc: venc {
+            compatible = "hisilicon,hisi-venc";
+        };
+
         vdh: vdh@0x11e10000 {
             compatible = "hisilicon,hisi-vdh";
             reg = <0x11e10000 0x10000>;
