@@ -27,22 +27,9 @@
 
 #define MCI_PARENT       "mci"
 #define MCI_STATS_PROC   "mci_info"
-#define MAX_CLOCK_SCALE	(4)
-#define UNSTUFF_BITS(resp,start,size)                   \
-	({                              \
-	 const int __size = size;                \
-	 const u32 __mask = (__size < 32 ? 1 << __size : 0) - 1; \
-	 const int __off = 3 - ((start) / 32);           \
-	 const int __shft = (start) & 31;            \
-	 u32 __res;                      \
-	 \
-	 __res = resp[__off] >> __shft;              \
-	 if (__size + __shft > 32)               \
-	 __res |= resp[__off-1] << ((32 - __shft) % 32); \
-	 __res & __mask;                     \
-	 })
+#define MAX_CLOCK_SCALE  4
 
-unsigned int slot_index = 0;
+unsigned int slot_index;
 struct mmc_host *mci_host[MCI_SLOT_NUM] = {NULL};
 static struct proc_dir_entry *proc_mci_dir;
 
@@ -62,21 +49,20 @@ static char *clock_unit[MAX_CLOCK_SCALE] = {
 
 static char *mci_get_card_type(unsigned int sd_type)
 {
-	if (MAX_CARD_TYPE <= sd_type)
+	if (sd_type >= MAX_CARD_TYPE)
 		return card_type[MAX_CARD_TYPE];
 	else
 		return card_type[sd_type];
 }
 
-static unsigned int analyze_clock_scale(unsigned int clock,
-		unsigned int *clock_val)
+static unsigned int analyze_clock_scale(unsigned int clock, unsigned int *clock_val)
 {
 	unsigned int scale = 0;
 	unsigned int tmp = clock;
 
 	while (1) {
-		tmp = tmp / 1000;
-		if (0 < tmp) {
+		tmp = tmp / 1000; /* 1000 for clk calculate */
+		if (tmp > 0) {
 			*clock_val = tmp;
 			scale++;
 		} else {
@@ -103,10 +89,10 @@ static void mci_stats_seq_printout(struct seq_file *s)
 	unsigned int clock;
 	unsigned int clock_scale;
 	unsigned int clock_value = 0;
-	const char *type;
-	static struct mmc_host *mmc;
+	const char *type = NULL;
+	static struct mmc_host *mmc = NULL;
 	const char *uhs_bus_speed_mode = "";
-	static const char *const uhs_speeds[] = {
+	static const char *uhs_speeds[] = {
 		[UHS_SDR12_BUS_SPEED] = "SDR12 ",
 		[UHS_SDR25_BUS_SPEED] = "SDR25 ",
 		[UHS_SDR50_BUS_SPEED] = "SDR50 ",
@@ -114,13 +100,13 @@ static void mci_stats_seq_printout(struct seq_file *s)
 		[UHS_DDR50_BUS_SPEED] = "DDR50 ",
 	};
 	unsigned int speed_class, grade_speed_uhs;
-	struct card_info *info;
+	struct card_info *info = NULL;
 	unsigned int present;
-	struct sdhci_host *host;
+	struct sdhci_host *host = NULL;
 
 	for (index_mci = 0; index_mci < MCI_SLOT_NUM; index_mci++) {
 		mmc = mci_host[index_mci];
-		if (NULL == mmc) {
+		if (mmc == NULL) {
 			seq_printf(s, "MCI%d: invalid\n", index_mci);
 			continue;
 		} else {
@@ -130,24 +116,18 @@ static void mci_stats_seq_printout(struct seq_file *s)
 		info = &host->c_info;
 
 		present = host->mmc->ops->get_cd(host->mmc);
-		if (present) {
+		if (present)
 			seq_puts(s, ": pluged");
-		} else {
+		else
 			seq_puts(s, ": unplugged");
-		}
 
-		/*card = mmc->card;
-		if (NULL == card) {*/
-		if (CARD_CONNECT != info->card_connect) {
+		if (info->card_connect != CARD_CONNECT) {
 			seq_puts(s, "_disconnected\n");
 		} else {
-
 			seq_puts(s, "_connected\n");
 
-			seq_printf(s,
-					"\tType: %s",
-					mci_get_card_type(info->card_type)
-				  );
+			seq_printf(s, "\tType: %s",
+					mci_get_card_type(info->card_type));
 
 			if (info->card_state & MMC_STATE_BLOCKADDR) {
 				if (info->card_state & MMC_CARD_SDXC)
@@ -159,7 +139,8 @@ static void mci_stats_seq_printout(struct seq_file *s)
 
 			if (is_card_uhs(info->timing) &&
 					info->sd_bus_speed < ARRAY_SIZE(uhs_speeds))
-				uhs_bus_speed_mode = uhs_speeds[info->sd_bus_speed];
+				uhs_bus_speed_mode =
+					uhs_speeds[info->sd_bus_speed];
 
 			seq_printf(s, "\tMode: %s%s%s%s\n",
 					is_card_uhs(info->timing) ? "UHS " :
@@ -169,19 +150,19 @@ static void mci_stats_seq_printout(struct seq_file *s)
 					info->timing == MMC_TIMING_MMC_DDR52 ? "DDR " : "",
 					uhs_bus_speed_mode);
 
-			speed_class = UNSTUFF_BITS(info->ssr, 440 - 384, 8);
-			grade_speed_uhs = UNSTUFF_BITS(info->ssr, 396 - 384, 4);
+			speed_class = UNSTUFF_BITS(info->ssr, 56, 8); /* 56 equal 440 -384 */
+			grade_speed_uhs = UNSTUFF_BITS(info->ssr, 12, 4); /* 12 equal 396 - 384 */
 			seq_printf(s, "\tSpeed Class: Class %s\n",
-					(0x00 == speed_class) ? "0":
-					(0x01 == speed_class) ? "2":
-					(0x02 == speed_class) ? "4":
-					(0x03 == speed_class) ? "6":
-					(0x04 == speed_class) ? "10":
+					(speed_class == 0x00) ? "0" :
+					(speed_class == 0x01) ? "2" :
+					(speed_class == 0x02) ? "4" :
+					(speed_class == 0x03) ? "6" :
+					(speed_class == 0x04) ? "10" :
 					"Reserved");
 			seq_printf(s, "\tUhs Speed Grade: %s\n",
-					(0x00 == grade_speed_uhs)?
+					(grade_speed_uhs == 0x00) ?
 					"Less than 10MB/sec(0h)" :
-					(0x01 == grade_speed_uhs)?
+					(grade_speed_uhs == 0x01) ?
 					"10MB/sec and above(1h)" :
 					"Reserved");
 
@@ -269,7 +250,7 @@ static const struct file_operations mci_stats_proc_ops = {
 
 int mci_proc_init(void)
 {
-	struct proc_dir_entry *proc_stats_entry;
+	struct proc_dir_entry *proc_stats_entry = NULL;
 
 	proc_mci_dir = proc_mkdir(MCI_PARENT, NULL);
 	if (!proc_mci_dir) {

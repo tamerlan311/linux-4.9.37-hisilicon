@@ -20,7 +20,7 @@
 #define REG_SDIO1_DRV_DLL_CTRL		0x1fc
 #define REG_SDIO2_DRV_DLL_CTRL		0x224
 #define SDIO_DRV_PHASE_SEL_MASK		(0x1f << 24)
-#define SDIO_DRV_SEL(phase)			((phase) << 24)
+#define sdio_drv_sel(phase)			((phase) << 24)
 
 #define REG_EMMC_DRV_DLL_STATUS		0x1c4
 #define REG_SDIO0_DRV_DLL_STATUS	0x1e8
@@ -45,16 +45,16 @@
 #define REG_SDIO1_SAMPLB_DLL_CTRL	0x1f8
 #define REG_SDIO2_SAMPLB_DLL_CTRL	0x220
 #define SDIO_SAMPLB_DLL_CLK_MASK	(0x1f << 24)
-#define SDIO_SAMPLB_SEL(phase)		((phase) << 24)
+#define sdio_samplb_sel(phase)		((phase) << 24)
 
 #define REG_EMMC_DS_DLL_CTRL		0x1b4
 #define EMMC_DS_DLL_MODE_SSEL		BIT(13)
-#define EMMC_DS_DLL_SSEL_MASK		(0x1fff)
+#define EMMC_DS_DLL_SSEL_MASK		0x1fff
 #define REG_EMMC_DS180_DLL_CTRL		0x1b8
 #define EMMC_DS180_DLL_BYPASS		BIT(15)
 #define REG_EMMC_DS_DLL_STATUS		0x1c8
 #define EMMC_DS_DLL_LOCK			BIT(15)
-#define EMMC_DS_DLL_MDLY_TAP_MASK	(0x1fff)
+#define EMMC_DS_DLL_MDLY_TAP_MASK	0x1fff
 
 #define REG_MISC_CTRL3          0xc
 #define SDIO2_PD_MUX_BYPASS		BIT(10)
@@ -138,7 +138,7 @@ static int hisi_set_signal_voltage_3v3(struct sdhci_host *host)
 	unsigned int ctrl;
 
 	/* sdio2: it is fixed to 1v8, so we fake that 3v3 is ok */
-	if (hisi_priv->devid == 3)
+	if (hisi_priv->devid == 3) /* device id 3 for sdio2 */
 		return 0;
 
 	pr_debug("%s: set voltage to 330\n", mmc_hostname(host->mmc));
@@ -149,7 +149,7 @@ static int hisi_set_signal_voltage_3v3(struct sdhci_host *host)
 		ctrl &= ~SDIO0_IO_MODE_SEL_1V8;
 		regmap_write(misc, REG_MISC_CTRL18, ctrl);
 
-		usleep_range(1000, 2000);
+		usleep_range(1000, 2000); /* Sleep between 1000 and 2000us */
 		ctrl &= ~SDIO0_PWRSW_SEL_1V8;
 		regmap_write(misc, REG_MISC_CTRL18, ctrl);
 
@@ -161,7 +161,7 @@ static int hisi_set_signal_voltage_3v3(struct sdhci_host *host)
 			return 0;
 	}
 
-	if (hisi_priv->devid == 2) {
+	if (hisi_priv->devid == 2) { /* device id 2 for sdio1 */
 		regmap_read(misc, REG_MISC_CTRL18, &ctrl);
 		ctrl &= ~SDIO1_IO_MODE_SEL_1V8;
 		regmap_write(misc, REG_MISC_CTRL18, ctrl);
@@ -185,7 +185,7 @@ static int hisi_set_signal_voltage_1v8(struct sdhci_host *host)
 
 	pr_debug("%s: set voltage to 180\n", mmc_hostname(host->mmc));
 
-	if (hisi_priv->devid == 0 || hisi_priv->devid == 3)
+	if (hisi_priv->devid == 0 || hisi_priv->devid == 3) /* for device id 0 and 3 */
 		return 0;
 
 	if (hisi_priv->devid == 1) {
@@ -193,7 +193,7 @@ static int hisi_set_signal_voltage_1v8(struct sdhci_host *host)
 		ctrl |= SDIO0_PWRSW_SEL_1V8;
 		regmap_write(misc, REG_MISC_CTRL18, ctrl);
 
-		usleep_range(1000, 2000);
+		usleep_range(1000, 2000); /* Sleep between 1000 and 2000us */
 
 		ctrl |= SDIO0_IO_MODE_SEL_1V8;
 		regmap_write(misc, REG_MISC_CTRL18, ctrl);
@@ -209,8 +209,7 @@ static int hisi_set_signal_voltage_1v8(struct sdhci_host *host)
 	return -EAGAIN;
 }
 
-static void sdhci_hisi_hs400_enhanced_strobe(struct mmc_host *mmc,
-		struct mmc_ios *ios)
+static void sdhci_hisi_hs400_enhanced_strobe(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	u32 ctrl;
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -224,36 +223,34 @@ static void sdhci_hisi_hs400_enhanced_strobe(struct mmc_host *mmc,
 	sdhci_writel(host, ctrl, SDHCI_EMMC_CTRL);
 }
 
-static int sdhci_hisi_pltfm_init(struct platform_device *pdev,
-		struct sdhci_host *host)
+static int sdhci_hisi_pltfm_init(struct platform_device *pdev, struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_hisi_priv *hisi_priv = sdhci_pltfm_priv(pltfm_host);
 	struct device_node *np = pdev->dev.of_node;
-	struct clk *clk;
+	struct clk *clk = NULL;
 	int ret;
 
 	hisi_priv->crg_rst = devm_reset_control_get(&pdev->dev, "crg_reset");
 	if (IS_ERR_OR_NULL(hisi_priv->crg_rst)) {
 		dev_err(&pdev->dev, "get crg_rst failed.\n");
-		return PTR_ERR(hisi_priv->crg_rst);;
+		return PTR_ERR(hisi_priv->crg_rst);
 	}
 
 	hisi_priv->dll_rst = devm_reset_control_get(&pdev->dev, "dll_reset");
 	if (IS_ERR_OR_NULL(hisi_priv->dll_rst)) {
 		dev_err(&pdev->dev, "get dll_rst failed.\n");
-		return PTR_ERR(hisi_priv->dll_rst);;
+		return PTR_ERR(hisi_priv->dll_rst);
 	}
 
 	hisi_priv->sampl_rst = devm_reset_control_get(&pdev->dev, "sampl_reset");
 	if (IS_ERR_OR_NULL(hisi_priv->sampl_rst)) {
 		dev_err(&pdev->dev, "get sampl_rst failed.\n");
-		return PTR_ERR(hisi_priv->sampl_rst);;
+		return PTR_ERR(hisi_priv->sampl_rst);
 	}
 
 	hisi_priv->crg_regmap = syscon_regmap_lookup_by_phandle(np, "crg_regmap");
-	if (IS_ERR(hisi_priv->crg_regmap))
-	{
+	if (IS_ERR(hisi_priv->crg_regmap)) {
 		dev_err(&pdev->dev, "get crg regmap failed.\n");
 		return PTR_ERR(hisi_priv->crg_regmap);
 	}
@@ -298,17 +295,21 @@ static int sdhci_hisi_pltfm_init(struct platform_device *pdev,
 	if (ret)
 		return ret;
 
-	/* only eMMC has a hw reset, and now eMMC signaling
-	 * is fixed to 180*/
+	/*
+	 * only eMMC has a hw reset, and now eMMC signaling
+	 * is fixed to 180
+	 */
 	if (host->mmc->caps & MMC_CAP_HW_RESET) {
 		host->flags &= ~SDHCI_SIGNALING_330;
 		host->flags |= SDHCI_SIGNALING_180;
 	}
 
-	/* we parse the support timings from dts, so we read the
+	/*
+	 * we parse the support timings from dts, so we read the
 	 * host capabilities early and clear the timing capabilities,
 	 * SDHCI_QUIRK_MISSING_CAPS is set so that sdhci driver would
-	 * not read it again */
+	 * not read it again
+	 */
 	host->caps = sdhci_readl(host, SDHCI_CAPABILITIES);
 	host->caps &= ~(SDHCI_CAN_DO_HISPD);
 	host->caps1 = sdhci_readl(host, SDHCI_CAPABILITIES_1);
@@ -319,7 +320,8 @@ static int sdhci_hisi_pltfm_init(struct platform_device *pdev,
 			SDHCI_QUIRK_SINGLE_POWER_WRITE;
 
 	host->caps1 |= SDHCI_USE_SDR50_TUNING;
-	host->mmc_host_ops.hs400_enhanced_strobe = sdhci_hisi_hs400_enhanced_strobe;
+	host->mmc_host_ops.hs400_enhanced_strobe =
+				sdhci_hisi_hs400_enhanced_strobe;
 
 	mci_host[slot_index++] = host->mmc;
 
@@ -329,7 +331,8 @@ static int sdhci_hisi_pltfm_init(struct platform_device *pdev,
 static void hisi_wait_ds_dll_lock(struct sdhci_host *host)
 {
 	struct sdhci_hisi_priv *hisi_priv = sdhci_get_pltfm_priv(host);
-	unsigned int reg, timeout = 20;
+	unsigned int reg;
+	unsigned int timeout = 20; /* default timeout 20ms */
 
 	do {
 		reg = 0;
@@ -346,8 +349,7 @@ static void hisi_wait_ds_dll_lock(struct sdhci_host *host)
 
 static void hisi_wait_ds_180_dll_ready(struct sdhci_host *host)
 {
-	//Do nothing
-	return;
+	/* Do nothing */
 }
 
 static void hisi_set_ds_dll_delay(struct sdhci_host *host)
@@ -360,14 +362,13 @@ static void hisi_set_ds_dll_delay(struct sdhci_host *host)
 
 	regmap_write_bits(hisi_priv->crg_regmap, REG_EMMC_DS_DLL_CTRL,
 			(EMMC_DS_DLL_SSEL_MASK | EMMC_DS_DLL_MODE_SSEL),
-			((mdly_tap / 4 + 12) | EMMC_DS_DLL_MODE_SSEL));
+			((mdly_tap / 4 + 12) | EMMC_DS_DLL_MODE_SSEL)); /* devide 4 and plus 12 */
 
 	regmap_write_bits(hisi_priv->crg_regmap, REG_EMMC_DS180_DLL_CTRL,
 			EMMC_DS180_DLL_BYPASS, EMMC_DS180_DLL_BYPASS);
 }
 
-static int sdhci_hisi_start_signal_voltage_switch(struct sdhci_host *host,
-		struct mmc_ios *ios)
+static int sdhci_hisi_start_signal_voltage_switch(struct sdhci_host *host, struct mmc_ios *ios)
 {
 	switch (ios->signal_voltage) {
 	case MMC_SIGNAL_VOLTAGE_330:
@@ -395,8 +396,8 @@ static void hisi_host_extra_init(struct sdhci_host *host)
 
 	mbiiu_ctrl = sdhci_readl(host, SDHCI_AXI_MBIIU_CTRL);
 	mbiiu_ctrl &= ~(SDHCI_GM_WR_OSRC_LMT_MASK | SDHCI_GM_RD_OSRC_LMT_MASK);
-	mbiiu_ctrl |= (SDHCI_GM_WR_OSRC_LMT_SEL(3)
-			| SDHCI_GM_RD_OSRC_LMT_SEL(3));
+	mbiiu_ctrl |= (SDHCI_GM_WR_OSRC_LMT_SEL(0x3)
+			| SDHCI_GM_RD_OSRC_LMT_SEL(0x3));
 	sdhci_writel(host, mbiiu_ctrl, SDHCI_AXI_MBIIU_CTRL);
 
 	val = sdhci_readl(host, SDHCI_MULTI_CYCLE);
@@ -423,10 +424,10 @@ static void hisi_set_sd_iocfg(struct sdhci_host *host)
 	else
 		pin_drv_cap = hs_ds_drv;
 
-	if (devid == 3) {
+	if (devid == 3) { /* for device id 3 */
 		unsigned int i;
 
-		for (i = 0; i < 6; i++) {
+		for (i = 0; i < 6; i++) { /* for 6 pins */
 			regmap_write_bits(iocfg_regmap, sdio2_iocfg_reg[i],
 					0xf0, *pin_drv_cap);
 			pin_drv_cap++;
@@ -437,7 +438,7 @@ static void hisi_set_sd_iocfg(struct sdhci_host *host)
 
 	start = devid == 1 ? REG_CTRL_SDIO0_CLK : REG_CTRL_SDIO1_CLK;
 	end = devid == 1 ? REG_CTRL_SDIO0_DATA3 : REG_CTRL_SDIO1_DATA3;
-	for (reg_addr = start; reg_addr <= end; reg_addr += 4) {
+	for (reg_addr = start; reg_addr <= end; reg_addr += 0x4) {
 		regmap_write_bits(iocfg_regmap, reg_addr, 0xf0, *pin_drv_cap);
 		pin_drv_cap++;
 	}
@@ -474,17 +475,17 @@ static void hisi_get_phase(struct sdhci_host *host)
 	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS400
 			|| host->mmc->ios.timing == MMC_TIMING_MMC_DDR52
 			|| host->mmc->ios.timing == MMC_TIMING_UHS_DDR50)
-		hisi_priv->drv_phase = 8;       /*90 degree*/
+		hisi_priv->drv_phase = 8;       /* 8 for 90 degree */
 	else if (host->mmc->ios.timing == MMC_TIMING_MMC_HS200)
-		hisi_priv->drv_phase = 20;      /*225 degree*/
+		hisi_priv->drv_phase = 20;      /* 20 for 225 degree */
 	else
-		hisi_priv->drv_phase = 16;      /*180 degree */
+		hisi_priv->drv_phase = 16;      /* 16 for 180 degree */
 
 	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS400)
 		hisi_priv->sampl_phase = hisi_priv->tuning_phase;
 	else if (host->mmc->ios.timing == MMC_TIMING_MMC_DDR52
 			|| host->mmc->ios.timing == MMC_TIMING_UHS_DDR50)
-		hisi_priv->sampl_phase = 4;
+		hisi_priv->sampl_phase = 4; /* 4 for 45 degree */
 	else
 		hisi_priv->sampl_phase = 0;
 }

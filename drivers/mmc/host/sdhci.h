@@ -791,4 +791,18 @@ extern int sdhci_runtime_suspend_host(struct sdhci_host *host);
 extern int sdhci_runtime_resume_host(struct sdhci_host *host);
 #endif
 
+#define UNSTUFF_BITS(resp,start,size)                   \
+	({                              \
+	 const int __size = size;                \
+	 const u32 __mask = (__size < 32 ? 1 << __size : 0) - 1; \
+	 const int __off = 3 - ((start) / 32);           \
+	 const int __shft = (start) & 31;            \
+	 u32 __res;                      \
+	 \
+	 __res = resp[__off] >> __shft;              \
+	 if (__size + __shft > 32)               \
+	 __res |= resp[__off-1] << ((32 - __shft) % 32); \
+	 __res & __mask;                     \
+	 })
+
 #endif /* __SDHCI_HW_H */
