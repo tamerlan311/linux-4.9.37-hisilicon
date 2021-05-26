@@ -100,5 +100,5 @@ void *match_type_to_data(struct match_t *table, int nr_table, int type,
         }
         table++;
     }
-    return def;
+    return (void *)def;
 }
